@@ -11,9 +11,10 @@ user authentication (email/password via Better Auth), company management
 (CNPJ-based multi-tenancy), role-based access (super_admin, owner, admin,
 operator), and member invitation flow (with email via Resend).
 
-The context follows the constitutional three-layer model and strict dependency
-inversion. All business tables carry `company_id` as a tenant discriminator,
-enforced by PostgreSQL Row-Level Security.
+The context follows a Vertical Slice model: each use case is self-contained in
+its own slice (`handler → service → repo + spec`), with dependency inversion via
+per-slice repository interfaces. All business tables carry `company_id` as a
+tenant discriminator, enforced by PostgreSQL Row-Level Security.
 
 ## Technical Context
 
@@ -52,9 +53,9 @@ Fiscal domain will add the bulk of business entities later.
 | Principle | Check | Notes |
 |-----------|-------|-------|
 | I — Bounded Contexts | ✅ PASS | Auth is isolated; communicates via session DTOs |
-| II — Three-Layer Separation | ✅ PASS | Controllers → Services → Repositories, each in own dir |
+| II — Three-Layer Separation | ✅ PASS | handler → service → repo, co-localizados por slice |
 | III — Inward Dependency Flow | ✅ PASS | Services depend only on repo interfaces |
-| IV — Aggregate-Owned Repositories | ✅ PASS | 4 repos (User, Company, Member, Invite) per aggregate |
+| IV — Aggregate-Owned Repositories | ✅ PASS | Cada slice possui seu próprio `repo.ts` (interface + impl) |
 | V — Test-First | ✅ PASS | All services require .spec.ts in same commit |
 | VI — Error Handling | ✅ PASS | Typed throws via createError, consistent within context |
 | VII — Tenant Isolation | ✅ PASS | company_id on all tables + RLS |
@@ -79,9 +80,9 @@ specs/001-auth-context/
 
 ### Source Code — Nuxt 4 Structure 🎯
 
-No Nuxt 4, as rotas Nitro ficam em `server/api/`. Para respeitar tanto o
-framework quanto a separação em três camadas, as rotas são **finas** (só
-delegam) e a lógica de I/O real fica nos controllers do feature layer.
+No Nuxt 4, as rotas Nitro ficam em `server/api/`. As rotas são **finas** (só
+delegam) e toda a lógica de um caso de uso fica co-localizada em seu próprio
+slice dentro de `features/auth/`.
 
 ```text
 server/
@@ -103,35 +104,55 @@ server/
 │   └── auth.ts                   # Sessão → event.context.user
 │
 features/auth/
-├── application/
-│   ├── AuthController.ts         # Lógica de empresas/invites (não Better Auth)
-│   ├── CompanyController.ts      # CRUD de empresas
-│   ├── InviteController.ts       # Convite + aceite
-│   └── dto.ts                    # Schemas de request/response (Zod)
-├── domain/
-│   ├── types.ts                  # User, Company, CompanyMember, CompanyInvite
-│   ├── IUserRepository.ts
-│   ├── ICompanyRepository.ts
-│   ├── ICompanyMemberRepository.ts
-│   ├── ICompanyInviteRepository.ts
-│   ├── IEmailProvider.ts         # Interface de envio de email
-│   ├── CreateCompanyService.ts
-│   ├── InviteMemberService.ts
-│   ├── AcceptInviteService.ts
-│   └── CompanySwitcherService.ts
-├── infrastructure/
-│   ├── DrizzleUserRepository.ts
-│   ├── DrizzleCompanyRepository.ts
-│   ├── DrizzleCompanyMemberRepository.ts
-│   ├── DrizzleCompanyInviteRepository.ts
-│   └── ResendEmailProvider.ts    # MVP: Resend
-└── tests/
-    ├── CreateCompanyService.spec.ts
-    ├── InviteMemberService.spec.ts
-    ├── AcceptInviteService.spec.ts
-    ├── CompanySwitcherService.spec.ts
-    └── infrastructure/
-        └── repositories.spec.ts
+├── create-company/
+│   ├── handler.ts                # Validação + parse → chama service
+│   ├── service.ts                # Regras de negócio (tx: company + member)
+│   ├── schema.ts                 # Zod: CreateCompanyInput / CreateCompanyOutput
+│   ├── repo.ts                   # ICompanyRepository + DrizzleCompanyRepository
+│   └── create-company.spec.ts
+├── list-companies/
+│   ├── handler.ts
+│   ├── service.ts
+│   ├── schema.ts
+│   ├── repo.ts
+│   └── list-companies.spec.ts
+├── get-company/
+│   ├── handler.ts
+│   ├── service.ts
+│   ├── schema.ts
+│   ├── repo.ts
+│   └── get-company.spec.ts
+├── invite-member/
+│   ├── handler.ts
+│   ├── service.ts                # Idempotência: sem convites duplicados por email+company
+│   ├── schema.ts
+│   ├── repo.ts                   # ICompanyInviteRepository + DrizzleCompanyInviteRepository
+│   └── invite-member.spec.ts
+├── list-invites/
+│   ├── handler.ts
+│   ├── service.ts
+│   ├── schema.ts
+│   ├── repo.ts
+│   └── list-invites.spec.ts
+├── get-invite/
+│   ├── handler.ts
+│   ├── service.ts
+│   ├── schema.ts
+│   ├── repo.ts
+│   └── get-invite.spec.ts
+├── accept-invite/
+│   ├── handler.ts
+│   ├── service.ts                # Tx: aceita invite + cria membro
+│   ├── schema.ts
+│   ├── repo.ts                   # ICompanyInviteRepository + ICompanyMemberRepository
+│   └── accept-invite.spec.ts
+├── switch-company/               # Sem endpoint HTTP; usado por middleware/composable
+│   ├── service.ts
+│   ├── repo.ts
+│   └── switch-company.spec.ts
+└── _shared/
+    ├── types.ts                  # User, Company, CompanyMember, CompanyInvite
+    └── email.ts                  # IEmailProvider + ResendEmailProvider
 
 shared/
 ├── auth.ts                      # Better Auth instance
@@ -148,9 +169,9 @@ app/                               # Nuxt 4 — frontend (Vue)
 
 ```
 Cliente → server/api/companies/index.ts (rota Nitro fina)
-         → CompanyController.create(req) (validação + parsing)
-         → CreateCompanyService.execute(dto) (regras de negócio)
-         → DrizzleCompanyRepository + DrizzleCompanyMemberRepository (tx)
+         → features/auth/create-company/handler.ts (validação + parsing)
+         → features/auth/create-company/service.ts (regras de negócio)
+         → features/auth/create-company/repo.ts (tx via shared/db.ts)
          → Resposta HTTP
 ```
 
@@ -239,5 +260,6 @@ CREATE POLICY member_select ON company_members
 ## Complexity Tracking
 
 > No violations requiring justification. Architecture is aligned with the
-> constitution: per-aggregate repos, strict three-layer separation, tenant
-> isolation via company_id, and transactional writes where needed.
+> constitution: per-slice repos with dependency inversion, vertical slice
+> organization (handler → service → repo), tenant isolation via company_id,
+> and transactional writes where needed.
