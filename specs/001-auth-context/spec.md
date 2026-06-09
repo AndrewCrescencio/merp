@@ -11,10 +11,9 @@
 ## Overview
 
 The Auth bounded context handles user registration, login, logout, and
-session management. It is a supporting domain that other contexts depend on
-for authenticated access. Better Auth (with Drizzle adapter) provides the
-underlying auth primitives; the domain layer wraps and orchestrates them.
-Sessions are transported via httpOnly, Secure, SameSite cookies.
+session management. It is a supporting domain that other contexts depend
+on for authenticated access and multi-tenant company membership.
+Better Auth provides the underlying auth primitives.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -100,7 +99,8 @@ then attempting an authenticated request and receiving an unauthorized error.
 
 ### Functional Requirements
 
-- **FR-001**: System MUST allow user registration with email and password. Registration creates an account but does NOT start a session.
+- **FR-001**: System MUST allow user registration with email and password.
+  Registration creates an account but does NOT start a session.
 - **FR-002**: System MUST validate email format and minimum password length
   (8 characters) during registration.
 - **FR-003**: System MUST reject registration with a duplicate email.
@@ -110,9 +110,11 @@ then attempting an authenticated request and receiving an unauthorized error.
 - **FR-007**: System MUST allow logout by invalidating the current session.
 - **FR-008**: System MUST reject unauthenticated requests to protected
   endpoints with a 401 Unauthorized response.
-- **FR-009**: System MUST hash passwords before storage (handled by Better Auth).
-- **FR-010**: Session MUST expire after 24 hours by default, or 7 days when "remember me" is selected at login.
-- **FR-011**: Auth endpoints MUST rate-limit to 5 attempts per minute per IP+email combination.
+- **FR-009**: System MUST hash passwords before storage.
+- **FR-010**: Session MUST expire after 24 hours by default, or 7 days when
+  "remember me" is selected at login.
+- **FR-011**: Auth endpoints MUST rate-limit to 5 attempts per minute per
+  IP+email combination.
 
 ### Key Entities
 
@@ -122,90 +124,6 @@ then attempting an authenticated request and receiving an unauthorized error.
   or OAuth provider). A user may have multiple accounts linked.
 - **User**: The domain identity. Created upon first registration and shared
   across all authentication methods.
-
-## Architecture & Folder Structure
-
-The Auth bounded context follows the three-layer model defined in the
-constitution:
-
-```
-features/auth/
-  application/
-    AuthController.ts
-    dto.ts
-  domain/
-    types.ts
-    AuthService.ts
-    IAuthRepository.ts
-  infrastructure/
-    BetterAuthRepository.ts
-```
-
-### Layer Responsibilities
-
-**Application** (`AuthController.ts`, `dto.ts`):
-
-- Nitro route handlers for `/api/auth/*` endpoints.
-- Request validation via Zod schemas defined in `dto.ts`.
-- Calls `AuthService` methods and maps results to HTTP responses.
-- Zero business logic.
-
-**Domain** (`AuthService.ts`, `types.ts`, `IAuthRepository.ts`):
-- `AuthService` orchestrates registration, login, logout, and session
-  validation. Delegates persistence to `IAuthRepository`.
-- `types.ts`: `RegisterInput`, `LoginInput`, `AuthResult`, `SessionInfo`,
-  `OAuthProvider`.
-- `IAuthRepository`: contract for session creation, lookup, invalidation,
-  and account/user persistence.
-
-**Infrastructure** (`BetterAuthRepository.ts`):
-- Implements `IAuthRepository` using Better Auth's server API and Drizzle
-  adapter.
-- Only file that imports Better Auth internals.
-
-### Cross-Context Communication
-
-- Auth exposes public DTOs (`SessionInfo`) for other contexts.
-- Other contexts receive the session user ID via request context or
-  middleware, never by importing Auth domain types directly.
-- A session middleware (Nitro hook or shared utility) populates
-  `event.context.user` for downstream controllers.
-
-## Dependencies
-
-| Dependency | Purpose |
-|---|---|
-| Better Auth | Auth primitives (password hashing, OAuth, session management) |
-| Drizzle ORM | Database access via Better Auth adapter |
-| `shared/auth.ts` | Better Auth instance (configured with Drizzle adapter) |
-
-## Middleware
-
-A Nitro global middleware validates sessions on protected routes:
-
-```typescript
-// server/middleware/auth.ts
-export default defineEventHandler(async (event) => {
-  // Skip public routes
-  const publicRoutes = ['/api/auth/register', '/api/auth/login', '/api/auth/oauth'];
-  if (publicRoutes.some(r => getRequestURL(event).pathname.startsWith(r))) return;
-
-  const session = await auth.api.getSession({ headers: event.headers });
-  if (!session) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' });
-
-  event.context.user = session.user;
-});
-```
-
-## Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/auth/register` | Register with email + password |
-| POST | `/api/auth/login` | Login with email + password |
-| GET | `/api/auth/oauth/google` | Initiate Google OAuth flow |
-| GET | `/api/auth/oauth/google/callback` | Google OAuth callback |
-| POST | `/api/auth/logout` | Invalidate current session |
 
 ## Success Criteria *(mandatory)*
 
@@ -217,17 +135,23 @@ export default defineEventHandler(async (event) => {
 - **SC-004**: Registration with duplicate email returns an error in under
   500ms.
 - **SC-005**: Unauthenticated requests return 401 in under 50ms.
-- **SC-006**: Session cookie MUST use `httpOnly`, `Secure`, and `SameSite=Lax` flags.
+- **SC-006**: Session cookie MUST use `httpOnly`, `Secure`, and
+  `SameSite=Lax` flags.
 
 ## Clarifications
 
 ### Session 2026-06-10
 
-- Q: How are session tokens transported? → A: httpOnly cookies (secure, SameSite). No bearer tokens.
-- Q: What is the session TTL? → A: 24 hours default, 7 days with remember-me flag.
-- Q: What rate limiting for auth endpoints? → A: 5 attempts/min per IP+email combination. OWASP baseline.
-- Q: Password complexity beyond 8-char minimum? → A: 8 chars minimum only. No additional complexity for MVP.
-- Q: Does registration auto-login? → A: No. Registration creates account only; user must explicitly log in.
+- Q: How are session tokens transported? → A: httpOnly cookies (secure,
+  SameSite). No bearer tokens.
+- Q: What is the session TTL? → A: 24 hours default, 7 days with
+  remember-me flag.
+- Q: What rate limiting for auth endpoints? → A: 5 attempts/min per
+  IP+email combination. OWASP baseline.
+- Q: Password complexity beyond 8-char minimum? → A: 8 chars minimum only.
+  No additional complexity for MVP.
+- Q: Does registration auto-login? → A: No. Registration creates account
+  only; user must explicitly log in.
 
 ## Assumptions
 
