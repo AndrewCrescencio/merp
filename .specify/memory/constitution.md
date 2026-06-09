@@ -1,21 +1,22 @@
+```md
 <!--
   Sync Impact Report
 
-  Version change: 1.1.0 → 1.2.0 (MINOR)
-  Modified principles:
-    - I. Domain-First, Feature-Isolated Bounded Contexts → added MVP simplification clause
-    - V. Strict Test-First Discipline → relaxed to preferred discipline, added integration-test guidance
-    - III. Inward Dependency Flow → added YAGNI note on provider swap
+  Version change: 1.4.0 → 1.4.1 (PATCH)
+  Modified sections:
+    - Principle III → generalized provider-library restriction
+    - Development Workflow & Code Standards → class-based services are preferred, not mandatory
+    - Development Workflow & Code Standards → removed hard file-size limit
+    - Forbidden → bounded-context imports are discouraged instead of absolutely forbidden
   Added sections:
-    - MVP simplification allowances in Principles I, II, IV
-    - Error Handling (Principle VI)
-    - Code Style: relaxed line limit, made I-prefix optional
+    - Principle VII → Tenant Isolation
+    - Principle VIII → Transactions and Idempotency
   Removed sections: N/A
   Templates requiring updates:
-    - .specify/templates/plan-template.md: no changes needed (placeholder-based)
-    - .specify/templates/spec-template.md: no changes needed (generic)
-    - .specify/templates/tasks-template.md: no changes needed (generic)
-    - .specify/templates/checklist-template.md: no changes needed (generic)
+    - .specify/templates/plan-template.md: no changes needed
+    - .specify/templates/spec-template.md: no changes needed
+    - .specify/templates/tasks-template.md: no changes needed
+    - .specify/templates/checklist-template.md: no changes needed
   Follow-up TODOs: None
 -->
 
@@ -62,7 +63,7 @@ Every file belongs to exactly one of three layers:
 
 No file may mix these responsibilities.
 Controllers convert input to DTOs, call services, and return responses.
-Controllers contain zero business logic and MUST NOT import Supabase.
+Controllers contain zero business logic and MUST NOT import provider libraries.
 Services contain all domain rules and depend only on repository interfaces.
 Repositories implement those interfaces using provider-specific code.
 
@@ -75,8 +76,9 @@ Dependencies flow inward: `application → domain ← infrastructure`.
 Domain NEVER depends on application or infrastructure.
 Domain types (`types.ts`) contain only interfaces and type aliases — no
 classes, no logic.
-`supabase-js` (or any provider library) MUST only appear inside repository
-implementations — never in services, types, or controllers.
+
+Provider libraries MUST only appear inside infrastructure implementations —
+never in services, domain types, or controllers.
 
 **YAGNI**: Replacing Supabase is an aspirational goal, not an MVP requirement.
 Provider-specific code in repositories is acceptable. The swap path exists
@@ -110,66 +112,152 @@ as a separate task. This is the preferred, expected workflow.
 
 Red → Green → Refactor is the recommended cycle, not a strict gate.
 Vitest is the testing framework.
-Target 80% coverage, measured per feature or per sprint — not per commit.
+
+Prioritize coverage on fiscal critical paths: emission flows, tax
+calculations, status transitions, and validation rules. Avoid locking test
+suites to implementation details that shift frequently during early domain
+discovery — the fiscal model will evolve as business rules are clarified.
 
 **Unit tests**: Mock Supabase; services depend only on repository interfaces.
 Unit tests MUST NOT access a real database.
 
-**Integration tests**: Cover real Supabase queries, constraints, and RLS.
+**Integration tests**: Cover real queries, constraints, and RLS.
 These run separately from unit tests (e.g., on CI or a dedicated test suite).
 
 Every service and repository MUST have a corresponding `.spec.ts` committed
 in the same logical feature, not necessarily the same commit.
 Tests describe behavior — WHAT is tested, not HOW.
 
+**MVP Shortcut**: For small features (screens, simple CRUD), tests may follow
+implementation in the next commit if shipping speed is critical.
+
 *Rationale*: Writing tests with implementation ensures interfaces are designed
-before implementation details ossify. The 80% target kept per-feature prevents
-per-commit pressure from blocking shipping. Mocked repositories ensure fast,
-deterministic, isolated unit tests; integration tests catch provider-specific
-breakage.
+before implementation details ossify. Fiscal critical paths are the highest
+ROI coverage targets — they carry regulatory and financial risk. Mocked
+repositories ensure fast, deterministic, isolated unit tests; integration
+tests catch provider-specific breakage.
 
 ### VI. Error Handling
 
-Use typed exceptions or a `Result<T, E>` pattern consistently.
-All service failures must map to HTTP status codes explicitly.
-Unhandled errors must not leak internal details to clients.
+Use typed exceptions consistently across all layers.
+All service failures must map to HTTP status codes explicitly via Nitro's
+`createError`. Unhandled errors must not leak internal details to clients.
+
+A `Result<T, E>` pattern is a valid alternative but is not required for MVP —
+it adds expressive power at the cost of onboarding friction and verbosity.
+The default acceptable approach is a typed `throw` with a centralized error
+handler at the Nitro layer.
+
+Whichever pattern is chosen, it MUST be applied consistently within a context.
+Do not mix `Result` and `throw` styles inside the same bounded context.
 
 *Rationale*: Fiscal systems require predictable failure modes. Inconsistent
-error handling is a regulatory and UX risk.
+error handling is a regulatory and UX risk. The Nitro-first approach is
+simpler to audit and sufficient for the MVP phase.*
+
+### VII. Tenant Isolation
+
+All business entities MUST belong to a tenant.
+
+Cross-tenant access is forbidden and should be prevented at both the
+repository and database levels whenever practical.
+
+Tenant isolation is a core business requirement.
+
+*Rationale*: ERP systems manage data belonging to multiple companies.
+Tenant boundaries are business boundaries and accidental data leakage is
+unacceptable.*
+
+### VIII. Transactions and Idempotency
+
+Operations spanning multiple aggregates or persistence steps SHOULD execute
+inside explicit database transactions.
+
+Commands with external side effects (NF-e emission, email sending, webhook
+delivery, boleto generation) SHOULD be idempotent whenever practical.
+
+Domain events and outbox patterns are intentionally deferred until
+operational complexity requires them.
+
+*Rationale*: Fiscal workflows involve external systems and multiple
+persistence operations. Transactions and idempotency reduce inconsistency
+and duplicate side effects without introducing unnecessary architectural
+complexity during the MVP phase.*
 
 ## Technology Stack
 
-| Concern | Choice |
-|---|---|
-| Frontend / Backend | Nuxt 4 (monorepo) |
-| API Layer | Nitro server routes |
-| Database / Auth / Storage | Supabase (MVP phase) |
-| Language | TypeScript everywhere |
-| Mobile | Out of scope |
+| Concern            | Choice                                           |
+| ------------------ | ------------------------------------------------ |
+| Frontend / Backend | Nuxt 4 (monorepo)                                |
+| API Layer          | Nitro server routes                              |
+| Database / Storage | Supabase PostgreSQL via DATABASE_URL (MVP phase) |
+| ORM                | Drizzle ORM with drizzle-orm/postgres-js         |
+| Auth               | Better Auth with Drizzle adapter                 |
+| Language           | TypeScript everywhere                            |
+| Mobile             | Out of scope                                     |
 
 Testing: Vitest with mocked repositories for unit tests.
 Integration tests cover real database access and run separately.
 
+## Shared Infrastructure
+
+| File               | Responsibility                                       |
+| ------------------ | ---------------------------------------------------- |
+| `shared/db.ts`     | Drizzle instance — imported only by repositories     |
+| `shared/auth.ts`   | Better Auth instance configured with Drizzle adapter |
+| `shared/logger.ts` | Structured logger — replaces all `console.log` usage |
+
+## Database Migrations
+
+Drizzle Kit manages all schema changes. Migration files are the source of
+truth for database state and are treated with the same discipline as
+application code.
+
+| Command                | Purpose                                       |
+| ---------------------- | --------------------------------------------- |
+| `drizzle-kit generate` | Generate a migration file from schema changes |
+| `drizzle-kit migrate`  | Apply pending migrations to the target database |
+| `drizzle-kit studio`   | Inspect current schema state during development |
+
+**Rules**:
+
+- Migration files MUST be committed to source control alongside the schema
+  change that produced them — never in a separate commit.
+- Never edit generated migration files manually; adjust the schema and
+  regenerate instead.
+- For fiscal-domain schema changes, include a brief SQL comment explaining
+  the business reason.
+- Destructive migrations (column drops, table renames, type changes) require
+  a documented rollback plan described in the PR body before merge.
+
 ## Development Workflow & Code Standards
 
 **Code Style**:
-- Services and repositories are classes with async methods.
+
+- Simple class-based services and repositories with async methods are preferred.
 - Repository interfaces may use the `I` prefix convention (e.g., `INotaRepository`);
   it is recommended but not mandatory.
 - No `any` — prefer `unknown` with type guards.
 - No `console.log` — use the shared logger.
-- Maximum 600 lines per file; split files when they grow beyond clarity.
+- Split files when they grow beyond clarity.
 
-**Commits**: Conventional Commits — `feat`, `fix`, `refactor`, `test`,
-`docs`, `chore`. Every `feat` commit SHOULD include its tests in the same commit.
+**Commits**:
 
-**MVP Shortcut**: For small features (screens, simple CRUD), tests may follow
-implementation in the next commit if shipping speed is critical.
+Conventional Commits — `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
+
+Every `feat` commit SHOULD include its tests in the same commit.
+
+**MVP Shortcut**:
+
+For small features (screens, simple CRUD), tests may follow implementation
+in the next commit if shipping speed is critical.
 
 **Forbidden**:
+
 - Business logic in controllers.
-- `supabase-js` imports outside repository implementations.
-- Domain imports across bounded contexts.
+- Provider libraries leaking outside infrastructure and `shared/`.
+- Direct domain imports across bounded contexts are discouraged. Prefer IDs,
+  DTOs, and public services.
 - Shared business types in `shared/`.
 - God repositories and God services.
 - Infrastructure leaking into the domain layer.
@@ -178,24 +266,33 @@ implementation in the next commit if shipping speed is critical.
 
 This constitution supersedes all other practices, conventions, and workflows
 defined in the project. Any deviation from the principles herein requires
-documented justification, team approval, and a migration plan.
+documented justification in the PR that introduces the deviation.
 
 **Amendment Process**:
-1. A proposal documents the change and its rationale.
-2. Team review and approval.
-3. Constitution version bump follows semantic versioning:
-   - MAJOR — backward-incompatible governance changes or principle removals.
-   - MINOR — new principles or materially expanded guidance.
-   - PATCH — clarifications, wording refinements, typo fixes.
-4. Compliance is verified during code review and spec/plan generation.
+
+Any amendment is documented in the PR that introduces the change. The
+rationale must be written in the PR description. Team approval is a standard
+code review approval — no separate ceremony is required. Once merged, the
+constitution version is bumped and the Sync Impact Report at the top of this
+file is updated.
+
+Version bumps follow semantic versioning:
+
+- MAJOR — backward-incompatible governance changes or principle removals.
+- MINOR — new principles, new sections, or materially expanded guidance.
+- PATCH — clarifications, wording refinements, typo fixes.
+
+Compliance is verified during code review and spec/plan generation.
 
 ## Goal
 
 Keep the system extremely simple at the start, but structured enough so the
 fiscal domain can scale into a full ERP without rewrites. Infrastructure
-must be swappable without affecting domain logic — replacing Supabase should
+must be swappable without affecting domain logic — replacing providers should
 only require changing the infrastructure layer, never services or controllers.
+
 MVP speed takes precedence over architectural purity; structure is enforced
 gradually as the domain matures.
 
-**Version**: 1.2.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-09
+**Version**: 1.4.1 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-10
+```
