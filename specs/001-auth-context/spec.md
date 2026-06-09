@@ -14,6 +14,7 @@ The Auth bounded context handles user registration, login, logout, and
 session management. It is a supporting domain that other contexts depend on
 for authenticated access. Better Auth (with Drizzle adapter) provides the
 underlying auth primitives; the domain layer wraps and orchestrates them.
+Sessions are transported via httpOnly, Secure, SameSite cookies.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -103,12 +104,13 @@ then attempting an authenticated request and receiving an unauthorized error.
   (8 characters) during registration.
 - **FR-003**: System MUST reject registration with a duplicate email.
 - **FR-004**: System MUST allow login with email and password.
-- **FR-005**: System MUST return a session token on successful login.
+- **FR-005**: System MUST set an httpOnly session cookie on successful login.
 - **FR-006**: System MUST support Google OAuth login and registration.
 - **FR-007**: System MUST allow logout by invalidating the current session.
 - **FR-008**: System MUST reject unauthenticated requests to protected
   endpoints with a 401 Unauthorized response.
 - **FR-009**: System MUST hash passwords before storage (handled by Better Auth).
+- **FR-010**: Session MUST expire after 24 hours by default, or 7 days when "remember me" is selected at login.
 
 ### Key Entities
 
@@ -213,6 +215,14 @@ export default defineEventHandler(async (event) => {
 - **SC-004**: Registration with duplicate email returns an error in under
   500ms.
 - **SC-005**: Unauthenticated requests return 401 in under 50ms.
+- **SC-006**: Session cookie MUST use `httpOnly`, `Secure`, and `SameSite=Lax` flags.
+
+## Clarifications
+
+### Session 2026-06-10
+
+- Q: How are session tokens transported? → A: httpOnly cookies (secure, SameSite). No bearer tokens.
+- Q: What is the session TTL? → A: 24 hours default, 7 days with remember-me flag.
 
 ## Assumptions
 
