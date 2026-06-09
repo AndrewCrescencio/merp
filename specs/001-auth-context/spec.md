@@ -35,7 +35,7 @@ verifying a session token is returned.
 **Acceptance Scenarios**:
 
 1. **Given** a new email and password, **When** the user registers,
-   **Then** the system creates an account and returns a session.
+   **Then** the system creates an account and returns a success response.
 2. **Given** an existing account, **When** the user logs in with correct
    credentials, **Then** the system returns a valid session.
 3. **Given** an existing account, **When** the user logs in with an
@@ -94,12 +94,13 @@ then attempting an authenticated request and receiving an unauthorized error.
 - What happens when the session expires mid-request?
 - How does the system handle concurrent sessions from different devices?
 - What happens when the database is unreachable during login?
+- What happens when the rate limit is exceeded?
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST allow user registration with email and password.
+- **FR-001**: System MUST allow user registration with email and password. Registration creates an account but does NOT start a session.
 - **FR-002**: System MUST validate email format and minimum password length
   (8 characters) during registration.
 - **FR-003**: System MUST reject registration with a duplicate email.
@@ -111,6 +112,7 @@ then attempting an authenticated request and receiving an unauthorized error.
   endpoints with a 401 Unauthorized response.
 - **FR-009**: System MUST hash passwords before storage (handled by Better Auth).
 - **FR-010**: Session MUST expire after 24 hours by default, or 7 days when "remember me" is selected at login.
+- **FR-011**: Auth endpoints MUST rate-limit to 5 attempts per minute per IP+email combination.
 
 ### Key Entities
 
@@ -223,6 +225,9 @@ export default defineEventHandler(async (event) => {
 
 - Q: How are session tokens transported? → A: httpOnly cookies (secure, SameSite). No bearer tokens.
 - Q: What is the session TTL? → A: 24 hours default, 7 days with remember-me flag.
+- Q: What rate limiting for auth endpoints? → A: 5 attempts/min per IP+email combination. OWASP baseline.
+- Q: Password complexity beyond 8-char minimum? → A: 8 chars minimum only. No additional complexity for MVP.
+- Q: Does registration auto-login? → A: No. Registration creates account only; user must explicitly log in.
 
 ## Assumptions
 
