@@ -1,18 +1,15 @@
 <!--
   Sync Impact Report
 
-  Version change: (template) → 1.0.0
-  Modified principles: N/A (initial fill from template placeholders)
+  Version change: 1.0.0 → 1.1.0 (MINOR)
+  Modified principles:
+    - I. Strategic Domain-Driven Design → I. Domain-First, Feature-Isolated Bounded Contexts
+    - V. Test-First Discipline (NON-NEGOTIABLE) → reinforced strict TDD language
   Added sections:
-    - I. Strategic Domain-Driven Design
-    - II. Three-Layer Separation of Responsibilities
-    - III. Inward Dependency Flow
-    - IV. Aggregate-Owned Repositories
-    - V. Test-First Discipline (NON-NEGOTIABLE)
-    - Technology Stack
-    - Development Workflow & Code Standards
-    - Governance (with amendment procedure)
-  Removed sections: N/A (template had empty sections)
+    - Project Philosophy preamble (Domain-First, Feature-Isolated)
+    - Interface naming convention (I-prefix) in Code Style
+    - Goal section (closing intent)
+  Removed sections: N/A
   Templates requiring updates:
     - .specify/templates/plan-template.md: no changes needed (placeholder-based)
     - .specify/templates/spec-template.md: no changes needed (generic)
@@ -23,12 +20,19 @@
 
 # Merp Constitution
 
+This project follows a **Domain-First, Feature-Isolated** approach.
+All features are implemented inside isolated bounded contexts with strict
+separation between domain (business rules), application (I/O), and
+infrastructure (persistence). Simple class-based services and repository
+interfaces are preferred over functional architecture.
+
 ## Core Principles
 
-### I. Strategic Domain-Driven Design
+### I. Domain-First, Feature-Isolated Bounded Contexts
 
 The system is organized by independent bounded contexts.
-The primary domain is `fiscal`; supporting domains are `auth` and `financeiro`.
+`fiscal` is the **core domain** — it MUST be developed first and with
+highest rigor. Supporting domains are `auth` and `financeiro`.
 Contexts MUST NOT import each other's domain code.
 Communication between contexts happens exclusively through IDs, DTOs, and
 public services.
@@ -36,8 +40,9 @@ The `shared/` directory is infrastructure-only — it MUST NOT contain domain
 entities, domain types, or business logic.
 
 *Rationale: Bounded context isolation prevents coupling between separate
-business areas. Cross-context contamination is the primary source of
-architectural erosion in ERP systems.*
+business areas. Fiscal is the primary value driver and must remain the
+most rigorously structured context. Cross-context contamination is the
+primary source of architectural erosion in ERP systems.*
 
 ### II. Three-Layer Separation of Responsibilities
 
@@ -82,20 +87,22 @@ swap without changing services).
 Per-aggregate repositories keep each unit focused, testable, and
 independently replaceable.*
 
-### V. Test-First Discipline (NON-NEGOTIABLE)
+### V. Strict Test-First Discipline (NON-NEGOTIABLE)
 
-Red → Green → Refactor is mandatory.
+Red → Green → Refactor is mandatory and strictly enforced.
+Tests MUST be written first, observed to fail, then implementation follows.
 Vitest is the testing framework.
 Coverage threshold is 80%.
 Repository tests MUST mock Supabase; unit tests MUST NOT access a real
 database.
-Every implementation file MUST have a corresponding `.spec.ts` committed in
-the same commit.
-Specs describe WHAT is tested, not HOW.
+Every service and repository MUST have a corresponding `.spec.ts` committed
+in the same commit.
+Tests describe behavior — WHAT is tested, not HOW.
 
-*Rationale: The 80% threshold and same-commit spec requirement ensure
-coverage keeps pace with implementation. Mocked repositories guarantee
-fast, deterministic unit tests.*
+*Rationale: Writing tests first ensures the interface is designed before the
+implementation. The 80% threshold and same-commit spec requirement guarantee
+coverage keeps pace with code. Mocked repositories ensure fast,
+deterministic, isolated unit tests.*
 
 ## Technology Stack
 
@@ -113,18 +120,19 @@ Testing: Vitest with mocked repositories. No real database access in unit tests.
 
 **Code Style**:
 - Services and repositories are classes with async methods.
+- Repository interfaces follow the `I` prefix convention (e.g., `INotaRepository`).
 - No `any` — prefer `unknown` with type guards.
 - No `console.log` — use the shared logger.
-- Maximum 400 lines per file; split files when needed.
+- Maximum 400 lines per file; split files when they grow beyond clarity.
 
 **Commits**: Conventional Commits — `feat`, `fix`, `refactor`, `test`,
-`docs`, `chore`. Every `feat` commit MUST include its tests.
+`docs`, `chore`. Every `feat` commit MUST include its tests in the same commit.
 
 **Forbidden**:
-- Business logic outside services.
+- Business logic in controllers.
 - `supabase-js` imports outside repository implementations.
 - Domain imports across bounded contexts.
-- Shared business types.
+- Shared business types in `shared/`.
 - God repositories and God services.
 - Infrastructure leaking into the domain layer.
 
@@ -143,4 +151,11 @@ documented justification, team approval, and a migration plan.
    - PATCH — clarifications, wording refinements, typo fixes.
 4. Compliance is verified during code review and spec/plan generation.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-08
+## Goal
+
+Keep the system extremely simple at the start, but structured enough so the
+fiscal domain can scale into a full ERP without rewrites. Infrastructure
+must be swappable without affecting domain logic — replacing Supabase should
+only require changing the infrastructure layer, never services or controllers.
+
+**Version**: 1.1.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-08
