@@ -160,3 +160,6 @@ then attempting an authenticated request and receiving an unauthorized error.
 - Multi-tenancy scoping (which tenant a user belongs to) is handled at a
   higher layer — Auth only manages identity.
 - Google OAuth credentials are configured via environment variables.
+- Data access is abstracted via a repository layer (`IAuthRepository` in
+  `server/utils/auth/repository.ts`). Route handlers never import Drizzle
+  directly. This enables unit testing with mocked repositories.
