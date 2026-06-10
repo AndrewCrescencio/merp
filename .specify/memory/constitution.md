@@ -2,6 +2,27 @@
 <!--
   Sync Impact Report
 
+  Version change: 2.0.0 → 2.1.0 (MINOR)
+  Changes:
+    - Modified: Principle II (renamed to "Nuxt 4 Native + Repository Layer")
+    - Added: repository layer as the mandatory data-access pattern for all contexts
+    - Added: typed repository interfaces (IXxxRepository) for testability and DIP
+    - Removed: "no repository layer, no interfaces" prohibition
+    - Kept: no service layer rule (deferred until complexity demands)
+    - Updated: Project Layout (added utils/{context}/repository.ts pattern)
+    - Updated: Code Standards (added forbidden rule for direct Drizzle in handlers)
+  Templates requiring updates:
+    - .specify/templates/plan-template.md: add Folder Structure + Repository Pattern sections
+    - .specify/templates/spec-template.md: add repository layer to Assumptions
+    - .specify/templates/checklist-template.md: update architecture checklist template
+  Follow-up TODOs:
+    - Update specs/001-auth-context/plan.md (add Folder Structure + Repository Pattern sections)
+    - Update specs/001-auth-context/spec.md (add repository assumption)
+    - Update specs/001-auth-context/architecture.md (align checklist with handler+repository)
+-->
+<!--
+  Sync Impact Report
+
   Version change: 1.4.1 → 2.0.0 (MAJOR)
   Changes:
     - Removed: Principle II (Three-Layer Separation)
@@ -28,8 +49,7 @@
 
 This project follows a **Context-First, Framework-Native** approach.
 Bounded contexts organize business domains; Nuxt 4 provides the structure.
-Write code in the framework first. Extract layers only when a file grows
-beyond clarity — never before.
+Write thin handlers in the framework. All data access through a repository.
 
 ## Core Principles
 
@@ -54,42 +74,46 @@ business types or logic.
 *Rationale: Bounded context isolation prevents coupling between separate
 business areas. Fiscal is the primary value driver.*
 
-### II. Nuxt 4 Native
+### II. Nuxt 4 Native + Repository Layer
 
-Write route handlers directly in `server/api/` using Nitro's
-`defineEventHandler`. Use Drizzle directly in handlers — no repository
-layer, no service layer, no interfaces.
+Route handlers live in `server/api/` and use Nitro's `defineEventHandler`.
+Handlers are thin: validate input, call a repository, return response.
+All data access goes through a typed repository interface.
 
 Rules:
-- Each route file is self-contained. Validate input, query Drizzle,
-  return response.
-- If a handler exceeds ~100 lines, extract helpers to `server/utils/`
-  (auto-imported by Nitro — no manual imports needed).
+- Each route handler delegates data access to a repository — never
+  imports or calls Drizzle directly.
+- Repositories are defined in `server/utils/{context}/repository.ts`.
+  Each file exports an interface (e.g. `IAuthRepository`) and a
+  `DrizzleXxxRepository` implementation.
+- Interfaces enable Vitest mocks in unit tests and future ORM/DB swapping
+  without touching route handlers (Dependency Inversion Principle).
 - Keep all Drizzle table definitions in `server/utils/schema.ts`
-  (auto-imported).
-- Extract business logic only when the same code repeats across routes.
-- No premature abstraction. No interfaces. No repository pattern.
-  You'll feel it when extraction is needed — trust that.
+  (auto-imported by Nitro).
+- Extract shared business logic to `server/utils/{context}/helpers.ts`
+  only when it repeats across multiple routes.
+- No service layer unless a handler grows beyond clarity after extracting
+  to helpers. No DI containers. No decorators. No class inheritance.
 
 Nitro middleware in `server/middleware/` handles cross-cutting concerns
 (auth, tenant context).
 
-*Rationale: Nuxt 4 and Nitro already provide structure. Adding layers
-before they're needed increases friction for junior developers and slows
-MVP delivery. Extract when it hurts, not before.*
+*Rationale: A thin repository layer costs almost nothing during MVP but
+unlocks Vitest mocking and the ability to swap Drizzle without touching
+handlers. Service layers are deferred — extract only when it hurts.*
 
 ### III. Test as You Go
 
 Write tests alongside implementation. Vitest is the testing framework.
 
-**Unit tests**: Mock Drizzle queries. Do not access a real database.
+**Unit tests**: Mock the repository interface. Do not access a real database.
 **Integration tests**: Cover real queries, constraints, and RLS.
 Run separately from unit tests.
 
 Priority: fiscal critical paths (emission, tax calculation, status
 transitions, validation rules).
 
-Every route handler and extracted function SHOULD have a corresponding
+Every route handler and repository SHOULD have a corresponding
 `.spec.ts`. Tests describe behavior — WHAT is tested, not HOW.
 
 **MVP Shortcut**: Tests may follow in the next commit if shipping speed
@@ -151,9 +175,14 @@ introducing unnecessary complexity during MVP.*
 
 ```
 server/
-├── api/              # Nitro routes — one file per endpoint
+├── api/              # Nitro routes — thin handlers (one file per endpoint)
 ├── middleware/        # Server middleware (auth, tenant)
-└── utils/            # Auto-imported helpers (db, schema, helpers)
+└── utils/            # Auto-imported helpers
+    ├── schema.ts     # All Drizzle table definitions
+    ├── db.ts         # Database connection
+    └── {context}/    # e.g. auth/, companies/, fiscal/
+        ├── repository.ts  # IXxxRepository interface + DrizzleXxxRepository
+        └── helpers.ts     # Shared business logic (extracted when needed)
 shared/               # Infra config (auth instance, logger)
 app/                  # Nuxt frontend (Vue pages, components)
 specs/                # Feature documentation (Spec Kit)
@@ -161,7 +190,7 @@ specs/                # Feature documentation (Spec Kit)
 
 ## Code Standards
 
-- Prefer simple async functions. Classes are optional.
+- Prefer simple async functions. Classes only for repository implementations.
 - No `any` — use `unknown` with type guards.
 - No `console.log` — use the shared logger (`shared/logger.ts`).
 - Split files when they grow beyond clarity (~150 lines as heuristic).
@@ -170,8 +199,10 @@ specs/                # Feature documentation (Spec Kit)
 
 **Forbidden**:
 - Business logic in route validation/parsing.
+- Drizzle queries outside repository implementations.
 - Provider libraries outside `shared/` and `server/utils/`.
 - Shared business types in `shared/`.
+- Cross-context repository imports.
 
 ## Database Migrations
 
@@ -210,5 +241,5 @@ Version bumps follow semantic versioning:
 
 Compliance is verified during code review and spec/plan generation.
 
-**Version**: 2.0.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-10
+**Version**: 2.1.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-10
 ```
