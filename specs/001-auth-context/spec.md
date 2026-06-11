@@ -175,6 +175,26 @@ authenticated requests carry the correct tenant context.
   failed login, and logout — with timestamp, email, and outcome.
 - **FR-012**: System MUST support multiple active sessions per user
   (different devices/browsers).
+- **FR-019**: System MUST support company deletion. Only company owners
+  and super_admin can delete. Deletion is a soft-delete (`is_deleted`
+  flag) to preserve referential integrity for fiscal records. Cascade
+  behavior: all CompanyMember rows purged, all pending invites purged,
+  company no longer selectable as tenant context. Active sessions for
+  the user's other tenants remain valid.
+- **FR-020**: System MUST provide a data export endpoint returning all
+  user personal data (email, name, memberships, auth events) in JSON
+  format, fulfilling LGPD data portability rights (Art. 18).
+- **FR-021**: System MUST record user consent at registration
+  (acceptance of terms and data processing) with timestamp and version.
+  Consent withdrawal MUST trigger account deactivation and enqueue a
+  data deletion request.
+- **FR-022**: System MUST log all access to PII data (email, name) in
+  the audit log — who accessed it, when, and for what purpose. PII
+  access logs are retained for 5 years.
+- **FR-023**: System MUST emit structured observability events for
+  session lifecycle: session_created, session_validated,
+  session_expired, session_invalidated. Each event includes session_id,
+  user_id, tenant_id (if applicable), and timestamp.
 
 ### Key Entities
 
@@ -340,3 +360,12 @@ all queries involving tenant-scoped data within this bounded context:
 outside `withTenant` return zero rows for tenant-scoped tables (RLS
 deny by default). This validates that the RLS policy is correctly
 enforcing isolation even when the application layer is bypassed.
+
+**Concurrency testing**: The invite acceptance flow MUST be tested for
+race conditions. Two simultaneous requests accepting the same invite
+MUST result in exactly one membership created (the second request
+fails with 409 Conflict). Tests MUST use PostgreSQL's
+`SERIALIZABLE` isolation level or explicit locks to verify correct
+behavior under concurrent access. The repository layer MUST use
+row-level locking (`SELECT ... FOR UPDATE`) when reading invite status
+before creating the membership.
