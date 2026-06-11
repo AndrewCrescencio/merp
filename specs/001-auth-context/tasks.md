@@ -57,14 +57,20 @@ story can be implemented
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
 - [ ] T006 Create server/utils/db.ts — database connection using postgres.js
+      <!-- TODO: aplicar withTenant → o pool criado aqui será usado pelo helper -->
 - [ ] T007 Create server/utils/schema.ts — Drizzle table definitions
       (User, Session, Company, CompanyMember, AuthLog) using Better Auth
       compatible schema + custom tables
+      <!-- TODO: aplicar withTenant → toda tabela com tenant_id deve ter RLS habilitado
+      e policy de isolamento usando current_setting('app.tenant_id')::UUID -->
 - [ ] T008 Create server/utils/auth/repository.ts — IAuthRepository
       interface + DrizzleAuthRepository with all methods (createUser,
       getSession, createSession, deleteSession, createCompany,
       addMember, findCompanies, logAuthEvent, getFailedAttempts,
       lockAccount, isAccountLocked, deactivateUser)
+      <!-- TODO: aplicar withTenant → métodos que acessam dados de tenant
+      (Company, CompanyMember) devem usar withTenant; criação de Company
+      (onboarding) pode usar db direto -->
 - [ ] T009 Create server/utils/auth/helpers.ts — password validation,
       email validation, rate limiting state, lockout threshold logic
 - [ ] T010 Create shared/auth.ts — Better Auth server instance configured
@@ -74,6 +80,9 @@ story can be implemented
 - [ ] T012 Create server/middleware/auth.ts — session validation from
       cookie, attach user + company context to event, reject
       unauthenticated requests
+      <!-- TODO: aplicar withTenant → o middleware é o ponto de entrada do
+      tenant context; deve extrair tenantId do usuário autenticado para
+      uso com withTenant -->
 
 **Checkpoint**: Foundation ready — user story implementation can now
 begin in parallel
@@ -158,10 +167,15 @@ company context present.
 - [ ] T022 [US3] Implement POST /api/auth/companies/[id]/join in
       server/api/auth/companies.[id].join.post.ts — add user as
       member of existing company
+      <!-- TODO: aplicar withTenant → member data é tenant-scoped -->
 - [ ] T023 [US3] Update GET /api/auth/session to include current
       company context and support company switching via query param
+      <!-- TODO: aplicar withTenant → busca de empresas do usuário é
+      tenant-scoped -->
 - [ ] T024 [US3] Implement user deactivation endpoint and logic
       (soft delete — flag inactive, reject login)
+      <!-- TODO: aplicar withTenant → se a desativação envolver remoção
+      de membro de empresa, usar withTenant -->
 
 **Checkpoint**: All user stories independently functional
 
@@ -178,6 +192,8 @@ company context present.
       server/utils/auth/__tests__/repository.spec.ts
 - [ ] T028 Add integration tests for API routes (real PostgreSQL via
       Docker) in server/api/auth/__tests__/*.spec.ts
+      <!-- TODO: aplicar withTenant → testes de integração devem validar
+      que queries fora do withTenant retornam zero linhas (RLS deny) -->
 - [ ] T029 Security hardening — helmet-style headers, CORS config,
       cookie security flags (httpOnly, Secure, SameSite)
 - [ ] T030 Run quickstart.md validation (verify full auth flow end-to-end)

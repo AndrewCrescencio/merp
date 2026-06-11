@@ -1,21 +1,18 @@
 <!--
   Sync Impact Report
 
-  Version change: 2.1.0 → 2.2.0 (MINOR)
+  Version change: 2.2.0 → 2.3.0 (MINOR)
   Changes:
-    - Modified: Technology Stack (Database: PostgreSQL instead of Supabase PostgreSQL;
-      added Containerization row for Docker)
-    - Added: Containerization section with Dockerfile + docker-compose.yml mandates
-    - Added: Dockerfile and docker-compose.yml to Project Layout
+    - Added: Database & Multi-tenancy section with withTenant helper mandate,
+      RLS policy rules, and PR gate for violations
   Templates requiring updates:
     - .specify/templates/plan-template.md: ✅ updated (no changes needed - generic)
     - .specify/templates/spec-template.md: ✅ updated (no changes needed - generic)
     - .specify/templates/tasks-template.md: ✅ updated (no changes needed - generic)
     - .specify/templates/checklist-template.md: ✅ updated (no changes needed - generic)
   Follow-up TODOs:
-    - Create Dockerfile at project root (multi-stage build)
-    - Create docker-compose.yml at project root (PostgreSQL + app services)
-    - Update README.md with Docker-based development workflow
+    - Update specs/001-auth-context/spec.md (add Infrastructure Dependencies section)
+    - Update specs/001-auth-context/tasks.md (mark tenant-data tasks with withTenant TODO)
 -->
 
 # Merp Constitution
@@ -234,6 +231,32 @@ development and production environments.
 developer machines, CI, and production. Infrastructure as code keeps
 the runtime specification versioned alongside the application.*
 
+## Database & Multi-tenancy
+
+All tenant-scoped queries MUST use the `withTenant(tenantId, fn)` helper.
+It acquires a dedicated connection from the pool, sets the PostgreSQL
+session variable `app.tenant_id` via `set_config`, and provides a
+tenant-isolated Drizzle instance to the callback.
+
+Rules:
+- Every query against a table with `tenant_id` MUST be wrapped in
+  `withTenant(tenantId, fn)` — no exceptions.
+- Direct `db` access is permitted only for global data: lookup tables,
+  tenant onboarding (company creation), and system-level operations
+  that precede tenant context.
+- `set_config('app.tenant_id', ...)` MUST NOT be called directly
+  outside the `withTenant` helper.
+- `withTenant` is the single runtime entry point for tenant context.
+- Every new table containing tenant data MUST have RLS enabled and a
+  policy that filters by `tenant_id` using
+  `current_setting('app.tenant_id')::UUID`.
+- Violations of these rules block PR approval — no exceptions.
+
+*Rationale: RLS guarantees that even a misrouted query cannot leak data
+across tenants. The `withTenant` helper enforces this at the application
+layer, creating a defense-in-depth boundary. A single helper keeps the
+contract explicit and testable.*
+
 ## Governance
 
 This constitution supersedes all other practices defined in the project.
@@ -250,4 +273,4 @@ Version bumps follow semantic versioning:
 
 Compliance is verified during code review and spec/plan generation.
 
-**Version**: 2.2.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-11
+**Version**: 2.3.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-11

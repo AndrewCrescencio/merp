@@ -210,3 +210,22 @@ authenticated requests carry the correct tenant context.
   equal access.
 - The auth context does not handle fiscal rules, financial transactions,
   or any domain logic outside identity and access.
+
+## Infrastructure Dependencies
+
+The `withTenant(tenantId, fn)` helper is the mandatory entry point for
+all queries involving tenant-scoped data within this bounded context:
+
+- **Member queries** (reading/writing company memberships) MUST use
+  `withTenant`.
+- **Company queries** (reading company details, searching) MUST use
+  `withTenant`.
+- **Invite and permission data** (future scope) MUST use `withTenant`.
+- Direct `db` access is permitted ONLY for company creation (onboarding)
+  and global lookup tables — the initial `INSERT INTO companies` is the
+  sole exception.
+
+**Testing note**: Integration tests MUST verify that queries executed
+outside `withTenant` return zero rows for tenant-scoped tables (RLS
+deny by default). This validates that the RLS policy is correctly
+enforcing isolation even when the application layer is bypassed.
