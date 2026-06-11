@@ -1,12 +1,19 @@
+---
+
+description: "Task list for Auth bounded context implementation"
+
+---
+
 # Tasks: Auth Bounded Context
 
 **Input**: Design documents from `/specs/001-auth-context/`
 
-**Prerequisites**: plan.md (required), spec.md (required for user stories)
+**Prerequisites**: plan.md (required), spec.md (required)
 
-**Tests**: Not requested — skip test tasks per spec.
+**Tests**: OPTIONAL — include only if explicitly requested.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+**Organization**: Tasks are grouped by user story to enable independent
+implementation and testing of each story.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -16,113 +23,164 @@
 
 ## Path Conventions
 
-- Nuxt 4 project: `server/` for Nitro server code, `app/` for Vue frontend
-- Nuxt auto-imports composables from `composables/`, utilities from `server/utils/`
-- Better Auth shared instance at `server/utils/auth.ts`
-- Database schema at `server/utils/schema.ts`
-- Route handlers at `server/api/`
-- Middleware at `server/middleware/`
+- **Root config**: `Dockerfile`, `docker-compose.yml`, `.env.example`
+- **Server routes**: `server/api/auth/`
+- **Server middleware**: `server/middleware/auth.ts`
+- **Server utils**: `server/utils/{db,schema}.ts`, `server/utils/auth/`
+- **Shared**: `shared/{auth,logger}.ts`
+- **Tests**: Not yet created — test structure TBD in Phase 6
 
 ---
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Project initialization and basic structure for the Auth bounded context
+**Purpose**: Project initialization, Docker environment, dependencies
 
-- [ ] T001 Install dependencies (better-auth, drizzle-orm, postgres-js, @better-auth/drizzle, resend, vitest) in package.json
-- [ ] T002 Configure Drizzle ORM with Supabase PostgreSQL connection and runtime config in nuxt.config.ts
-- [ ] T003 Create environment variable configuration (.env.example with DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, RESEND_API_KEY)
+- [ ] T001 Create Dockerfile at project root (multi-stage: dev with
+      hot-reload, prod optimized build)
+- [ ] T002 Create docker-compose.yml at project root (app + PostgreSQL
+      services, pgdata volume, env passthrough)
+- [ ] T003 Create .env.example with all required env vars (DATABASE_URL,
+      AUTH_SECRET, ports)
+- [ ] T004 [P] Install dependencies: drizzle-orm, postgres, better-auth,
+      @better-auth/drizzle-adapter
+- [ ] T005 [P] Create drizzle.config.ts at project root with PostgreSQL
+      connection and schema path
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
+**Purpose**: Core infrastructure that MUST be complete before ANY user
+story can be implemented
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create database schema (users, sessions, accounts, verifications for Better Auth; companies, company_members, company_invites for multi-tenancy) in server/utils/schema.ts
-- [ ] T005 [P] Configure shared Better Auth instance with Drizzle adapter, email/password provider, Google OAuth provider, session config (24h TTL, httpOnly cookies) in server/utils/auth.ts
-- [ ] T006 [P] Create auth middleware that validates session and sets event.context.user in server/middleware/auth.ts
-- [ ] T007 [P] Create repository interface (IAuthRepository) with Drizzle implementation for user/company/invite queries in server/utils/auth/repository.ts
-- [ ] T008 Run initial Drizzle Kit migration to push schema to Supabase PostgreSQL
+- [ ] T006 Create server/utils/db.ts — database connection using postgres.js
+- [ ] T007 Create server/utils/schema.ts — Drizzle table definitions
+      (User, Session, Company, CompanyMember, AuthLog) using Better Auth
+      compatible schema + custom tables
+- [ ] T008 Create server/utils/auth/repository.ts — IAuthRepository
+      interface + DrizzleAuthRepository with all methods (createUser,
+      getSession, createSession, deleteSession, createCompany,
+      addMember, findCompanies, logAuthEvent, getFailedAttempts,
+      lockAccount, isAccountLocked, deactivateUser)
+- [ ] T009 Create server/utils/auth/helpers.ts — password validation,
+      email validation, rate limiting state, lockout threshold logic
+- [ ] T010 Create shared/auth.ts — Better Auth server instance configured
+      with Drizzle adapter and email/password provider
+- [ ] T011 Create shared/logger.ts — structured logger (PINO or simple
+      wrapper) with log levels and auth event formatting
+- [ ] T012 Create server/middleware/auth.ts — session validation from
+      cookie, attach user + company context to event, reject
+      unauthenticated requests
 
-**Checkpoint**: Foundation ready — user story implementation can now begin in parallel
+**Checkpoint**: Foundation ready — user story implementation can now
+begin in parallel
 
 ---
 
-## Phase 3: User Story 1 — Email & Password Registration and Login (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - Email & Password Registration and Login (Priority: P1) 🎯 MVP
 
-**Goal**: A new user registers with email and password (min 8 chars), then logs in with those credentials. Better Auth handles the core auth primitives; we add validation, rate limiting, and session cookie configuration around it.
+**Goal**: A new user registers with email+password and logs in with those
+credentials. Passwords are protected. Duplicate emails rejected.
 
-**Independent Test**: Call register endpoint with email+password, verify account created (no session). Call login with same credentials, verify httpOnly session cookie returned. Call login with wrong password, verify error response.
+**Independent Test**: POST /api/auth/register with email+password →
+201. POST /api/auth/login with same credentials → 200 + session cookie.
+POST /api/auth/login with wrong password → 401. POST /api/auth/register
+with existing email → 409.
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Add request validation for registration (email format regex, password min 8 chars) in server/utils/validation.ts
-- [ ] T010 [P] [US1] Add rate limiting middleware (5 attempts/min per IP+email combination) in server/middleware/rateLimit.ts
-- [ ] T011 [US1] Configure session cookie flags (httpOnly, Secure, SameSite=Lax) and TTL (24h default, 7d with remember-me flag) in server/utils/auth.ts
+- [ ] T013 [P] [US1] Implement POST /api/auth/register in
+      server/api/auth/register.post.ts — validate input, call
+      IAuthRepository.createUser, return success (no auto-login)
+- [ ] T014 [P] [US1] Implement POST /api/auth/login in
+      server/api/auth/login.post.ts — validate credentials, create
+      session, set httpOnly cookie, return user info
+- [ ] T015 [US1] Add rate limiting to register + login endpoints
+      (5 attempts/min per IP+email) in server/middleware/rate-limit.ts
+- [ ] T016 [US1] Add account lockout logic — track failed attempts,
+      lock after 10 total failures, auto-unlock after 30 minutes
+      (in server/utils/auth/helpers.ts + repository)
 
-**Checkpoint**: User Story 1 should be fully functional — register, login, session cookie, validation errors, rate limiting all work.
+**Checkpoint**: User Story 1 complete — registration and login working
 
 ---
 
-## Phase 4: User Story 2 — Google OAuth Login and Registration (Priority: P2)
+## Phase 4: User Story 2 - Logout and Session Lifecycle (Priority: P2)
 
-**Goal**: A user logs in or registers using their Google account via OAuth. Better Auth's Google provider handles the OAuth flow; we add state parameter validation and error handling.
+**Goal**: Authenticated user can log out (session terminated). Sessions
+expire automatically after 24h (7d with remember-me). Multiple sessions
+supported.
 
-**Independent Test**: Initiate OAuth flow, verify callback creates session for new user. Repeat with same Google account, verify returns session for existing account.
+**Independent Test**: Login → GET /api/auth/session → 200 with user.
+POST /api/auth/logout → GET /api/auth/session → 401. Login with
+remember-me → session lasts 7d. Login without → session lasts 24h.
+Login from two devices → both sessions active.
 
 ### Implementation for User Story 2
 
-- [ ] T012 [P] [US2] Implement Google OAuth callback handler with state parameter validation (CSRF protection) in server/api/auth/callback/google.ts
-- [ ] T013 [US2] Handle OAuth error cases (invalid token, cancelled flow, expired state) with consistent error responses
+- [ ] T017 [P] [US2] Implement POST /api/auth/logout in
+      server/api/auth/logout.post.ts — clear session cookie,
+      call IAuthRepository.deleteSession
+- [ ] T018 [P] [US2] Implement GET /api/auth/session in
+      server/api/auth/session.get.ts — return current user + company
+      context from validated session
+- [ ] T019 [US2] Add remember-me support — accept rememberMe flag in
+      login, set 7d session TTL instead of 24h (in login handler +
+      repository)
 
-**Checkpoint**: User Story 2 should work independently — OAuth login, account creation, error handling.
+**Checkpoint**: User Story 2 complete — logout and session lifecycle
+working independently
 
 ---
 
-## Phase 5: User Story 3 — Logout and Session Management (Priority: P3)
+## Phase 5: User Story 3 - Multi-Tenant Membership (Priority: P3)
 
-**Goal**: An authenticated user logs out and their session is invalidated. Session lifecycle is managed transparently with proper expiry handling.
+**Goal**: After registration, user can create a new company (becoming
+first member) or search for existing companies to join. Once a member,
+user operates within a tenant context. Users can be deactivated.
 
-**Independent Test**: Login, then logout, then attempt to access protected route — verify 401. Wait for session expiry, verify 401 on protected route.
+**Independent Test**: Register → POST /api/auth/companies → 201 + first
+member. GET /api/auth/companies?q=X → matching companies. POST
+/api/auth/companies/:id/join → 200 + member. GET /api/auth/session →
+company context present.
 
 ### Implementation for User Story 3
 
-- [ ] T014 [P] [US3] Implement logout endpoint with session invalidation (Better Auth built-in handler) in server/api/auth/logout.ts
-- [ ] T015 [P] [US3] Add session expiry handling — return 401 with consistent error body for expired/missing sessions in server/middleware/auth.ts
-- [ ] T016 [US3] Add remember-me flow: accept rememberMe flag on login, extend session TTL to 7 days in server/utils/auth.ts
+- [ ] T020 [P] [US3] Implement POST /api/auth/companies in
+      server/api/auth/companies.post.ts — create company, add
+      requesting user as first member
+- [ ] T021 [P] [US3] Implement GET /api/auth/companies in
+      server/api/auth/companies.get.ts — search companies by name,
+      return matches
+- [ ] T022 [US3] Implement POST /api/auth/companies/[id]/join in
+      server/api/auth/companies.[id].join.post.ts — add user as
+      member of existing company
+- [ ] T023 [US3] Update GET /api/auth/session to include current
+      company context and support company switching via query param
+- [ ] T024 [US3] Implement user deactivation endpoint and logic
+      (soft delete — flag inactive, reject login)
 
-**Checkpoint**: User Story 3 should work independently — logout, session expiry, remember-me all functional.
-
----
-
-## Phase 6: Company & Invite Management (from plan.md)
-
-**Purpose**: Multi-tenant company CRUD and member invitation flow. These endpoints are specified in the implementation plan but correspond to infrastructure shared across future business contexts.
-
-**Independent Test**: Create a company with valid CNPJ, verify it appears in user's company list. Invite a user by email, verify invite record created. Accept invite with token, verify user becomes member.
-
-### Implementation
-
-- [ ] T017 [P] Create company CRUD handlers (POST /api/companies, GET /api/companies, GET /api/companies/:id) in server/api/companies/
-- [ ] T018 [P] Create invite management handlers (POST/GET /api/companies/:id/invites) in server/api/companies/[id]/invites/
-- [ ] T019 Create invite acceptance handler (POST /api/invites/:token/accept) and public invite metadata (GET /api/invites/:token) in server/api/invites/
-- [ ] T020 Add role-based authorization checks (owner/admin required for invite operations, owner/admin/operator for company reads) in server/utils/auth/authorization.ts
-
-**Checkpoint**: Company and invite operations are functional — create/list companies, send/accept invites, role enforcement.
+**Checkpoint**: All user stories independently functional
 
 ---
 
-## Phase 7: Polish & Cross-Cutting Concerns
+## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Improvements that affect multiple user stories and edge case hardening
+**Purpose**: Improvements that affect multiple user stories
 
-- [ ] T021 [P] Add consistent error handling for all endpoints (createError with proper status codes, error body format)
-- [ ] T022 [P] Add logging for auth events (registration, login success/failure, logout, rate-limit hits, OAuth callback) in server/utils/auth/logger.ts
-- [ ] T023 Add RLS policies for multi-tenancy isolation (companies, company_members, company_invites tables) as SQL migration
-- [ ] T024 Security hardening — validate CNPJ format, sanitize inputs, ensure no password/token leakage in error messages
+- [ ] T025 [P] Add auth event logging — wire FR-018 into register,
+      login, logout, lockout handlers (call IAuthRepository.logAuthEvent)
+- [ ] T026 Add Vitest setup and config (vitest.config.ts)
+- [ ] T027 Add unit tests for IAuthRepository (mocked DB) in
+      server/utils/auth/__tests__/repository.spec.ts
+- [ ] T028 Add integration tests for API routes (real PostgreSQL via
+      Docker) in server/api/auth/__tests__/*.spec.ts
+- [ ] T029 Security hardening — helmet-style headers, CORS config,
+      cookie security flags (httpOnly, Secure, SameSite)
+- [ ] T030 Run quickstart.md validation (verify full auth flow end-to-end)
 
 ---
 
@@ -131,45 +189,51 @@
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies — can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all user stories
-- **User Stories (Phase 3–5)**: All depend on Foundational phase completion
-  - US1, US2, US3 can proceed sequentially in priority order (P1 → P2 → P3)
-- **Company Management (Phase 6)**: Depends on Foundational phase (DB schema, middleware, repository)
-- **Polish (Phase 7)**: Depends on all phases being complete
+- **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all
+  user stories
+- **User Stories (Phase 3-5)**: All depend on Foundational phase
+  completion
+  - User stories can proceed in parallel (if staffed)
+  - Or sequentially in priority order (P1 → P2 → P3)
+- **Polish (Phase 6)**: Depends on all desired user stories being
+  complete
 
 ### User Story Dependencies
 
-- **US1 (P1)**: Can start after Foundational (Phase 2) — No dependencies on other stories
-- **US2 (P2)**: Can start after Foundational (Phase 2) — No dependencies on other stories
-- **US3 (P3)**: Can start after Foundational (Phase 2) — No dependencies on other stories
+- **User Story 1 (P1)**: No dependencies on other stories
+- **User Story 2 (P2)**: No dependencies on other stories (uses
+  same session infrastructure from Phase 2)
+- **User Story 3 (P3)**: Depends on US1 (user must exist before
+  creating/joining a company)
 
 ### Within Each User Story
 
-- Models before services
-- Services before endpoints
-- Core implementation before integration
+- Handlers before endpoints
+- Validation before core logic
+- Core implementation before error handling
 - Story complete before moving to next priority
 
 ### Parallel Opportunities
 
-- All Setup tasks can run sequentially (small phase)
-- T005 and T006 and T007 in Foundational can run in parallel
-- T009 and T010 in US1 can run in parallel
-- T012 (US2) and T014/T015 (US3) can run in parallel
-- T017 and T018 in Phase 6 can run in parallel
-- T021 and T022 in Polish can run in parallel
+- All Setup tasks marked [P] can run in parallel
+- All Foundational tasks marked [P] can run in parallel (within Phase 2)
+- Once Foundational phase completes, US1 and US2 can start in parallel
+- US3 must wait for US1 (needs registered user)
+- All tasks within a story marked [P] can run in parallel
+- Different endpoints within a story can run in parallel
 
 ---
 
 ## Parallel Example: User Story 1
 
 ```bash
-# Launch validation and rate limiting together:
-Task: "Add request validation in server/utils/validation.ts"
-Task: "Add rate limiting middleware in server/middleware/rateLimit.ts"
+# Launch register + login endpoints together:
+Task: "T013 [US1] POST /api/auth/register in server/api/auth/register.post.ts"
+Task: "T014 [US1] POST /api/auth/login in server/api/auth/login.post.ts"
 
-# Then configure session cookies:
-Task: "Configure session cookie in server/utils/auth.ts"
+# Then rate limiting + lockout together:
+Task: "T015 [US1] Rate limiting in server/middleware/rate-limit.ts"
+Task: "T016 [US1] Account lockout in server/utils/auth/helpers.ts"
 ```
 
 ---
@@ -178,10 +242,10 @@ Task: "Configure session cookie in server/utils/auth.ts"
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1: Setup — install deps, configure Drizzle
-2. Complete Phase 2: Foundational — schema, Better Auth, middleware, migrations
-3. Complete Phase 3: User Story 1 — email/password login + register
-4. **STOP and VALIDATE**: Test User Story 1 independently
+1. Complete Phase 1: Setup
+2. Complete Phase 2: Foundational (CRITICAL — blocks all stories)
+3. Complete Phase 3: User Story 1
+4. **STOP and VALIDATE**: Test registration + login independently
 5. Deploy/demo if ready
 
 ### Incremental Delivery
@@ -190,8 +254,7 @@ Task: "Configure session cookie in server/utils/auth.ts"
 2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
 3. Add User Story 2 → Test independently → Deploy/Demo
 4. Add User Story 3 → Test independently → Deploy/Demo
-5. Add Company Management → Test independently → Deploy/Demo
-6. Each phase adds value without breaking previous phases
+5. Each story adds value without breaking previous stories
 
 ### Parallel Team Strategy
 
@@ -199,10 +262,10 @@ With multiple developers:
 
 1. Team completes Setup + Foundational together
 2. Once Foundational is done:
-   - Developer A: User Story 1 (P1 — MVP)
-   - Developer B: User Story 2 (P2) or Company Management (Phase 6)
-   - Developer C: User Story 3 (P3)
-3. Phases complete and integrate independently
+   - Developer A: User Story 1 (registration + login)
+   - Developer B: User Story 2 (logout + session)
+3. Developer A continues to User Story 3 (multi-tenant)
+4. Developer B handles Phase 6 (polish, tests, security)
 
 ---
 
@@ -211,7 +274,7 @@ With multiple developers:
 - [P] tasks = different files, no dependencies
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
-- Better Auth handles core auth primitives (password hashing, session creation, OAuth flow) — we configure it, not reimplement it
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
-- Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+- Avoid: vague tasks, same file conflicts, cross-story dependencies
+  that break independence
