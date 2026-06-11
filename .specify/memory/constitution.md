@@ -1,55 +1,29 @@
-```md
 <!--
   Sync Impact Report
 
-  Version change: 2.0.0 → 2.1.0 (MINOR)
+  Version change: 2.1.0 → 2.2.0 (MINOR)
   Changes:
-    - Modified: Principle II (renamed to "Nuxt 4 Native + Repository Layer")
-    - Added: repository layer as the mandatory data-access pattern for all contexts
-    - Added: typed repository interfaces (IXxxRepository) for testability and DIP
-    - Removed: "no repository layer, no interfaces" prohibition
-    - Kept: no service layer rule (deferred until complexity demands)
-    - Updated: Project Layout (added utils/{context}/repository.ts pattern)
-    - Updated: Code Standards (added forbidden rule for direct Drizzle in handlers)
+    - Modified: Technology Stack (Database: PostgreSQL instead of Supabase PostgreSQL;
+      added Containerization row for Docker)
+    - Added: Containerization section with Dockerfile + docker-compose.yml mandates
+    - Added: Dockerfile and docker-compose.yml to Project Layout
   Templates requiring updates:
-    - .specify/templates/plan-template.md: add Folder Structure + Repository Pattern sections
-    - .specify/templates/spec-template.md: add repository layer to Assumptions
-    - .specify/templates/checklist-template.md: update architecture checklist template
+    - .specify/templates/plan-template.md: ✅ updated (no changes needed - generic)
+    - .specify/templates/spec-template.md: ✅ updated (no changes needed - generic)
+    - .specify/templates/tasks-template.md: ✅ updated (no changes needed - generic)
+    - .specify/templates/checklist-template.md: ✅ updated (no changes needed - generic)
   Follow-up TODOs:
-    - Update specs/001-auth-context/plan.md (add Folder Structure + Repository Pattern sections)
-    - Update specs/001-auth-context/spec.md (add repository assumption)
-    - Update specs/001-auth-context/architecture.md (align checklist with handler+repository)
--->
-<!--
-  Sync Impact Report
-
-  Version change: 1.4.1 → 2.0.0 (MAJOR)
-  Changes:
-    - Removed: Principle II (Three-Layer Separation)
-    - Removed: Principle III (Inward Dependency Flow)
-    - Removed: Principle IV (Aggregate-Owned Repositories)
-    - Removed: Principle V → renumbered to III (Test-First → Test as You Go)
-    - Removed: Shared Infrastructure section
-    - Removed: 140 lines of ceremonial rules
-    - Added: Principle II (Nuxt 4 Native — framework-first approach)
-    - Rewritten: Principle I (simplified, no layer references)
-    - Simplified: Development Workflow & Code Standards
-    - Simplified: Technology Stack
-  Templates requiring updates:
-    - .specify/templates/plan-template.md: no changes needed
-    - .specify/templates/spec-template.md: no changes needed
-    - .specify/templates/tasks-template.md: no changes needed
-    - .specify/templates/checklist-template.md: no changes needed
-  Follow-up TODOs:
-    - Update specs/001-auth-context/plan.md (remove architecture/code)
-    - Update specs/001-auth-context/spec.md (remove architecture/code)
+    - Create Dockerfile at project root (multi-stage build)
+    - Create docker-compose.yml at project root (PostgreSQL + app services)
+    - Update README.md with Docker-based development workflow
 -->
 
 # Merp Constitution
 
-This project follows a **Context-First, Framework-Native** approach.
+This project follows a **Context-First, Framework-Native, Dockerized** approach.
 Bounded contexts organize business domains; Nuxt 4 provides the structure.
 Write thin handlers in the framework. All data access through a repository.
+The application runs fully containerized via Docker.
 
 ## Core Principles
 
@@ -164,8 +138,9 @@ introducing unnecessary complexity during MVP.*
 | ------------------ | ---------------------------------------- |
 | Frontend / Backend | Nuxt 4 (monorepo)                        |
 | API Layer          | Nitro server routes                      |
-| Database           | Supabase PostgreSQL via DATABASE_URL     |
+| Database           | PostgreSQL                               |
 | ORM                | Drizzle ORM with postgres-js             |
+| Containerization   | Docker (Dockerfile + docker-compose.yml) |
 | Auth               | Better Auth with Drizzle adapter         |
 | Testing            | Vitest                                   |
 | Language           | TypeScript                               |
@@ -174,18 +149,20 @@ introducing unnecessary complexity during MVP.*
 ## Project Layout
 
 ```
+Dockerfile           # Multi-stage build for production
+docker-compose.yml   # PostgreSQL + app services
 server/
-├── api/              # Nitro routes — thin handlers (one file per endpoint)
-├── middleware/        # Server middleware (auth, tenant)
-└── utils/            # Auto-imported helpers
-    ├── schema.ts     # All Drizzle table definitions
-    ├── db.ts         # Database connection
-    └── {context}/    # e.g. auth/, companies/, fiscal/
+├── api/             # Nitro routes — thin handlers (one file per endpoint)
+├── middleware/      # Server middleware (auth, tenant)
+└── utils/           # Auto-imported helpers
+    ├── schema.ts    # All Drizzle table definitions
+    ├── db.ts        # Database connection
+    └── {context}/   # e.g. auth/, companies/, fiscal/
         ├── repository.ts  # IXxxRepository interface + DrizzleXxxRepository
         └── helpers.ts     # Shared business logic (extracted when needed)
-shared/               # Infra config (auth instance, logger)
-app/                  # Nuxt frontend (Vue pages, components)
-specs/                # Feature documentation (Spec Kit)
+shared/              # Infra config (auth instance, logger)
+app/                 # Nuxt frontend (Vue pages, components)
+specs/               # Feature documentation (Spec Kit)
 ```
 
 ## Code Standards
@@ -225,6 +202,38 @@ of truth and are treated with the same discipline as application code.
 - Destructive migrations (column drops, table renames, type changes)
   require a documented rollback plan in the PR body before merge.
 
+## Containerization
+
+The application MUST run fully containerized via Docker in both
+development and production environments.
+
+- `Dockerfile` at project root — multi-stage build producing an optimized
+  production image.
+- `docker-compose.yml` at project root — defines the app (Nuxt/Nitro)
+  and PostgreSQL services. The PostgreSQL service is the default database
+  target for local development.
+- All system-level dependencies MUST be declared in the Docker image.
+  No host-installed tooling outside the Docker environment is required
+  for development or deployment.
+- Docker volumes persist PostgreSQL data across restarts (`pgdata`).
+- Environment configuration (ports, secrets, database URL) flows through
+  `docker-compose.yml` environment variables or an accompanying `.env`
+  file — never hardcoded in the image.
+
+**Rules**:
+- The `docker-compose.yml` MUST be the single command to start the full
+  stack locally (`docker compose up`).
+- The `Dockerfile` MUST support both development (with hot-reload via
+  Nitro's dev server) and production (optimized, non-dev build).
+- Database credentials and secrets MUST NOT be committed — use `.env`
+  files (documented in `.env.example`).
+- CI pipelines MUST use the same Dockerfile and docker-compose setup
+  to ensure environment parity.
+
+*Rationale: Dockerized environments guarantee consistency across
+developer machines, CI, and production. Infrastructure as code keeps
+the runtime specification versioned alongside the application.*
+
 ## Governance
 
 This constitution supersedes all other practices defined in the project.
@@ -241,5 +250,4 @@ Version bumps follow semantic versioning:
 
 Compliance is verified during code review and spec/plan generation.
 
-**Version**: 2.1.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-10
-```
+**Version**: 2.2.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-11
