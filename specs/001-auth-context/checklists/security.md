@@ -25,9 +25,9 @@
 ## Rate Limiting & Abuse Prevention
 
 - [x] CHK013 - Are rate limit thresholds specified for each auth endpoint category individually (register vs login vs OAuth)? [Completeness, Spec §FR-011]
-- [ ] CHK014 - Is the rate limit window type (fixed vs sliding) documented in requirements? [Clarity, Spec §FR-011]
-- [ ] CHK015 - Are rate limit response headers (Retry-After, RateLimit-Reset) specified? [Gap]
-- [ ] CHK016 - Is the behavior defined when rate limit is reached (which status code, error body)? [Completeness, Gap]
+- [x] CHK014 - Is the rate limit window type (fixed vs sliding) documented in requirements? [Clarity, Spec §FR-010]
+- [x] CHK015 - Are rate limit response headers (Retry-After, RateLimit-Reset) specified? [Gap, Spec §FR-010, Spec §SC-006]
+- [x] CHK016 - Is the behavior defined when rate limit is reached (which status code, error body)? [Completeness, Spec §FR-010]
 
 ## Credential & Token Protection
 
@@ -46,4 +46,4 @@
 
 - [x] CHK024 - Is the assumption that "Better Auth handles password hashing" validated with specific algorithm and cost documentation? [Assumption, Spec §FR-009]
 - [x] CHK025 - Is the multi-tenancy isolation boundary assumption documented in security requirements? [Assumption, Spec §Assumptions]
-- [ ] CHK026 - Is a threat model or security review scope documented for the auth context? [Gap]
+- [x] CHK026 - Is a threat model or security review scope documented for the auth context? [Gap, Spec §Threat Model & Security Scope]

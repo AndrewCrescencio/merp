@@ -151,7 +151,13 @@ authenticated requests carry the correct tenant context.
 - **FR-009**: Sessions MUST expire after 24h by default. Sessions with
   a "remember me" flag expire after 7d.
 - **FR-010**: Login attempts MUST be rate-limited to mitigate brute-force
-  attacks.
+  attacks. Rate limiting uses a **sliding window** of 1 minute, tracking
+  attempts per email address. When the limit is exceeded, the server
+  responds with HTTP 429 Too Many Requests. The response body MUST follow
+  the standard error format:
+  `{ "error": "rate_limit_exceeded", "message": "Too many requests. Try again later.", "retryAfter": <seconds> }`.
+  Response headers MUST include `Retry-After` (seconds until reset) and
+  `RateLimit-Reset` (Unix timestamp of window expiry).
 - **FR-011**: System MUST associate each authenticated user with at least
   one company (tenant) for authorization decisions.
 - **FR-013**: Registration MUST create an account only. Company setup
@@ -192,7 +198,8 @@ authenticated requests carry the correct tenant context.
 - **SC-005**: Unauthenticated requests return an access-denied response
   in under 50ms.
 - **SC-006**: Brute-force protection kicks in within 5 login attempts
-  per email per minute.
+  per email per minute (sliding window). Rate-limited responses include
+  `Retry-After` and `RateLimit-Reset` headers.
 
 ## Assumptions
 
@@ -210,6 +217,110 @@ authenticated requests carry the correct tenant context.
   equal access.
 - The auth context does not handle fiscal rules, financial transactions,
   or any domain logic outside identity and access.
+
+## Threat Model & Security Scope
+
+**In scope for MVP**:
+- Brute-force mitigation via rate limiting (sliding window, 5 req/min per
+  email) and account lockout (10 failures, 30 min auto-unlock).
+- Session token protection: httpOnly, Secure, SameSite=Lax cookies.
+  Tokens never exposed in URLs, logs, or error messages.
+- Credential protection: passwords hashed by Better Auth (bcrypt, cost
+  factor 10+). Passwords never logged or returned in responses.
+- Multi-tenancy isolation: RLS at database layer + withTenant at
+  application layer. Defense in depth prevents cross-tenant data leaks.
+- TLS enforcement assumed at reverse proxy layer (not part of this
+  context's implementation).
+
+**Out of scope for MVP**:
+- OAuth / social login flows and their CSRF protections.
+- Role-based access control (RBAC) — all authenticated members have equal
+  access within a tenant.
+- API key management and programmatic access tokens.
+- Audit trail for non-auth events (data access, mutations) — deferred to
+  each bounded context.
+- Secrets rotation, certificate management, and infrastructure-level
+  security hardening (WAF, DDoS protection).
+- Penetration testing and formal security audit — deferred to pre-launch
+  hardening phase.
+
+**Monitoring & alerting thresholds**:
+| Metric | Warning | Critical | Alert |
+|--------|---------|----------|-------|
+| Login failure rate | >20% of attempts in 5min | >50% in 5min | Ops email + dashboard |
+| Rate-limit hits/min | >100 hits/min | >500 hits/min | Ops email + SMS |
+| Registration rate | >50/min | >200/min | Ops email |
+| Session validation errors | >10% in 5min | >30% in 5min | Ops email |
+| PII access (anomalous) | >2x normal rate | >5x normal rate | Security team email |
+
+All thresholds are configurable via environment variables. Metrics are
+exposed via a `/metrics` endpoint (Prometheus format) for dashboard
+integration.
+
+**Security review trigger**: A formal security review MUST be conducted
+before any production deployment that serves real user data. The review
+must cover: session management implementation, rate limiting correctness,
+RLS policy validation, and error message leakage.
+
+## Data Governance & Compliance
+
+### PII Classification
+
+The following fields contain Personally Identifiable Information (PII)
+under Brazilian LGPD:
+
+| Field | Classification | Sensitivity | Retention |
+|-------|---------------|-------------|-----------|
+| email | Direct identifier | High | Indefinite while active, 5y after deactivation |
+| name | Direct identifier | Medium | Same as email |
+| hashed_password | Auth secret | High | Same as email (irreversibly hashed) |
+| CNPJ | Indirect identifier | Medium | Indefinite (fiscal record) |
+| razao_social | Business data | Low | Indefinite (fiscal record) |
+| IP address | Behavioral | Low | 90 days (auth logs) |
+| session_token | Auth secret | High | 24h / 7d (session TTL) |
+
+### Data Retention & Purging
+
+- **Sessions**: Expired sessions (past TTL + 24h grace) purged daily.
+  Remember-me sessions purged 48h after 7d TTL.
+- **Auth logs**: Retained for 90 days, then aggregated (counts only)
+  and purged.
+- **Expired invites**: Purged 30 days after `expiresAt`.
+- **Deactivated accounts**: Data retained for 5 years (fiscal compliance
+  with Brazilian archival law), then permanently anonymized — email and
+  name stripped, hashed_password destroyed, IP addresses in logs
+  truncated to /24.
+- **Hard-deletion on demand**: Upon verified user request, PII fields
+  (email, name) are overwritten with `"[deleted]"` placeholders.
+  Sessions and memberships are immediately removed. Auth logs and fiscal
+  foreign-key references are preserved but disassociated from the
+  deleted identity.
+
+### Data Breach Notification
+
+Per LGPD Art. 48:
+
+1. **Detect**: Monitor auth failure rate anomalies (>500% above
+   baseline) and unauthorized access attempts. Alert ops within 5
+   minutes.
+2. **Assess**: Determine scope (data categories, affected user count,
+   records exposed) within 2 hours of detection.
+3. **Notify ANPD**: Within 24h with breach description, affected data
+   categories, user count, and containment measures.
+4. **Notify affected users**: Within 48h via email with breach
+   description, data involved, and recommended actions (password change,
+   account monitoring).
+
+### Cross-Border Data Transfers
+
+| Service | Data Transited | Jurisdiction | Safeguard |
+|---------|---------------|-------------|-----------|
+| PostgreSQL | All user data | USA (us-east-1) | SCC + encryption at rest (AES-256) + TLS 1.3 |
+| Better Auth (lib) | In-memory hashing | N/A (local lib) | No transfer |
+| Resend (email) | Email, name | USA | SCC + Data Processing Agreement |
+
+Per LGPD Art. 33, adequate safeguards (Standard Contractual Clauses +
+DPA) are maintained with each provider.
 
 ## Infrastructure Dependencies
 
