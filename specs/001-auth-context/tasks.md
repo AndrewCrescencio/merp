@@ -36,15 +36,15 @@ implementation and testing of each story.
 
 **Purpose**: Project initialization, Docker environment, dependencies
 
-- [ ] T001 Create Dockerfile at project root (multi-stage: dev with
+- [x] T001 Create Dockerfile at project root (multi-stage: dev with
       hot-reload, prod optimized build)
-- [ ] T002 Create docker-compose.yml at project root (app + PostgreSQL
+- [x] T002 Create docker-compose.yml at project root (app + PostgreSQL
       services, pgdata volume, env passthrough)
-- [ ] T003 Create .env.example with all required env vars (DATABASE_URL,
+- [x] T003 Create .env.example with all required env vars (DATABASE_URL,
       AUTH_SECRET, ports)
-- [ ] T004 [P] Install dependencies: drizzle-orm, postgres, better-auth,
+- [x] T004 [P] Install dependencies: drizzle-orm, postgres, better-auth,
       @better-auth/drizzle-adapter
-- [ ] T005 [P] Create drizzle.config.ts at project root with PostgreSQL
+- [x] T005 [P] Create drizzle.config.ts at project root with PostgreSQL
       connection and schema path
 
 ---
