@@ -20,6 +20,23 @@ Without authentication, there is no way to know who is accessing the
 system, which tenant they belong to, or whether they are authorized.
 Auth is the gate — every interaction flows through it.
 
+## Clarifications
+
+### Session 2026-06-11
+
+- Q: What are the session expiry TTL values? → A: 24h default, 7d with
+  remember-me.
+- Q: How are companies created and users assigned to them? → A:
+  Self-service: after registration, the user can create a new company
+  (becoming its first member) or search for an existing company to join.
+- Q: Should auth operations be logged for audit purposes? → A: Yes —
+  all auth events (login, failed attempt, registration, logout) are
+  logged.
+- Q: What is the account lockout policy? → A: Lock after 10 total
+  failed attempts (any time window), auto-unlock after 30 minutes.
+- Q: What is the user lifecycle — can users be deactivated or deleted?
+  → A: Soft delete: users are flagged as inactive, never hard-deleted.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Email & Password Registration and Login (Priority: P1)
@@ -68,31 +85,36 @@ authenticated request and receive an access-denied error.
    **Then** the session is terminated.
 2. **Given** no active session, **When** the user accesses a protected
    resource, **Then** the system denies access.
-3. **Given** an active session past its expiry, **When** the user makes
-   a request, **Then** the system denies access.
+3. **Given** an active session past its 24h expiry, **When** the user
+   makes a request, **Then** the system denies access.
 
 ---
 
 ### User Story 3 - Multi-Tenant Membership (Priority: P3)
 
-A user can belong to one or more companies (tenants). After login, the
-system knows which tenant context the user is operating in.
+After registration, the user can create a new company (becoming its
+first member) or search for an existing company to join. Once a member
+of at least one company, the user operates within that tenant context.
 
 **Why this priority**: Merp serves multiple companies. User identity
 without tenant context is incomplete — we need to know *which company*
 the user is acting on behalf of. P3 because tenant membership builds on
 top of basic auth (P1) and session management (P2).
 
-**Independent Test**: Register a user, assign them to a company, login,
-then verify that authenticated requests carry the correct tenant context.
+**Independent Test**: Register, create a company, login, then verify
+authenticated requests carry the correct tenant context.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user assigned to a company, **When** the user logs in,
-   **Then** the system recognizes their company membership.
-2. **Given** a user assigned to multiple companies, **When** the user
-   logs in, **Then** they can select which company to operate as.
-3. **Given** a user not assigned to any company, **When** they log in,
+1. **Given** a registered user with no company, **When** the user
+   creates a new company, **Then** they become its first member.
+2. **Given** a registered user, **When** they search and find an
+   existing company to join, **Then** they become a member.
+3. **Given** a user with one company, **When** the user logs in,
+   **Then** the system defaults to their company context.
+4. **Given** a user member of multiple companies, **When** the user
+   logs in, **Then** they can switch between companies.
+5. **Given** a user not assigned to any company, **When** they log in,
    **Then** the system returns a success but limited-access status.
 
 ---
@@ -106,6 +128,8 @@ then verify that authenticated requests carry the correct tenant context.
 - What happens when the identity store is unreachable during login?
 - What happens when repeated failed login attempts occur?
 - How does the system behave under high registration volume?
+- What happens when a deactivated user tries to log in?
+- What happens to a user's sessions when their account is deactivated?
 
 ## Requirements *(mandatory)*
 
@@ -124,19 +148,33 @@ then verify that authenticated requests carry the correct tenant context.
   resources.
 - **FR-008**: System MUST protect stored passwords against compromise
   (e.g., hashing).
-- **FR-009**: Sessions MUST expire after a reasonable period. Short-lived
-  sessions expire sooner; long-lived sessions are available on request.
+- **FR-009**: Sessions MUST expire after 24h by default. Sessions with
+  a "remember me" flag expire after 7d.
 - **FR-010**: Login attempts MUST be rate-limited to mitigate brute-force
   attacks.
 - **FR-011**: System MUST associate each authenticated user with at least
   one company (tenant) for authorization decisions.
+- **FR-013**: Registration MUST create an account only. Company setup
+  is a separate step after registration.
+- **FR-014**: System MUST provide an endpoint to create a new company,
+  making the requesting user its first member.
+- **FR-015**: System MUST provide an endpoint to search for existing
+  companies and request to join.
+- **FR-016**: System MUST lock the account after 10 total failed
+  login attempts (any time window). Locked accounts auto-unlock after
+  30 minutes.
+- **FR-017**: System MUST support deactivating a user (soft delete).
+  Deactivated users cannot log in, but their data is preserved.
+- **FR-018**: System MUST log all auth events — registration, login,
+  failed login, and logout — with timestamp, email, and outcome.
 - **FR-012**: System MUST support multiple active sessions per user
   (different devices/browsers).
 
 ### Key Entities
 
-- **User**: A person who can access the system. Has an email and can
-  authenticate. Belongs to one or more companies.
+- **User**: A person who can access the system. Has an email, can
+  authenticate, and has an active/inactive state. Belongs to one or
+  more companies.
 - **Session**: Represents an authenticated user's active access period.
   Created on login, destroyed on logout or expiry.
 - **Company**: A tenant in the multi-tenant model. Users are members of
