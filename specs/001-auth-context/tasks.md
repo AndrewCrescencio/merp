@@ -26,7 +26,7 @@ implementation and testing of each story.
 - **Root config**: `Dockerfile`, `docker-compose.yml`, `.env.example`
 - **Server routes**: `server/api/auth/`
 - **Server middleware**: `server/middleware/auth.ts`
-- **Server utils**: `server/utils/{db,schema}.ts`, `server/utils/auth/`
+- **Server utils**: `server/utils/{db,schema,tenant}.ts`, `server/utils/auth/`
 - **Shared**: `shared/{auth,logger}.ts`
 - **Tests**: Not yet created — test structure TBD in Phase 6
 
@@ -57,32 +57,34 @@ story can be implemented
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
 - [ ] T006 Create server/utils/db.ts — database connection using postgres.js
-      <!-- TODO: aplicar withTenant → o pool criado aqui será usado pelo helper -->
-- [ ] T007 Create server/utils/schema.ts — Drizzle table definitions
+      (the pool created here is used by the withTenant helper)
+- [ ] T007 Create server/utils/tenant.ts — withTenant(tenantId, fn) helper
+      that acquires a dedicated connection, sets app.tenant_id via set_config,
+      and provides a tenant-isolated Drizzle instance to the callback (per
+      constitution Database & Multi-tenancy mandate)
+- [ ] T008 Create server/utils/schema.ts — Drizzle table definitions
       (User, Session, Company, CompanyMember, AuthLog) using Better Auth
-      compatible schema + custom tables
-      <!-- TODO: aplicar withTenant → toda tabela com tenant_id deve ter RLS habilitado
-      e policy de isolamento usando current_setting('app.tenant_id')::UUID -->
-- [ ] T008 Create server/utils/auth/repository.ts — IAuthRepository
+      compatible schema + custom tables. Every table with tenant_id MUST have
+      RLS enabled and a policy filtering by
+      current_setting('app.tenant_id')::UUID.
+- [ ] T009 Create server/utils/auth/repository.ts — IAuthRepository
       interface + DrizzleAuthRepository with all methods (createUser,
       getSession, createSession, deleteSession, createCompany,
       addMember, findCompanies, logAuthEvent, getFailedAttempts,
-      lockAccount, isAccountLocked, deactivateUser)
-      <!-- TODO: aplicar withTenant → métodos que acessam dados de tenant
-      (Company, CompanyMember) devem usar withTenant; criação de Company
-      (onboarding) pode usar db direto -->
-- [ ] T009 Create server/utils/auth/helpers.ts — password validation,
+      lockAccount, isAccountLocked, deactivateUser). Methods accessing
+      tenant-scoped data (Company, CompanyMember) MUST use withTenant.
+      Company creation (onboarding) may use db directly.
+- [ ] T010 Create server/utils/auth/helpers.ts — password validation,
       email validation, rate limiting state, lockout threshold logic
-- [ ] T010 Create shared/auth.ts — Better Auth server instance configured
+- [ ] T011 Create shared/auth.ts — Better Auth server instance configured
       with Drizzle adapter and email/password provider
-- [ ] T011 Create shared/logger.ts — structured logger (PINO or simple
+- [ ] T012 Create shared/logger.ts — structured logger (PINO or simple
       wrapper) with log levels and auth event formatting
-- [ ] T012 Create server/middleware/auth.ts — session validation from
+- [ ] T013 Create server/middleware/auth.ts — session validation from
       cookie, attach user + company context to event, reject
-      unauthenticated requests
-      <!-- TODO: aplicar withTenant → o middleware é o ponto de entrada do
-      tenant context; deve extrair tenantId do usuário autenticado para
-      uso com withTenant -->
+      unauthenticated requests. Middleware is the entry point for tenant
+      context: extract tenantId from authenticated user for use with
+      withTenant.
 
 **Checkpoint**: Foundation ready — user story implementation can now
 begin in parallel
@@ -101,15 +103,15 @@ with existing email → 409.
 
 ### Implementation for User Story 1
 
-- [ ] T013 [P] [US1] Implement POST /api/auth/register in
+- [ ] T014 [P] [US1] Implement POST /api/auth/register in
       server/api/auth/register.post.ts — validate input, call
       IAuthRepository.createUser, return success (no auto-login)
-- [ ] T014 [P] [US1] Implement POST /api/auth/login in
+- [ ] T015 [P] [US1] Implement POST /api/auth/login in
       server/api/auth/login.post.ts — validate credentials, create
       session, set httpOnly cookie, return user info
-- [ ] T015 [US1] Add rate limiting to register + login endpoints
-      (5 attempts/min per IP+email) in server/middleware/rate-limit.ts
-- [ ] T016 [US1] Add account lockout logic — track failed attempts,
+- [ ] T016 [US1] Add rate limiting to register + login endpoints
+      (5 attempts/min per email) in server/middleware/rate-limit.ts
+- [ ] T017 [US1] Add account lockout logic — track failed attempts,
       lock after 10 total failures, auto-unlock after 30 minutes
       (in server/utils/auth/helpers.ts + repository)
 
@@ -130,15 +132,16 @@ Login from two devices → both sessions active.
 
 ### Implementation for User Story 2
 
-- [ ] T017 [P] [US2] Implement POST /api/auth/logout in
+- [ ] T018 [P] [US2] Implement POST /api/auth/logout in
       server/api/auth/logout.post.ts — clear session cookie,
       call IAuthRepository.deleteSession
-- [ ] T018 [P] [US2] Implement GET /api/auth/session in
+- [ ] T019 [P] [US2] Implement GET /api/auth/session in
       server/api/auth/session.get.ts — return current user + company
       context from validated session
-- [ ] T019 [US2] Add remember-me support — accept rememberMe flag in
+- [ ] T020 [US2] Add remember-me support — accept rememberMe flag in
       login, set 7d session TTL instead of 24h (in login handler +
-      repository)
+      repository). Validate multiple concurrent sessions work correctly
+      (different devices each have independent sessions).
 
 **Checkpoint**: User Story 2 complete — logout and session lifecycle
 working independently
@@ -158,24 +161,23 @@ company context present.
 
 ### Implementation for User Story 3
 
-- [ ] T020 [P] [US3] Implement POST /api/auth/companies in
+- [ ] T021 [P] [US3] Implement POST /api/auth/companies in
       server/api/auth/companies.post.ts — create company, add
-      requesting user as first member
-- [ ] T021 [P] [US3] Implement GET /api/auth/companies in
+      requesting user as first member. Uses direct db access for
+      company creation (onboarding exception per constitution).
+- [ ] T022 [P] [US3] Implement GET /api/auth/companies in
       server/api/auth/companies.get.ts — search companies by name,
-      return matches
-- [ ] T022 [US3] Implement POST /api/auth/companies/[id]/join in
+      return matches. Member data is tenant-scoped — use withTenant.
+- [ ] T023 [US3] Implement POST /api/auth/companies/[id]/join in
       server/api/auth/companies.[id].join.post.ts — add user as
-      member of existing company
-      <!-- TODO: aplicar withTenant → member data é tenant-scoped -->
-- [ ] T023 [US3] Update GET /api/auth/session to include current
-      company context and support company switching via query param
-      <!-- TODO: aplicar withTenant → busca de empresas do usuário é
-      tenant-scoped -->
-- [ ] T024 [US3] Implement user deactivation endpoint and logic
-      (soft delete — flag inactive, reject login)
-      <!-- TODO: aplicar withTenant → se a desativação envolver remoção
-      de membro de empresa, usar withTenant -->
+      member of existing company. Member data is tenant-scoped — use
+      withTenant.
+- [ ] T024 [US3] Update GET /api/auth/session to include current
+      company context and support company switching via query param.
+      Company lookups are tenant-scoped — use withTenant.
+- [ ] T025 [US3] Implement user deactivation endpoint and logic
+      (soft delete — flag inactive, reject login). If deactivation
+      removes company membership, use withTenant.
 
 **Checkpoint**: All user stories independently functional
 
@@ -185,18 +187,17 @@ company context present.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T025 [P] Add auth event logging — wire FR-018 into register,
+- [ ] T026 [P] Add auth event logging — wire FR-018 into register,
       login, logout, lockout handlers (call IAuthRepository.logAuthEvent)
-- [ ] T026 Add Vitest setup and config (vitest.config.ts)
-- [ ] T027 Add unit tests for IAuthRepository (mocked DB) in
+- [ ] T027 Add Vitest setup and config (vitest.config.ts)
+- [ ] T028 Add unit tests for IAuthRepository (mocked DB) in
       server/utils/auth/__tests__/repository.spec.ts
-- [ ] T028 Add integration tests for API routes (real PostgreSQL via
-      Docker) in server/api/auth/__tests__/*.spec.ts
-      <!-- TODO: aplicar withTenant → testes de integração devem validar
-      que queries fora do withTenant retornam zero linhas (RLS deny) -->
-- [ ] T029 Security hardening — helmet-style headers, CORS config,
+- [ ] T029 Add integration tests for API routes (real PostgreSQL via
+      Docker) in server/api/auth/__tests__/*.spec.ts. Validate that
+      queries outside withTenant return zero rows for tenant-scoped
+      tables (RLS deny by default).
+- [ ] T030 Security hardening — helmet-style headers, CORS config,
       cookie security flags (httpOnly, Secure, SameSite)
-- [ ] T030 Run quickstart.md validation (verify full auth flow end-to-end)
 
 ---
 
@@ -244,12 +245,12 @@ company context present.
 
 ```bash
 # Launch register + login endpoints together:
-Task: "T013 [US1] POST /api/auth/register in server/api/auth/register.post.ts"
-Task: "T014 [US1] POST /api/auth/login in server/api/auth/login.post.ts"
+Task: "T014 [US1] POST /api/auth/register in server/api/auth/register.post.ts"
+Task: "T015 [US1] POST /api/auth/login in server/api/auth/login.post.ts"
 
 # Then rate limiting + lockout together:
-Task: "T015 [US1] Rate limiting in server/middleware/rate-limit.ts"
-Task: "T016 [US1] Account lockout in server/utils/auth/helpers.ts"
+Task: "T016 [US1] Rate limiting in server/middleware/rate-limit.ts"
+Task: "T017 [US1] Account lockout in server/utils/auth/helpers.ts"
 ```
 
 ---
