@@ -41,6 +41,9 @@ Auth is the gate — every interaction flows through it.
   → A: Return HTTP 401 with
   `{ "error": "session_expired", "message": "Session expired. Please login again." }`
   and include a `session_expired` error code.
+- Q: Should rate-limit responses include a `RateLimit-Remaining` header?
+  → A: Yes, include `RateLimit-Remaining` in addition to `Retry-After`
+  and `RateLimit-Reset`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -164,8 +167,9 @@ authenticated requests carry the correct tenant context.
   responds with HTTP 429 Too Many Requests. The response body MUST follow
   the standard error format:
   `{ "error": "rate_limit_exceeded", "message": "Too many requests. Try again later.", "retryAfter": <seconds> }`.
-  Response headers MUST include `Retry-After` (seconds until reset) and
-  `RateLimit-Reset` (Unix timestamp of window expiry).
+  Response headers MUST include `Retry-After` (seconds until reset),
+  `RateLimit-Reset` (Unix timestamp of window expiry), and
+  `RateLimit-Remaining` (remaining requests in current window).
 - **FR-011**: System MUST associate each authenticated user with at least
   one company (tenant) for authorization decisions.
 - **FR-013**: Registration MUST create an account only. Company setup
@@ -227,7 +231,7 @@ authenticated requests carry the correct tenant context.
   in under 50ms.
 - **SC-006**: Brute-force protection kicks in within 5 login attempts
   per email per minute (sliding window). Rate-limited responses include
-  `Retry-After` and `RateLimit-Reset` headers.
+  `Retry-After`, `RateLimit-Reset`, and `RateLimit-Remaining` headers.
 
 ## Assumptions
 
