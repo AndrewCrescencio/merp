@@ -1,185 +1,95 @@
----
-
-description: "Task list for Auth bounded context implementation"
-
----
-
 # Tasks: Auth Bounded Context
 
 **Input**: Design documents from `/specs/001-auth-context/`
 
-**Prerequisites**: plan.md (required), spec.md (required)
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/auth-api.md
 
-**Tests**: OPTIONAL — include only if explicitly requested.
-
-**Organization**: Tasks are grouped by user story to enable independent
-implementation and testing of each story.
-
-## Format: `[ID] [P?] [Story] Description`
+## Format: `[ID] [P] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
 
-## Path Conventions
-
-- **Root config**: `Dockerfile`, `docker-compose.yml`, `.env.example`
-- **Server routes**: `server/api/auth/`
-- **Server middleware**: `server/middleware/auth.ts`
-- **Server utils**: `server/utils/{db,schema,tenant}.ts`, `server/utils/auth/`
-- **Shared**: `shared/{auth,logger}.ts`
-- **Tests**: Not yet created — test structure TBD in Phase 6
-
----
-
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Project initialization, Docker environment, dependencies
+**Purpose**: Project initialization and basic structure
 
-- [x] T001 Create Dockerfile at project root (multi-stage: dev with
-      hot-reload, prod optimized build)
-- [x] T002 Create docker-compose.yml at project root (app + PostgreSQL
-      services, pgdata volume, env passthrough)
-- [x] T003 Create .env.example with all required env vars (DATABASE_URL,
-      AUTH_SECRET, ports)
-- [x] T004 [P] Install dependencies: drizzle-orm, postgres, better-auth,
-      @better-auth/drizzle-adapter
-- [x] T005 [P] Create drizzle.config.ts at project root with PostgreSQL
-      connection and schema path
+- [ ] T001 Scaffold Nuxt 4 project with TypeScript, Drizzle ORM, and Better Auth dependencies in `package.json`
+- [ ] T002 [P] Configure Docker Compose for PostgreSQL service in `docker-compose.yml`
+- [ ] T003 [P] Configure environment variables template in `.env.example` (DATABASE_URL, AUTH_SECRET, CORS_ORIGIN)
+- [ ] T004 [P] Configure Drizzle Kit for migrations in `drizzle.config.ts`
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Core infrastructure that MUST be complete before ANY user
-story can be implemented
+**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+- [ ] T005 [P] Create Drizzle schema for `User` and `Session` tables in `server/utils/schema.ts` per data-model.md
+- [ ] T006 [P] Create database connection module in `server/utils/db.ts`
+- [ ] T007 [P] Create shared logger in `shared/logger.ts`
+- [ ] T008 [P] Initialize Better Auth instance with Drizzle adapter in `shared/auth.ts` (email/password provider, session config)
+- [ ] T009 [P] Implement auth middleware in `server/middleware/auth.ts` — reads session cookie, validates via Better Auth, sets `event.context.user`
+- [ ] T010 [P] Configure CORS in `nuxt.config.ts` with explicit origin (FR-027)
+- [ ] T011 [P] Implement error response helpers in `server/utils/auth/helpers.ts` (consistent `{ error, message }` format per FR-026)
+- [ ] T012 [P] Implement rate limiting utility in `server/utils/auth/helpers.ts` (sliding window, per email, with Retry-After/RateLimit-Reset/RateLimit-Remaining headers per FR-010)
+- [ ] T013 Implement `IAuthRepository` interface and `DrizzleAuthRepository` class in `server/utils/auth/repository.ts` with register/findByEmail/createSession/validateSession/terminateSession methods
 
-- [ ] T006 Create server/utils/db.ts — database connection using postgres.js
-      (the pool created here is used by the withTenant helper)
-- [ ] T007 Create server/utils/tenant.ts — withTenant(tenantId, fn) helper
-      that acquires a dedicated connection, sets app.tenant_id via set_config,
-      and provides a tenant-isolated Drizzle instance to the callback (per
-      constitution Database & Multi-tenancy mandate)
-- [ ] T008 Create server/utils/schema.ts — Drizzle table definitions
-      (User, Session, Company, CompanyMember, AuthLog) using Better Auth
-      compatible schema + custom tables. Every table with tenant_id MUST have
-      RLS enabled and a policy filtering by
-      current_setting('app.tenant_id')::UUID.
-- [ ] T009 Create server/utils/auth/repository.ts — IAuthRepository
-      interface + DrizzleAuthRepository with all methods (createUser,
-      getSession, createSession, deleteSession, createCompany,
-      addMember, findCompanies, logAuthEvent, getFailedAttempts,
-      lockAccount, isAccountLocked, deactivateUser). Methods accessing
-      tenant-scoped data (Company, CompanyMember) MUST use withTenant.
-      Company creation (onboarding) may use db directly.
-- [ ] T010 Create server/utils/auth/helpers.ts — password validation,
-      email validation, rate limiting state, lockout threshold logic
-- [ ] T011 Create shared/auth.ts — Better Auth server instance configured
-      with Drizzle adapter and email/password provider
-- [ ] T012 Create shared/logger.ts — structured logger (PINO or simple
-      wrapper) with log levels and auth event formatting
-- [ ] T013 Create server/middleware/auth.ts — session validation from
-      cookie, attach user + company context to event, reject
-      unauthenticated requests. Middleware is the entry point for tenant
-      context: extract tenantId from authenticated user for use with
-      withTenant.
-
-**Checkpoint**: Foundation ready — user story implementation can now
-begin in parallel
+**Checkpoint**: Foundation ready — user story implementation can now begin
 
 ---
 
-## Phase 3: User Story 1 - Email & Password Registration and Login (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 — Email & Password Registration and Login (Priority: P1) 🎯 MVP
 
-**Goal**: A new user registers with email+password and logs in with those
-credentials. Passwords are protected. Duplicate emails rejected.
+**Goal**: A new user registers with email and password, then logs in. After login, the system maintains an active session across requests.
 
-**Independent Test**: POST /api/auth/register with email+password →
-201. POST /api/auth/login with same credentials → 200 + session cookie.
-POST /api/auth/login with wrong password → 401. POST /api/auth/register
-with existing email → 409.
+**Independent Test**: Register with email+password, then login with the same credentials, then access a protected resource (`GET /api/auth/me`) successfully.
 
 ### Implementation for User Story 1
 
-- [ ] T014 [P] [US1] Implement POST /api/auth/register in
-      server/api/auth/register.post.ts — validate input, call
-      IAuthRepository.createUser, return success (no auto-login)
-- [ ] T015 [P] [US1] Implement POST /api/auth/login in
-      server/api/auth/login.post.ts — validate credentials, create
-      session, set httpOnly cookie, return user info
-- [ ] T016 [US1] Add rate limiting to register + login endpoints
-      (5 attempts/min per email) in server/middleware/rate-limit.ts
-- [ ] T017 [US1] Add account lockout logic — track failed attempts,
-      lock after 10 total failures, auto-unlock after 30 minutes
-      (in server/utils/auth/helpers.ts + repository)
+- [ ] T014 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), rejects duplicates with 409 (FR-003), returns 201 without creating session (FR-001, FR-013)
+- [ ] T015 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with 24h/7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
+- [ ] T016 [P] [US1] Implement `GET /api/auth/me` in `server/api/auth/me.get.ts` — returns current user info and company memberships, requires valid session (FR-007)
+- [ ] T017 [US1] Implement account lockout logic in `server/utils/auth/helpers.ts` — count failed attempts, lock after 10 (any window), auto-unlock after 30 min (FR-016)
+- [ ] T018 [US1] Wire rate limiting to register and login endpoints per FR-010
 
-**Checkpoint**: User Story 1 complete — registration and login working
+**Checkpoint**: User Story 1 is fully functional — user can register, login, and verify session
 
 ---
 
-## Phase 4: User Story 2 - Logout and Session Lifecycle (Priority: P2)
+## Phase 4: User Story 2 — Logout and Session Lifecycle (Priority: P2)
 
-**Goal**: Authenticated user can log out (session terminated). Sessions
-expire automatically after 24h (7d with remember-me). Multiple sessions
-supported.
+**Goal**: An authenticated user can end their session explicitly. Sessions expire automatically after a period of inactivity.
 
-**Independent Test**: Login → GET /api/auth/session → 200 with user.
-POST /api/auth/logout → GET /api/auth/session → 401. Login with
-remember-me → session lasts 7d. Login without → session lasts 24h.
-Login from two devices → both sessions active.
+**Independent Test**: Login, receive a session, logout, then attempt an authenticated request (`GET /api/auth/me`) and receive an access-denied error.
 
 ### Implementation for User Story 2
 
-- [ ] T018 [P] [US2] Implement POST /api/auth/logout in
-      server/api/auth/logout.post.ts — clear session cookie,
-      call IAuthRepository.deleteSession
-- [ ] T019 [P] [US2] Implement GET /api/auth/session in
-      server/api/auth/session.get.ts — return current user + company
-      context from validated session
-- [ ] T020 [US2] Add remember-me support — accept rememberMe flag in
-      login, set 7d session TTL instead of 24h (in login handler +
-      repository). Validate multiple concurrent sessions work correctly
-      (different devices each have independent sessions).
+- [ ] T019 [P] [US2] Implement `POST /api/auth/logout` in `server/api/auth/logout.post.ts` — terminates current session (FR-006), clears session cookie
+- [ ] T020 [P] [US2] Implement session expiry handling in auth middleware (`server/middleware/auth.ts`) — return 401 with `session_expired` error code when session past TTL (FR-023)
+- [ ] T021 [US2] Emit `session_expired` observability event on middleware session validation failure per FR-023
+- [ ] T022 [US2] Create Drizzle schema for `AuthEvent` table in `server/utils/schema.ts` per data-model.md
 
-**Checkpoint**: User Story 2 complete — logout and session lifecycle
-working independently
+**Checkpoint**: User Story 2 is fully functional — user can logout, sessions expire
 
 ---
 
-## Phase 5: User Story 3 - Multi-Tenant Membership (Priority: P3)
+## Phase 5: User Story 3 — Multi-Tenant Membership (Priority: P3)
 
-**Goal**: After registration, user can create a new company (becoming
-first member) or search for existing companies to join. Once a member,
-user operates within a tenant context. Users can be deactivated.
+**Goal**: After registration, the user can create a new company (becoming its first member) or search for an existing company to join. Once a member of at least one company, the user operates within that tenant context.
 
-**Independent Test**: Register → POST /api/auth/companies → 201 + first
-member. GET /api/auth/companies?q=X → matching companies. POST
-/api/auth/companies/:id/join → 200 + member. GET /api/auth/session →
-company context present.
+**Independent Test**: Register, create a company, login, then verify authenticated requests carry the correct tenant context.
 
 ### Implementation for User Story 3
 
-- [ ] T021 [P] [US3] Implement POST /api/auth/companies in
-      server/api/auth/companies.post.ts — create company, add
-      requesting user as first member. Uses direct db access for
-      company creation (onboarding exception per constitution).
-- [ ] T022 [P] [US3] Implement GET /api/auth/companies in
-      server/api/auth/companies.get.ts — search companies by name,
-      return matches. Member data is tenant-scoped — use withTenant.
-- [ ] T023 [US3] Implement POST /api/auth/companies/[id]/join in
-      server/api/auth/companies.[id].join.post.ts — add user as
-      member of existing company. Member data is tenant-scoped — use
-      withTenant.
-- [ ] T024 [US3] Update GET /api/auth/session to include current
-      company context and support company switching via query param.
-      Company lookups are tenant-scoped — use withTenant.
-- [ ] T025 [US3] Implement user deactivation endpoint and logic
-      (soft delete — flag inactive, reject login). If deactivation
-      removes company membership, use withTenant.
+- [ ] T023 [P] [US3] Create Drizzle schema for `Company` and `CompanyMember` tables in `server/utils/schema.ts` per data-model.md (with RLS and tenant isolation)
+- [ ] T024 [P] [US3] Implement `POST /api/auth/companies` in `server/api/auth/companies.post.ts` — creates company, makes requesting user first member (FR-014)
+- [ ] T025 [P] [US3] Implement `GET /api/auth/companies` in `server/api/auth/companies.get.ts` — search companies by name/CNPJ (FR-015)
+- [ ] T026 [P] [US3] Implement `POST /api/auth/companies/switch` in `server/api/auth/companies.switch.post.ts` — switch active company context
+- [ ] T027 [US3] Update `GET /api/auth/me` to include `activeCompanyId` and `companies` list per contracts/auth-api.md
+- [ ] T028 [US3] Implement `withTenant(tenantId, fn)` helper in `server/utils/auth/helpers.ts` per constitution (set `app.tenant_id` session variable, RLS enforcement)
 
-**Checkpoint**: All user stories independently functional
+**Checkpoint**: User Story 3 is fully functional — user can create/join/switch companies
 
 ---
 
@@ -187,17 +97,11 @@ company context present.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T026 [P] Add auth event logging — wire FR-018 into register,
-      login, logout, lockout handlers (call IAuthRepository.logAuthEvent)
-- [ ] T027 Add Vitest setup and config (vitest.config.ts)
-- [ ] T028 Add unit tests for IAuthRepository (mocked DB) in
-      server/utils/auth/__tests__/repository.spec.ts
-- [ ] T029 Add integration tests for API routes (real PostgreSQL via
-      Docker) in server/api/auth/__tests__/*.spec.ts. Validate that
-      queries outside withTenant return zero rows for tenant-scoped
-      tables (RLS deny by default).
-- [ ] T030 Security hardening — helmet-style headers, CORS config,
-      cookie security flags (httpOnly, Secure, SameSite)
+- [ ] T029 [P] Add LGPD consent recording to registration endpoint (`POST /api/auth/register`) per FR-021 (consent_terms_version, consent_terms_accepted_at)
+- [ ] T030 [P] Add auth event logging to all endpoints (registration, login, failed login, logout) per FR-018
+- [ ] T031 Add data export endpoint `GET /api/auth/export` per FR-020 (user personal data in JSON)
+- [ ] T032 Add session purge job for expired sessions (past TTL + 24h grace) per data retention policy
+- [ ] T033 Run quickstart.md validation — verify all endpoints work end-to-end
 
 ---
 
@@ -206,52 +110,23 @@ company context present.
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies — can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all
-  user stories
-- **User Stories (Phase 3-5)**: All depend on Foundational phase
-  completion
-  - User stories can proceed in parallel (if staffed)
-  - Or sequentially in priority order (P1 → P2 → P3)
-- **Polish (Phase 6)**: Depends on all desired user stories being
-  complete
+- **Foundational (Phase 2)**: Depends on Setup — BLOCKS all user stories
+- **US1 — Registration & Login (Phase 3)**: Depends on Foundational — No dependencies on other stories
+- **US2 — Logout & Session (Phase 4)**: Depends on Foundational — May reuse US1 components (session model), independently testable
+- **US3 — Multi-Tenant (Phase 5)**: Depends on Foundational + US1 — Requires login (US1) to test tenant context
+- **Polish (Phase 6)**: Depends on all user stories
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: No dependencies on other stories
-- **User Story 2 (P2)**: No dependencies on other stories (uses
-  same session infrastructure from Phase 2)
-- **User Story 3 (P3)**: Depends on US1 (user must exist before
-  creating/joining a company)
-
-### Within Each User Story
-
-- Handlers before endpoints
-- Validation before core logic
-- Core implementation before error handling
-- Story complete before moving to next priority
+- **US1 (P1)**: Can start after Foundational — No dependencies on other stories
+- **US2 (P2)**: Can start after Foundational — Reuses session from US1 but independently testable
+- **US3 (P3)**: Depends on US1 (login required) — Independently testable once US1 is complete
 
 ### Parallel Opportunities
 
-- All Setup tasks marked [P] can run in parallel
-- All Foundational tasks marked [P] can run in parallel (within Phase 2)
-- Once Foundational phase completes, US1 and US2 can start in parallel
-- US3 must wait for US1 (needs registered user)
-- All tasks within a story marked [P] can run in parallel
-- Different endpoints within a story can run in parallel
-
----
-
-## Parallel Example: User Story 1
-
-```bash
-# Launch register + login endpoints together:
-Task: "T014 [US1] POST /api/auth/register in server/api/auth/register.post.ts"
-Task: "T015 [US1] POST /api/auth/login in server/api/auth/login.post.ts"
-
-# Then rate limiting + lockout together:
-Task: "T016 [US1] Rate limiting in server/middleware/rate-limit.ts"
-Task: "T017 [US1] Account lockout in server/utils/auth/helpers.ts"
-```
+- All tasks marked **[P]** in any phase can run in parallel (different files, no dependencies)
+- US1 and US2 can be worked on in parallel once Foundational is done
+- US3 must wait for US1 to be complete
 
 ---
 
@@ -262,7 +137,7 @@ Task: "T017 [US1] Account lockout in server/utils/auth/helpers.ts"
 1. Complete Phase 1: Setup
 2. Complete Phase 2: Foundational (CRITICAL — blocks all stories)
 3. Complete Phase 3: User Story 1
-4. **STOP and VALIDATE**: Test registration + login independently
+4. **STOP and VALIDATE**: Test User Story 1 independently
 5. Deploy/demo if ready
 
 ### Incremental Delivery
@@ -279,19 +154,8 @@ With multiple developers:
 
 1. Team completes Setup + Foundational together
 2. Once Foundational is done:
-   - Developer A: User Story 1 (registration + login)
-   - Developer B: User Story 2 (logout + session)
-3. Developer A continues to User Story 3 (multi-tenant)
-4. Developer B handles Phase 6 (polish, tests, security)
-
----
-
-## Notes
-
-- [P] tasks = different files, no dependencies
-- [Story] label maps task to specific user story for traceability
-- Each user story should be independently completable and testable
-- Commit after each task or logical group
-- Stop at any checkpoint to validate story independently
-- Avoid: vague tasks, same file conflicts, cross-story dependencies
-  that break independence
+   - Developer A: User Story 1
+   - Developer B: User Story 2
+3. After US1 completes:
+   - Developer C: User Story 3
+4. Stories complete and integrate independently
