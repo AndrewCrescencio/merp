@@ -36,6 +36,11 @@ Auth is the gate — every interaction flows through it.
   failed attempts (any time window), auto-unlock after 30 minutes.
 - Q: What is the user lifecycle — can users be deactivated or deleted?
   → A: Soft delete: users are flagged as inactive, never hard-deleted.
+- Q: When a session expires mid-request (e.g., during a multi-step
+  operation like fiscal note emission), what should the system do?
+  → A: Return HTTP 401 with
+  `{ "error": "session_expired", "message": "Session expired. Please login again." }`
+  and include a `session_expired` error code.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -123,7 +128,10 @@ authenticated requests carry the correct tenant context.
 
 - What happens when a user registers with an already-used email?
 - What happens when the session expires mid-operation (e.g., during
-  fiscal note emission)?
+  fiscal note emission)? → The system returns HTTP 401 with
+  `{ "error": "session_expired", "message": "Session expired. Please login again." }`.
+  The client retries after re-authentication. A `session_expired`
+  observability event is emitted per FR-023.
 - How does the system handle concurrent sessions from different devices?
 - What happens when the identity store is unreachable during login?
 - What happens when repeated failed login attempts occur?
