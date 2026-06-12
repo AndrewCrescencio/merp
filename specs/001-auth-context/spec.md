@@ -236,6 +236,17 @@ authenticated requests carry the correct tenant context.
   HTTP 503 with
   `{ "error": "auth_unavailable", "message": "Authentication service unavailable." }`.
   The initialization error MUST be logged with full details.
+- **FR-026**: All unexpected 500-level errors MUST return a consistent
+  response body:
+  `{ "error": "internal_error", "message": "An unexpected error occurred." }`.
+  Stack traces, internal paths, and implementation details MUST NOT be
+  leaked in the response. The full error MUST be logged server-side
+  with correlation ID for debugging.
+- **FR-027**: CORS MUST be configured with explicit allowed origins
+  (no wildcard). Auth endpoints MUST include
+  `Access-Control-Allow-Credentials: true` for session cookie support.
+  Preflight (`OPTIONS`) requests MUST respond with appropriate CORS
+  headers for the configured origins.
 
 ### Key Entities
 
