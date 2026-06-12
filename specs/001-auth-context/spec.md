@@ -153,19 +153,18 @@ authenticated requests carry the correct tenant context.
   `{ "error": "session_expired", "message": "Session expired. Please login again." }`.
   The client retries after re-authentication. A `session_expired`
   observability event is emitted per FR-023.
-- How does the system handle concurrent sessions from different devices?
+- How does the system handle concurrent sessions from different devices? → Allowed per FR-012. No limit enforced.
 - What happens when the identity store is unreachable during login?
 - What happens when repeated failed login attempts occur?
-- How does the system behave under high registration volume?
-- What happens when a deactivated user tries to log in?
-- What happens to a user's sessions when their account is deactivated?
+- How does the system behave under high registration volume? → Register requests are rate-limited per FR-010.
+- What happens when a deactivated user tries to log in? → Login denied with HTTP 401 per FR-017.
+- What happens to a user's sessions when their account is deactivated? → All sessions immediately invalidated per FR-017.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: System MUST allow user registration with email and password.
-  Registration creates an account but does not start a session.
 - **FR-002**: System MUST validate email format and enforce a minimum
   password length during registration.
 - **FR-003**: System MUST reject registration with a duplicate email.
@@ -180,8 +179,8 @@ authenticated requests carry the correct tenant context.
 - **FR-009**: Sessions MUST expire after 24h by default. Sessions with
   a "remember me" flag expire after 7d.
 - **FR-010**: Login attempts MUST be rate-limited to mitigate brute-force
-  attacks. Rate limiting uses a **sliding window** of 1 minute, tracking
-  attempts per email address. When the limit is exceeded, the server
+  attacks.   Rate limiting uses a **sliding window** of 5 requests per 1 minute per
+  email address. When the limit is exceeded, the server
   responds with HTTP 429 Too Many Requests. The response body MUST follow
   the standard error format:
   `{ "error": "rate_limit_exceeded", "message": "Too many requests. Try again later.", "retryAfter": <seconds> }`.
