@@ -44,6 +44,9 @@ Auth is the gate — every interaction flows through it.
 - Q: Should rate-limit responses include a `RateLimit-Remaining` header?
   → A: Yes, include `RateLimit-Remaining` in addition to `Retry-After`
   and `RateLimit-Reset`.
+- Q: What timeouts should be configured for external calls? → A: 5s
+  timeout for Better Auth / session operations, 10s timeout for OAuth
+  provider HTTP calls.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -207,6 +210,11 @@ authenticated requests carry the correct tenant context.
   session lifecycle: session_created, session_validated,
   session_expired, session_invalidated. Each event includes session_id,
   user_id, tenant_id (if applicable), and timestamp.
+- **FR-024**: System MUST enforce HTTP timeouts for all outbound calls:
+  5s for Better Auth library calls, 10s for OAuth provider calls.
+  Timeout failures MUST return HTTP 503 with
+  `{ "error": "upstream_timeout", "message": "External service timed out. Try again." }`
+  and MUST be logged with full error details.
 
 ### Key Entities
 
