@@ -1,61 +1,49 @@
 # Implementation Plan: Auth Bounded Context
 
-**Branch**: `001-auth-context` | **Date**: 2026-06-11 | **Spec**: `specs/001-auth-context/spec.md`
+**Branch**: `001-auth-context` | **Date**: 2026-06-12 | **Spec**: specs/001-auth-context/spec.md
 
 **Input**: Feature specification from `/specs/001-auth-context/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
-
 ## Summary
 
-Build the Auth bounded context — user identity, session management, and
-multi-tenant company membership. Users register with email+password,
-manage sessions (24h default / 7d remember-me), create or join companies,
-and auth events are logged for audit. Account locks after 10 failures.
-
-This is a supporting domain that every other context depends on.
-Delivered as Nitro API routes with a typed repository layer over Drizzle.
+Implement email/password authentication with session management (24h/7d TTL), multi-tenant company membership, and security controls (rate limiting sliding window, account lockout, consistent error handling) using Better Auth + Drizzle ORM on Nuxt 4/Nitro. Registration creates an account without starting a session; login creates a session. Multi-tenant membership flows (create/join company) build on top of auth identity.
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x, Nuxt 4.4 (Nitro)
+**Language/Version**: TypeScript 5.x (Nuxt 4)
 
-**Primary Dependencies**: Drizzle ORM + postgres-js, Better Auth
-(Drizzle adapter), nuxt-rate-limit or custom Nitro middleware
+**Primary Dependencies**: Better Auth (`better-auth`), Drizzle ORM (`drizzle-orm`, `drizzle-kit`), PostgreSQL (`postgres-js`), Vitest
 
-**Storage**: PostgreSQL via docker-compose, Drizzle migrations
+**Storage**: PostgreSQL — sessions, users, companies, company_members tables
 
-**Testing**: Vitest (unit with mocked repository, integration with
-real database)
+**Testing**: Vitest — unit tests with mocked `IAuthRepository`, integration tests with real PostgreSQL + RLS
 
-**Target Platform**: Linux (Docker container)
+**Target Platform**: Linux server (Docker container)
 
-**Project Type**: Web application (Nuxt 4 full-stack)
+**Project Type**: Web service — Auth bounded context (supporting domain)
 
-**Performance Goals**: Registration <2s p95, login <1s p95, session
-validation <100ms p95
+**Performance Goals**: Registration <2s p95 (SC-001), Login <1s p95 (SC-002), Session validation <100ms p95 (SC-003), Rate-limited 429 <500ms (SC-004), Unauthenticated 401 <50ms (SC-005)
 
-**Constraints**: All data access through repository layer (per
-constitution), Dockerized environment, PostgreSQL only
+**Constraints**: Sliding window rate limit (5 req/min per email), account lockout after 10 failures (30 min auto-unlock), 5s timeout for Better Auth calls, 10s timeout for OAuth provider calls, explicit CORS origin with credentials
 
-**Scale/Scope**: MVP — single-user company bootstrap, up to 100
-companies, email+password only
+**Scale/Scope**: MVP — email/password only, OAuth deferred, RBAC deferred, company membership via create/search flows
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **Principle I (Bounded Contexts)**: Auth is a supporting domain.
-  Clean boundary — no fiscal/financeiro types leak in.
-- **Principle II (Nuxt 4 Native + Repository)**: Routes in
-  `server/api/auth/`, repository in `server/utils/auth/repository.ts`.
-- **Principle III (Test as You Go)**: Unit tests mock IAuthRepository.
-  Integration tests cover real Drizzle queries.
-- **Principle V (Tenant Isolation)**: All entities carry `company_id`.
-  RLS enforced at DB level.
-- **Containerization**: Docker compose with PostgreSQL must be
-  running for integration tests and dev.
-- No violations. All architecture aligns with constitution.
+| Gate | Status | Rationale |
+|------|--------|-----------|
+| §I Bounded Contexts | ✅ PASS | Auth is a recognized supporting domain. Communicates via IDs/DTOs. No cross-context type imports. |
+| §II Nuxt 4 + Repository | ✅ PASS | Handlers in `server/api/auth/`, repository in `server/utils/auth/repository.ts` (IAuthRepository + DrizzleAuthRepository). Drizzle schema in `server/utils/schema.ts`. |
+| §III Test as You Go | ✅ PASS | Vitest unit tests (mock IAuthRepository) + integration tests (real DB + RLS). Auth is supporting domain — tests follow in same commit per MVP shortcut. |
+| §IV Error Handling | ✅ PASS | `createError` for HTTP errors. FR-026 defines consistent 500 format. FR-024/FR-025 define timeout/init failure 503s. No internal details leaked. |
+| §V Tenant Isolation | ✅ PASS | `company_id` on all business entities. RLS + `withTenant` helper. Users belong to companies via `company_members`. |
+| §VI Transactions | ✅ PASS | Registration idempotent via email uniqueness (FR-003). Invite acceptance uses `SELECT ... FOR UPDATE` row-level locking. |
+| §VII Docker | ✅ PASS | App runs in Docker container. PostgreSQL in docker-compose. No host tooling required. |
+| §VIII Database & Multi-tenancy | ✅ PASS | `withTenant(tenantId, fn)` for all tenant-scoped queries. RLS policy on all tenant tables. Direct `db` only for global ops (company creation). |
+
+**Violations**: None — all constitution principles respected.
 
 ## Project Structure
 
@@ -64,56 +52,42 @@ companies, email+password only
 ```text
 specs/001-auth-context/
 ├── plan.md              # This file
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
-├── contracts/           # Phase 1 output
-└── tasks.md             # Phase 2 output (created by /speckit.tasks)
+├── research.md          # Phase 0 — technology decisions
+├── data-model.md        # Phase 1 — entity definitions
+├── quickstart.md        # Phase 1 — developer setup guide
+├── contracts/           # Phase 1 — API endpoint contracts
+│   └── auth-api.md
+├── checklists/
+│   ├── failure.md       # Edge case & failure coverage
+│   └── api.md           # API completeness
+└── tasks.md             # Generated by /speckit.tasks
 ```
 
 ### Source Code (repository root)
 
 ```text
-Dockerfile                    # Multi-stage build (dev + prod)
-docker-compose.yml            # PostgreSQL + app
-.env.example                  # Documented env vars
 server/
-├── api/
-│   └── auth/
-│       ├── register.post.ts
-│       ├── login.post.ts
-│       ├── logout.post.ts
-│       ├── session.get.ts
-│       ├── companies.post.ts
-│       ├── companies.get.ts
-│       └── companies.[id].join.post.ts
+├── api/auth/
+│   ├── register.post.ts        # POST /api/auth/register
+│   ├── login.post.ts            # POST /api/auth/login
+│   ├── logout.post.ts           # POST /api/auth/logout
+│   ├── me.get.ts                # GET /api/auth/me (session check)
+│   ├── companies.post.ts        # POST /api/auth/companies (create)
+│   ├── companies.get.ts         # GET /api/auth/companies (search)
+│   └── companies.switch.post.ts # POST /api/auth/companies/switch
 ├── middleware/
-│   └── auth.ts               # Session validation + tenant context
-└── utils/
-    ├── schema.ts             # All Drizzle table definitions
-    ├── db.ts                 # Database connection
-    └── auth/
-        ├── repository.ts     # IAuthRepository + DrizzleAuthRepository
-        └── helpers.ts        # Password hashing, validation, lockout
+│   └── auth.ts                  # Session validation + tenant context
+├── utils/
+│   ├── schema.ts                # Drizzle tables (users, sessions, companies, etc.)
+│   ├── db.ts                    # Database connection
+│   └── auth/
+│       ├── repository.ts        # IAuthRepository + DrizzleAuthRepository
+│       └── helpers.ts           # Auth utilities (when extracted)
 shared/
-├── auth.ts                   # Better Auth server instance
-└── logger.ts                 # Structured logger
-app/                          # Nuxt frontend (MVP placeholder)
-specs/
-└── 001-auth-context/
-    └── ...
+├── auth.ts                      # Better Auth instance initialization
+└── logger.ts                    # Shared logger
 ```
-
-**Structure Decision**: Nuxt 4 monorepo layout per constitution.
-Repository pattern under `server/utils/{context}/`. No service layer
-until complexity demands it.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-No violations — architecture is aligned with the constitution.
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| — | — | — |
+*No constitution violations — complexity tracking not required.*
