@@ -47,6 +47,9 @@ Auth is the gate — every interaction flows through it.
 - Q: What timeouts should be configured for external calls? → A: 5s
   timeout for Better Auth / session operations, 10s timeout for OAuth
   provider HTTP calls.
+- Q: What should happen when shared/auth.ts initialization fails at
+  startup? → A: Return HTTP 503 from auth endpoints and health check,
+  log the error, keep the process alive (graceful degradation).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -215,6 +218,12 @@ authenticated requests carry the correct tenant context.
   Timeout failures MUST return HTTP 503 with
   `{ "error": "upstream_timeout", "message": "External service timed out. Try again." }`
   and MUST be logged with full error details.
+- **FR-025**: If `shared/auth.ts` initialization fails at startup
+  (e.g., missing env vars, Better Auth config error), the system MUST
+  NOT crash. Instead, auth endpoints and health check MUST return
+  HTTP 503 with
+  `{ "error": "auth_unavailable", "message": "Authentication service unavailable." }`.
+  The initialization error MUST be logged with full details.
 
 ### Key Entities
 
