@@ -22,24 +22,24 @@
 
 ## Session & State Failure Requirements
 
-- [ ] CHK011 - Is the behavior defined when a session expires mid-request or mid-user-journey? [Coverage, Spec §Edge Cases]
+- [x] CHK011 - Is the behavior defined when a session expires mid-request or mid-user-journey? [Coverage, Spec §Edge Cases]
 - [x] CHK012 - Is concurrent session behavior specified (allowed, limited, or denied across devices)? [Coverage, Spec §Edge Cases]
 - [x] CHK013 - Are requirements defined for session invalidation when the user's account is deleted or disabled? [Gap]
 - [x] CHK014 - Is session cookie behavior specified for all relevant flags (httpOnly, Secure, SameSite, Path, Domain)? [Completeness, Spec §SC-006]
 
 ## Rate Limiting & Abuse Requirements
 
-- [ ] CHK015 - Is the window reset behavior defined for rate limiting (fixed window vs sliding window)? [Clarity, Spec §FR-011]
-- [ ] CHK016 - Are rate-limiting headers (RateLimit-Remaining, Retry-After) specified in the response? [Gap]
+- [x] CHK015 - Is the window reset behavior defined for rate limiting (fixed window vs sliding window)? [Clarity, Spec §FR-010]
+- [x] CHK016 - Are rate-limiting headers (RateLimit-Remaining, Retry-After) specified in the response? [Gap, Spec §FR-010]
 - [x] CHK017 - Are separate rate limits defined for different endpoint classes (register vs login vs OAuth)? [Completeness, Gap]
 
 ## Recovery & Resilience Requirements
 
 - [x] CHK018 - Is the recovery path specified after an OAuth failure (can the user retry the flow)? [Gap]
-- [ ] CHK019 - Are idempotency requirements defined for registration to prevent duplicate accounts on retry? [Gap]
-- [ ] CHK020 - Is the timeout requirement specified for external calls (Better Auth, OAuth provider)? [Gap]
+- [x] CHK019 - Are idempotency requirements defined for registration to prevent duplicate accounts on retry? [Gap, Spec §FR-003]
+- [x] CHK020 - Is the timeout requirement specified for external calls (Better Auth, OAuth provider)? [Gap, Spec §FR-024]
 
 ## Assumptions & Dependency Risk
 
-- [ ] CHK021 - Is the failure behavior specified when shared/auth.ts initialization fails at startup? [Gap, Spec §Assumptions]
+- [x] CHK021 - Is the failure behavior specified when shared/auth.ts initialization fails at startup? [Gap, Spec §FR-025]
 - [x] CHK022 - Are the consequences documented if Better Auth or Drizzle adapter has a breaking update? [Dependency, Gap]

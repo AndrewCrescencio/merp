@@ -17,8 +17,8 @@
 - [x] CHK006 - Is the error response format (JSON structure, field names, error codes) documented consistently? [Completeness, Gap]
 - [x] CHK007 - Are validation error responses specified for malformed requests (missing fields, invalid types)? [Coverage, Gap]
 - [x] CHK008 - Are 401 response details specified consistently between middleware and auth endpoints? [Consistency, Spec §FR-008, Spec §Middleware]
-- [ ] CHK009 - Are 429 (rate limit) response details specified (body, headers)? [Completeness, Gap]
-- [ ] CHK010 - Are 500 / unexpected error response behaviors defined? [Coverage, Gap]
+- [x] CHK009 - Are 429 (rate limit) response details specified (body, headers)? [Completeness, Spec §FR-010]
+- [x] CHK010 - Are 500 / unexpected error response behaviors defined? [Coverage, Spec §FR-026]
 
 ## Endpoint Behavior Requirements
 
@@ -42,6 +42,6 @@
 
 ## Headers & Transport Requirements
 
-- [ ] CHK022 - Are CORS requirements defined for auth endpoints (allowed origins, credentials)? [Gap]
+- [x] CHK022 - Are CORS requirements defined for auth endpoints (allowed origins, credentials)? [Gap, Spec §FR-027]
 - [x] CHK023 - Are Content-Type requirements specified for request and response payloads? [Gap]
 - [x] CHK024 - Are cookie-specific response headers (Set-Cookie attributes) specified in endpoint requirements? [Completeness, Spec §SC-006]

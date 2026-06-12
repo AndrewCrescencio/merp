@@ -50,6 +50,18 @@ Auth is the gate — every interaction flows through it.
 - Q: What should happen when shared/auth.ts initialization fails at
   startup? → A: Return HTTP 503 from auth endpoints and health check,
   log the error, keep the process alive (graceful degradation).
+- Q: Should registration have explicit idempotency key support to
+  prevent duplicate accounts on network retry? → A: No — email
+  uniqueness (FR-003) already prevents duplicates. Same-email retries
+  return 409 Conflict.
+- Q: What should happen when an unexpected 500 error occurs in an
+  auth endpoint? → A: Return 500 with
+  `{ "error": "internal_error", "message": "An unexpected error occurred." }`,
+  log full details server-side, never leak stack traces.
+- Q: What CORS configuration should auth endpoints use? → A: Allow
+  specific production origin (e.g., `https://app.merp.com.br`) with
+  credentials (`Access-Control-Allow-Credentials: true`). No wildcard
+  origins — cookies require explicit origin.
 
 ## User Scenarios & Testing *(mandatory)*
 
