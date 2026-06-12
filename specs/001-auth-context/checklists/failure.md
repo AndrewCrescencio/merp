@@ -16,8 +16,8 @@
 - [x] CHK005 - Is the error response format (status code, body schema, error codes) defined consistently for ALL auth endpoints? [Completeness, Gap]
 - [x] CHK006 - Is the behavior specified when OAuth returns an invalid or expired token? [Coverage, Spec §Edge Cases]
 - [x] CHK007 - Is the error message returned on wrong-password login specified (e.g., generic "invalid credentials" vs specific "wrong password")? [Clarity, Spec §US1-AS3]
-- [ ] CHK008 - Are requirements defined for what happens when the rate limit is exceeded (response code, headers, retry-after)? [Completeness, Spec §FR-011]
-- [ ] CHK009 - Is the behavior defined when the database is unreachable during login or registration? [Coverage, Spec §Edge Cases]
+- [x] CHK008 - Are requirements defined for what happens when the rate limit is exceeded (response code, headers, retry-after)? [Completeness, Spec §FR-010]
+- [x] CHK009 - Is the behavior defined when the database is unreachable during login or registration? [Coverage, Spec §Edge Cases]
 - [x] CHK010 - Is the error handling specified for middleware session validation failures beyond throwing 401? [Completeness, Spec §Middleware]
 
 ## Session & State Failure Requirements
