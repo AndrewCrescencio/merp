@@ -2,7 +2,6 @@ node_modules/
 dist/
 .output/
 .nuxt/
-drizzle/
 *.log
 .env
 .env.local

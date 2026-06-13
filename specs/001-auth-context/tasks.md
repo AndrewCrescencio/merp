@@ -26,17 +26,17 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-- [ ] T006 [P] Create Drizzle schema for `User` and `Session` tables in `server/utils/schema.ts` per data-model.md
-- [ ] T007 Generate and apply initial Drizzle migration for `User` + `Session` tables via `drizzle-kit generate && drizzle-kit migrate`
-- [ ] T008 [P] Create database connection module in `server/utils/db.ts`
-- [ ] T009 [P] Create shared logger in `shared/logger.ts`
-- [ ] T010 [P] Initialize Better Auth instance with Drizzle adapter in `shared/auth.ts` (email/password provider, session config)
-- [ ] T011 [P] Implement auth middleware in `server/middleware/auth.ts` — reads session cookie, validates via Better Auth, sets `event.context.user`
-- [ ] T012 [P] Configure CORS in `nuxt.config.ts` with explicit origin (FR-027)
-- [ ] T013 [P] Implement error response helpers in `server/utils/auth/helpers.ts` (consistent `{ error, message }` format per FR-026)
-- [ ] T014 [P] Implement rate limiting utility in `server/utils/auth/helpers.ts` (sliding window, per email, with Retry-After/RateLimit-Reset/RateLimit-Remaining headers per FR-010)
-- [ ] T015 Implement `IAuthRepository` interface and `DrizzleAuthRepository` class in `server/utils/auth/repository.ts` with register/findByEmail/createSession/validateSession/terminateSession methods
-- [ ] T016 [P] Implement database unreachable error handler per FR-028 in `server/utils/auth/helpers.ts` — catch connection errors, return 503, log full details
+- [X] T006 [P] Create Drizzle schema for `User` and `Session` tables in `server/utils/schema.ts` per data-model.md
+- [X] T007 Generate and apply initial Drizzle migration for `User` + `Session` tables via `drizzle-kit generate && drizzle-kit migrate`
+- [X] T008 [P] Create database connection module in `server/utils/db.ts`
+- [X] T009 [P] Create shared logger in `shared/logger.ts`
+- [X] T010 [P] Initialize Better Auth instance with Drizzle adapter in `shared/auth.ts` (email/password provider, session config)
+- [X] T011 [P] Implement auth middleware in `server/middleware/auth.ts` — reads session cookie, validates via Better Auth, sets `event.context.user`
+- [X] T012 [P] Configure CORS in `nuxt.config.ts` with explicit origin (FR-027)
+- [X] T013 [P] Implement error response helpers in `server/utils/auth/helpers.ts` (consistent `{ error, message }` format per FR-026)
+- [X] T014 [P] Implement rate limiting utility in `server/utils/auth/helpers.ts` (sliding window, per email, with Retry-After/RateLimit-Reset/RateLimit-Remaining headers per FR-010)
+- [X] T015 Implement `IAuthRepository` interface and `DrizzleAuthRepository` class in `server/utils/auth/repository.ts` with register/findByEmail/createSession/validateSession/terminateSession methods
+- [X] T016 [P] Implement database unreachable error handler per FR-028 in `server/utils/auth/helpers.ts` — catch connection errors, return 503, log full details
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 

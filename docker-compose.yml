@@ -22,6 +22,8 @@ services:
       POSTGRES_USER: ${DB_USER:-merp}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-merp}
       POSTGRES_DB: ${DB_NAME:-merp}
+    ports:
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
