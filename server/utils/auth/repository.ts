@@ -1,0 +1,211 @@
+import { and, eq, gt, lte, or, sql } from "drizzle-orm";
+import { db } from "../db";
+import { user, session } from "../schema";
+import { handleDatabaseError } from "./helpers";
+
+export interface IAuthRepository {
+  register(input: RegisterInput): Promise<UserResult>;
+  findByEmail(email: string): Promise<UserWithPassword | null>;
+  findById(id: string): Promise<UserResult | null>;
+  createSession(userId: string, token: string, expiresAt: Date, rememberMe: boolean): Promise<SessionResult>;
+  validateSession(token: string): Promise<SessionWithUser | null>;
+  terminateSession(token: string): Promise<void>;
+  terminateUserSessions(userId: string): Promise<void>;
+  updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult>;
+  isEmailTaken(email: string): Promise<boolean>;
+  countFailedAttempts(email: string): Promise<number>;
+  recordFailedAttempt(email: string): Promise<void>;
+  resetFailedAttempts(email: string): Promise<void>;
+}
+
+export interface RegisterInput {
+  email: string;
+  password: string;
+  name?: string;
+}
+
+export interface UserResult {
+  id: string;
+  email: string;
+  name: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserWithPassword extends UserResult {
+  hashedPassword: string;
+  failedAttempts: number;
+  lockedUntil: Date | null;
+}
+
+export interface SessionResult {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: Date;
+  rememberMe: boolean;
+  createdAt: Date;
+}
+
+export interface SessionWithUser {
+  session: SessionResult;
+  user: UserResult;
+}
+
+export interface UpdateUserInput {
+  name: string;
+  isActive: boolean;
+  consentTermsVersion: string;
+  consentTermsAcceptedAt: Date;
+  consentWithdrawnAt: Date;
+}
+
+export class DrizzleAuthRepository implements IAuthRepository {
+  async register(input: RegisterInput): Promise<UserResult> {
+    try {
+      const [newUser] = await db
+        .insert(user)
+        .values({
+          email: input.email,
+          name: input.name || null,
+        })
+        .returning();
+
+      return newUser!;
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async findByEmail(email: string): Promise<UserWithPassword | null> {
+    try {
+      const [found] = await db
+        .select()
+        .from(user)
+        .where(eq(user.email, email))
+        .limit(1);
+
+      if (!found) return null;
+
+      return {
+        ...found,
+        hashedPassword: "",
+        failedAttempts: 0,
+        lockedUntil: null,
+      };
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async findById(id: string): Promise<UserResult | null> {
+    try {
+      const [found] = await db
+        .select()
+        .from(user)
+        .where(eq(user.id, id))
+        .limit(1);
+
+      return found || null;
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async createSession(userId: string, token: string, expiresAt: Date, rememberMe: boolean): Promise<SessionResult> {
+    try {
+      const [newSession] = await db
+        .insert(session)
+        .values({ userId, token, expiresAt, rememberMe })
+        .returning();
+
+      return newSession!;
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async validateSession(token: string): Promise<SessionWithUser | null> {
+    try {
+      const [found] = await db
+        .select()
+        .from(session)
+        .where(and(eq(session.token, token), gt(session.expiresAt, new Date())))
+        .limit(1);
+
+      if (!found) return null;
+
+      const [userRecord] = await db
+        .select()
+        .from(user)
+        .where(eq(user.id, found.userId))
+        .limit(1);
+
+      if (!userRecord || !userRecord.isActive) return null;
+
+      return {
+        session: found,
+        user: userRecord,
+      };
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async terminateSession(token: string): Promise<void> {
+    try {
+      await db.delete(session).where(eq(session.token, token));
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async terminateUserSessions(userId: string): Promise<void> {
+    try {
+      await db.delete(session).where(eq(session.userId, userId));
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult> {
+    try {
+      const [updated] = await db
+        .update(user)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(user.id, id))
+        .returning();
+
+      return updated!;
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async isEmailTaken(email: string): Promise<boolean> {
+    try {
+      const [found] = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.email, email))
+        .limit(1);
+
+      return !!found;
+    } catch (error) {
+      return handleDatabaseError(error);
+    }
+  }
+
+  async countFailedAttempts(email: string): Promise<number> {
+    return 0;
+  }
+
+  async recordFailedAttempt(email: string): Promise<void> {
+  }
+
+  async resetFailedAttempts(email: string): Promise<void> {
+  }
+}
+
+export const authRepository: IAuthRepository = new DrizzleAuthRepository();
