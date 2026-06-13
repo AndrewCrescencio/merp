@@ -34,6 +34,7 @@
 - [ ] T011 [P] Implement error response helpers in `server/utils/auth/helpers.ts` (consistent `{ error, message }` format per FR-026)
 - [ ] T012 [P] Implement rate limiting utility in `server/utils/auth/helpers.ts` (sliding window, per email, with Retry-After/RateLimit-Reset/RateLimit-Remaining headers per FR-010)
 - [ ] T013 Implement `IAuthRepository` interface and `DrizzleAuthRepository` class in `server/utils/auth/repository.ts` with register/findByEmail/createSession/validateSession/terminateSession methods
+- [ ] T035 [P] Implement database unreachable error handler per FR-028 in `server/utils/auth/helpers.ts` — catch connection errors, return 503, log full details
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -85,6 +86,7 @@
 - [ ] T023 [P] [US3] Create Drizzle schema for `Company` and `CompanyMember` tables in `server/utils/schema.ts` per data-model.md (with RLS and tenant isolation)
 - [ ] T024 [P] [US3] Implement `POST /api/auth/companies` in `server/api/auth/companies.post.ts` — creates company, makes requesting user first member (FR-014)
 - [ ] T025 [P] [US3] Implement `GET /api/auth/companies` in `server/api/auth/companies.get.ts` — search companies by name/CNPJ (FR-015)
+- [ ] T034 [P] [US3] Implement `POST /api/auth/companies/join` in `server/api/auth/companies.join.post.ts` — join an existing company by ID, creates CompanyMember (FR-015)
 - [ ] T026 [P] [US3] Implement `POST /api/auth/companies/switch` in `server/api/auth/companies.switch.post.ts` — switch active company context
 - [ ] T027 [US3] Update `GET /api/auth/me` to include `activeCompanyId` and `companies` list per contracts/auth-api.md
 - [ ] T028 [US3] Implement `withTenant(tenantId, fn)` helper in `server/utils/auth/helpers.ts` per constitution (set `app.tenant_id` session variable, RLS enforcement)
@@ -99,6 +101,9 @@
 
 - [ ] T029 [P] Add LGPD consent recording to registration endpoint (`POST /api/auth/register`) per FR-021 (consent_terms_version, consent_terms_accepted_at)
 - [ ] T030 [P] Add auth event logging to all endpoints (registration, login, failed login, logout) per FR-018
+- [ ] T036 [P] Implement user deactivation endpoint `POST /api/auth/deactivate` in `server/api/auth/deactivate.post.ts` per FR-017 (soft delete, invalidates sessions)
+- [ ] T037 [P] Implement company deletion endpoint `POST /api/auth/companies/delete` in `server/api/auth/companies.delete.post.ts` per FR-019 (soft delete with cascade)
+- [ ] T038 [P] Implement PII access logging middleware in `server/middleware/pii-audit.ts` per FR-022 (log email/name access with purpose and timestamp)
 - [ ] T031 Add data export endpoint `GET /api/auth/export` per FR-020 (user personal data in JSON)
 - [ ] T032 Add session purge job for expired sessions (past TTL + 24h grace) per data retention policy
 - [ ] T033 Run quickstart.md validation — verify all endpoints work end-to-end

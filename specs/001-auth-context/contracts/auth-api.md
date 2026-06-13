@@ -159,6 +159,33 @@ Create a new company. The requesting user becomes its first member (FR-014).
 
 ---
 
+## POST /api/auth/companies/join
+
+Join an existing company by ID (FR-015).
+
+**Auth**: Required (session cookie)
+
+**Request Body**:
+```json
+{
+  "companyId": "uuid"
+}
+```
+
+**Success Response**: `200 OK`
+```json
+{ "message": "Joined company successfully" }
+```
+
+**Error Responses**:
+| Status | Error Code | Condition |
+|--------|------------|-----------|
+| 400 | validation_error | Missing companyId |
+| 404 | not_found | Company not found or deleted |
+| 409 | conflict | User is already a member of this company |
+
+---
+
 ## GET /api/auth/companies
 
 Search for companies to join (FR-015).

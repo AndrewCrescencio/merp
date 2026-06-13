@@ -154,8 +154,8 @@ authenticated requests carry the correct tenant context.
   The client retries after re-authentication. A `session_expired`
   observability event is emitted per FR-023.
 - How does the system handle concurrent sessions from different devices? → Allowed per FR-012. No limit enforced.
-- What happens when the identity store is unreachable during login?
-- What happens when repeated failed login attempts occur?
+- What happens when the identity store is unreachable during login? → The system returns HTTP 503 with `{ "error": "service_unavailable", "message": "Temporary error. Please try again." }` per FR-028.
+- What happens when repeated failed login attempts occur? → Account locks after 10 total failed attempts; auto-unlocks after 30 min per FR-016.
 - How does the system behave under high registration volume? → Register requests are rate-limited per FR-010.
 - What happens when a deactivated user tries to log in? → Login denied with HTTP 401 per FR-017.
 - What happens to a user's sessions when their account is deactivated? → All sessions immediately invalidated per FR-017.
@@ -246,6 +246,11 @@ authenticated requests carry the correct tenant context.
   `Access-Control-Allow-Credentials: true` for session cookie support.
   Preflight (`OPTIONS`) requests MUST respond with appropriate CORS
   headers for the configured origins.
+- **FR-028**: If the database is unreachable during any auth operation,
+  the system MUST return HTTP 503 with
+  `{ "error": "service_unavailable", "message": "Temporary error. Please try again." }`.
+  The underlying database error MUST NOT be leaked. The event MUST be
+  logged with full error details.
 
 ### Key Entities
 

@@ -74,7 +74,9 @@ server/
 │   ├── me.get.ts                # GET /api/auth/me (session check)
 │   ├── companies.post.ts        # POST /api/auth/companies (create)
 │   ├── companies.get.ts         # GET /api/auth/companies (search)
-│   └── companies.switch.post.ts # POST /api/auth/companies/switch
+│   ├── companies.join.post.ts   # POST /api/auth/companies/join
+│   ├── companies.switch.post.ts # POST /api/auth/companies/switch
+│   └── deactivate.post.ts       # POST /api/auth/deactivate
 ├── middleware/
 │   └── auth.ts                  # Session validation + tenant context
 ├── utils/
