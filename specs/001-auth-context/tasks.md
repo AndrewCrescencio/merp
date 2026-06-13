@@ -14,11 +14,11 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Scaffold Nuxt 4 project with TypeScript, Drizzle ORM, and Better Auth dependencies in `package.json`
-- [ ] T002 [P] Create multi-stage Dockerfile at project root per constitution — dev stage with hot-reload, production stage with optimized build in `Dockerfile`
-- [ ] T003 [P] Configure Docker Compose for PostgreSQL service in `docker-compose.yml`
-- [ ] T004 [P] Configure environment variables template in `.env.example` (DATABASE_URL, AUTH_SECRET, CORS_ORIGIN)
-- [ ] T005 [P] Configure Drizzle Kit for migrations in `drizzle.config.ts`
+- [X] T001 Scaffold Nuxt 4 project with TypeScript, Drizzle ORM, and Better Auth dependencies in `package.json`
+- [X] T002 [P] Create multi-stage Dockerfile at project root per constitution — dev stage with hot-reload, production stage with optimized build in `Dockerfile`
+- [X] T003 [P] Configure Docker Compose for PostgreSQL service in `docker-compose.yml`, dev override in `docker-compose.override.yml`, and production stack in `docker-compose.prod.yml`
+- [X] T004 [P] Configure environment variables template in `.env.example` (DATABASE_URL, BETTER_AUTH_SECRET, CORS_ORIGIN)
+- [X] T005 [P] Configure Drizzle Kit for migrations in `drizzle.config.ts`
 
 ---
 

@@ -1,0 +1,45 @@
+services:
+  app:
+    build:
+      target: production
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes: []
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  postgres:
+    ports: []
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - certs:/etc/letsencrypt
+    depends_on:
+      - app
+    restart: always
+    networks:
+      - merp_network
+
+volumes:
+  certs:
