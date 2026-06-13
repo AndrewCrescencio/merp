@@ -15,10 +15,10 @@
 **Purpose**: Project initialization and basic structure
 
 - [ ] T001 Scaffold Nuxt 4 project with TypeScript, Drizzle ORM, and Better Auth dependencies in `package.json`
-- [ ] T039 [P] Create multi-stage Dockerfile at project root per constitution — dev stage with hot-reload, production stage with optimized build in `Dockerfile`
-- [ ] T002 [P] Configure Docker Compose for PostgreSQL service in `docker-compose.yml`
-- [ ] T003 [P] Configure environment variables template in `.env.example` (DATABASE_URL, AUTH_SECRET, CORS_ORIGIN)
-- [ ] T004 [P] Configure Drizzle Kit for migrations in `drizzle.config.ts`
+- [ ] T002 [P] Create multi-stage Dockerfile at project root per constitution — dev stage with hot-reload, production stage with optimized build in `Dockerfile`
+- [ ] T003 [P] Configure Docker Compose for PostgreSQL service in `docker-compose.yml`
+- [ ] T004 [P] Configure environment variables template in `.env.example` (DATABASE_URL, AUTH_SECRET, CORS_ORIGIN)
+- [ ] T005 [P] Configure Drizzle Kit for migrations in `drizzle.config.ts`
 
 ---
 
@@ -26,17 +26,17 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-- [ ] T005 [P] Create Drizzle schema for `User` and `Session` tables in `server/utils/schema.ts` per data-model.md
-- [ ] T040 Generate and apply initial Drizzle migration for `User` + `Session` tables via `drizzle-kit generate && drizzle-kit migrate`
-- [ ] T006 [P] Create database connection module in `server/utils/db.ts`
-- [ ] T007 [P] Create shared logger in `shared/logger.ts`
-- [ ] T008 [P] Initialize Better Auth instance with Drizzle adapter in `shared/auth.ts` (email/password provider, session config)
-- [ ] T009 [P] Implement auth middleware in `server/middleware/auth.ts` — reads session cookie, validates via Better Auth, sets `event.context.user`
-- [ ] T010 [P] Configure CORS in `nuxt.config.ts` with explicit origin (FR-027)
-- [ ] T011 [P] Implement error response helpers in `server/utils/auth/helpers.ts` (consistent `{ error, message }` format per FR-026)
-- [ ] T012 [P] Implement rate limiting utility in `server/utils/auth/helpers.ts` (sliding window, per email, with Retry-After/RateLimit-Reset/RateLimit-Remaining headers per FR-010)
-- [ ] T013 Implement `IAuthRepository` interface and `DrizzleAuthRepository` class in `server/utils/auth/repository.ts` with register/findByEmail/createSession/validateSession/terminateSession methods
-- [ ] T035 [P] Implement database unreachable error handler per FR-028 in `server/utils/auth/helpers.ts` — catch connection errors, return 503, log full details
+- [ ] T006 [P] Create Drizzle schema for `User` and `Session` tables in `server/utils/schema.ts` per data-model.md
+- [ ] T007 Generate and apply initial Drizzle migration for `User` + `Session` tables via `drizzle-kit generate && drizzle-kit migrate`
+- [ ] T008 [P] Create database connection module in `server/utils/db.ts`
+- [ ] T009 [P] Create shared logger in `shared/logger.ts`
+- [ ] T010 [P] Initialize Better Auth instance with Drizzle adapter in `shared/auth.ts` (email/password provider, session config)
+- [ ] T011 [P] Implement auth middleware in `server/middleware/auth.ts` — reads session cookie, validates via Better Auth, sets `event.context.user`
+- [ ] T012 [P] Configure CORS in `nuxt.config.ts` with explicit origin (FR-027)
+- [ ] T013 [P] Implement error response helpers in `server/utils/auth/helpers.ts` (consistent `{ error, message }` format per FR-026)
+- [ ] T014 [P] Implement rate limiting utility in `server/utils/auth/helpers.ts` (sliding window, per email, with Retry-After/RateLimit-Reset/RateLimit-Remaining headers per FR-010)
+- [ ] T015 Implement `IAuthRepository` interface and `DrizzleAuthRepository` class in `server/utils/auth/repository.ts` with register/findByEmail/createSession/validateSession/terminateSession methods
+- [ ] T016 [P] Implement database unreachable error handler per FR-028 in `server/utils/auth/helpers.ts` — catch connection errors, return 503, log full details
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -50,11 +50,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T014 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), rejects duplicates with 409 (FR-003), returns 201 without creating session (FR-001, FR-013)
-- [ ] T015 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with 24h/7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
-- [ ] T016 [P] [US1] Implement `GET /api/auth/me` in `server/api/auth/me.get.ts` — returns current user info and company memberships, requires valid session (FR-007)
-- [ ] T017 [US1] Implement account lockout logic in `server/utils/auth/helpers.ts` — count failed attempts, lock after 10 (any window), auto-unlock after 30 min (FR-016)
-- [ ] T018 [US1] Wire rate limiting to register and login endpoints per FR-010
+- [ ] T017 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), rejects duplicates with 409 (FR-003), returns 201 without creating session (FR-001, FR-013)
+- [ ] T018 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with 24h/7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
+- [ ] T019 [P] [US1] Implement `GET /api/auth/me` in `server/api/auth/me.get.ts` — returns current user info and company memberships, requires valid session (FR-007)
+- [ ] T020 [US1] Implement account lockout logic in `server/utils/auth/helpers.ts` — count failed attempts, lock after 10 (any window), auto-unlock after 30 min (FR-016)
+- [ ] T021 [US1] Wire rate limiting to register and login endpoints per FR-010
 
 **Checkpoint**: User Story 1 is fully functional — user can register, login, and verify session
 
@@ -68,11 +68,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T019 [P] [US2] Implement `POST /api/auth/logout` in `server/api/auth/logout.post.ts` — terminates current session (FR-006), clears session cookie
-- [ ] T020 [P] [US2] Implement session expiry handling in auth middleware (`server/middleware/auth.ts`) — return 401 with `session_expired` error code when session past TTL (FR-023)
-- [ ] T021 [US2] Emit `session_expired` observability event on middleware session validation failure per FR-023
-- [ ] T022 [US2] Create Drizzle schema for `AuthEvent` table in `server/utils/schema.ts` per data-model.md
-- [ ] T041 Generate and apply Drizzle migration for `AuthEvent` table via `drizzle-kit generate && drizzle-kit migrate`
+- [ ] T022 [P] [US2] Implement `POST /api/auth/logout` in `server/api/auth/logout.post.ts` — terminates current session (FR-006), clears session cookie
+- [ ] T023 [P] [US2] Implement session expiry handling in auth middleware (`server/middleware/auth.ts`) — return 401 with `session_expired` error code when session past TTL (FR-023)
+- [ ] T024 [US2] Emit `session_expired` observability event on middleware session validation failure per FR-023
+- [ ] T025 [US2] Create Drizzle schema for `AuthEvent` table in `server/utils/schema.ts` per data-model.md
+- [ ] T026 Generate and apply Drizzle migration for `AuthEvent` table via `drizzle-kit generate && drizzle-kit migrate`
 
 **Checkpoint**: User Story 2 is fully functional — user can logout, sessions expire
 
@@ -86,14 +86,14 @@
 
 ### Implementation for User Story 3
 
-- [ ] T023 [P] [US3] Create Drizzle schema for `Company` and `CompanyMember` tables in `server/utils/schema.ts` per data-model.md (with RLS and tenant isolation)
-- [ ] T042 Generate and apply Drizzle migration for `Company` + `CompanyMember` tables via `drizzle-kit generate && drizzle-kit migrate`
-- [ ] T024 [P] [US3] Implement `POST /api/auth/companies` in `server/api/auth/companies.post.ts` — creates company, makes requesting user first member (FR-014)
-- [ ] T025 [P] [US3] Implement `GET /api/auth/companies` in `server/api/auth/companies.get.ts` — search companies by name/CNPJ (FR-015)
-- [ ] T034 [P] [US3] Implement `POST /api/auth/companies/join` in `server/api/auth/companies.join.post.ts` — join an existing company by ID, creates CompanyMember (FR-015)
-- [ ] T026 [P] [US3] Implement `POST /api/auth/companies/switch` in `server/api/auth/companies.switch.post.ts` — switch active company context
-- [ ] T027 [US3] Update `GET /api/auth/me` to include `activeCompanyId` and `companies` list per contracts/auth-api.md
-- [ ] T028 [US3] Implement `withTenant(tenantId, fn)` helper in `server/utils/auth/helpers.ts` per constitution (set `app.tenant_id` session variable, RLS enforcement)
+- [ ] T027 [P] [US3] Create Drizzle schema for `Company` and `CompanyMember` tables in `server/utils/schema.ts` per data-model.md (with RLS and tenant isolation)
+- [ ] T028 Generate and apply Drizzle migration for `Company` + `CompanyMember` tables via `drizzle-kit generate && drizzle-kit migrate`
+- [ ] T029 [P] [US3] Implement `POST /api/auth/companies` in `server/api/auth/companies.post.ts` — creates company, makes requesting user first member (FR-014)
+- [ ] T030 [P] [US3] Implement `GET /api/auth/companies` in `server/api/auth/companies.get.ts` — search companies by name/CNPJ (FR-015)
+- [ ] T031 [P] [US3] Implement `POST /api/auth/companies/join` in `server/api/auth/companies.join.post.ts` — join an existing company by ID, creates CompanyMember (FR-015)
+- [ ] T032 [P] [US3] Implement `POST /api/auth/companies/switch` in `server/api/auth/companies.switch.post.ts` — switch active company context
+- [ ] T033 [US3] Update `GET /api/auth/me` to include `activeCompanyId` and `companies` list per contracts/auth-api.md
+- [ ] T034 [US3] Implement `withTenant(tenantId, fn)` helper in `server/utils/auth/helpers.ts` per constitution (set `app.tenant_id` session variable, RLS enforcement)
 
 **Checkpoint**: User Story 3 is fully functional — user can create/join/switch companies
 
@@ -103,14 +103,14 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T029 [P] Add LGPD consent recording to registration endpoint (`POST /api/auth/register`) per FR-021 (consent_terms_version, consent_terms_accepted_at)
-- [ ] T030 [P] Add auth event logging to all endpoints (registration, login, failed login, logout) per FR-018
-- [ ] T036 [P] Implement user deactivation endpoint `POST /api/auth/deactivate` in `server/api/auth/deactivate.post.ts` per FR-017 (soft delete, invalidates sessions)
-- [ ] T037 [P] Implement company deletion endpoint `POST /api/auth/companies/delete` in `server/api/auth/companies.delete.post.ts` per FR-019 (soft delete with cascade)
-- [ ] T038 [P] Implement PII access logging middleware in `server/middleware/pii-audit.ts` per FR-022 (log email/name access with purpose and timestamp)
-- [ ] T031 Add data export endpoint `GET /api/auth/export` per FR-020 (user personal data in JSON)
-- [ ] T032 Add session purge job for expired sessions (past TTL + 24h grace) per data retention policy
-- [ ] T033 Run quickstart.md validation — verify all endpoints work end-to-end
+- [ ] T035 [P] Add LGPD consent recording to registration endpoint (`POST /api/auth/register`) per FR-021 (consent_terms_version, consent_terms_accepted_at)
+- [ ] T036 [P] Add auth event logging to all endpoints (registration, login, failed login, logout) per FR-018
+- [ ] T037 [P] Implement user deactivation endpoint `POST /api/auth/deactivate` in `server/api/auth/deactivate.post.ts` per FR-017 (soft delete, invalidates sessions)
+- [ ] T038 [P] Implement company deletion endpoint `POST /api/auth/companies/delete` in `server/api/auth/companies.delete.post.ts` per FR-019 (soft delete with cascade)
+- [ ] T039 [P] Implement PII access logging middleware in `server/middleware/pii-audit.ts` per FR-022 (log email/name access with purpose and timestamp)
+- [ ] T040 Add data export endpoint `GET /api/auth/export` per FR-020 (user personal data in JSON)
+- [ ] T041 Add session purge job for expired sessions (past TTL + 24h grace) per data retention policy
+- [ ] T042 Run quickstart.md validation — verify all endpoints work end-to-end
 
 ---
 
