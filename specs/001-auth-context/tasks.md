@@ -15,6 +15,7 @@
 **Purpose**: Project initialization and basic structure
 
 - [ ] T001 Scaffold Nuxt 4 project with TypeScript, Drizzle ORM, and Better Auth dependencies in `package.json`
+- [ ] T039 [P] Create multi-stage Dockerfile at project root per constitution — dev stage with hot-reload, production stage with optimized build in `Dockerfile`
 - [ ] T002 [P] Configure Docker Compose for PostgreSQL service in `docker-compose.yml`
 - [ ] T003 [P] Configure environment variables template in `.env.example` (DATABASE_URL, AUTH_SECRET, CORS_ORIGIN)
 - [ ] T004 [P] Configure Drizzle Kit for migrations in `drizzle.config.ts`
@@ -26,6 +27,7 @@
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
 - [ ] T005 [P] Create Drizzle schema for `User` and `Session` tables in `server/utils/schema.ts` per data-model.md
+- [ ] T040 Generate and apply initial Drizzle migration for `User` + `Session` tables via `drizzle-kit generate && drizzle-kit migrate`
 - [ ] T006 [P] Create database connection module in `server/utils/db.ts`
 - [ ] T007 [P] Create shared logger in `shared/logger.ts`
 - [ ] T008 [P] Initialize Better Auth instance with Drizzle adapter in `shared/auth.ts` (email/password provider, session config)
@@ -70,6 +72,7 @@
 - [ ] T020 [P] [US2] Implement session expiry handling in auth middleware (`server/middleware/auth.ts`) — return 401 with `session_expired` error code when session past TTL (FR-023)
 - [ ] T021 [US2] Emit `session_expired` observability event on middleware session validation failure per FR-023
 - [ ] T022 [US2] Create Drizzle schema for `AuthEvent` table in `server/utils/schema.ts` per data-model.md
+- [ ] T041 Generate and apply Drizzle migration for `AuthEvent` table via `drizzle-kit generate && drizzle-kit migrate`
 
 **Checkpoint**: User Story 2 is fully functional — user can logout, sessions expire
 
@@ -84,6 +87,7 @@
 ### Implementation for User Story 3
 
 - [ ] T023 [P] [US3] Create Drizzle schema for `Company` and `CompanyMember` tables in `server/utils/schema.ts` per data-model.md (with RLS and tenant isolation)
+- [ ] T042 Generate and apply Drizzle migration for `Company` + `CompanyMember` tables via `drizzle-kit generate && drizzle-kit migrate`
 - [ ] T024 [P] [US3] Implement `POST /api/auth/companies` in `server/api/auth/companies.post.ts` — creates company, makes requesting user first member (FR-014)
 - [ ] T025 [P] [US3] Implement `GET /api/auth/companies` in `server/api/auth/companies.get.ts` — search companies by name/CNPJ (FR-015)
 - [ ] T034 [P] [US3] Implement `POST /api/auth/companies/join` in `server/api/auth/companies.join.post.ts` — join an existing company by ID, creates CompanyMember (FR-015)
