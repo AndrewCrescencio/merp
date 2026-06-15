@@ -1,298 +1,289 @@
-```md
 <!--
   Sync Impact Report
 
-  Version change: 1.4.0 → 1.4.1 (PATCH)
-  Modified sections:
-    - Principle III → generalized provider-library restriction
-    - Development Workflow & Code Standards → class-based services are preferred, not mandatory
-    - Development Workflow & Code Standards → removed hard file-size limit
-    - Forbidden → bounded-context imports are discouraged instead of absolutely forbidden
-  Added sections:
-    - Principle VII → Tenant Isolation
-    - Principle VIII → Transactions and Idempotency
-  Removed sections: N/A
+  Version change: 2.3.0 → 2.4.0 (MINOR)
+  Changes:
+    - Added: Database & Multi-tenancy section with withTenant helper mandate,
+      RLS policy rules, and PR gate for violations
+    - Updated: III. Test as You Go — mandated co-located tests, removed MVP
+      shortcut, changed SHOULD to MUST. Updated Code Standards accordingly.
   Templates requiring updates:
-    - .specify/templates/plan-template.md: no changes needed
-    - .specify/templates/spec-template.md: no changes needed
-    - .specify/templates/tasks-template.md: no changes needed
-    - .specify/templates/checklist-template.md: no changes needed
-  Follow-up TODOs: None
+    - .specify/templates/plan-template.md: ✅ updated (no changes needed - generic)
+    - .specify/templates/spec-template.md: ✅ updated (no changes needed - generic)
+    - .specify/templates/tasks-template.md: ✅ updated (no changes needed - generic)
+    - .specify/templates/checklist-template.md: ✅ updated (no changes needed - generic)
+  Follow-up TODOs:
+    - Update specs/001-auth-context/spec.md (add Infrastructure Dependencies section)
+    - Update specs/001-auth-context/tasks.md (mark tenant-data tasks with withTenant TODO)
 -->
 
 # Merp Constitution
 
-This project follows a **Domain-First, Feature-Isolated** approach.
-All features are implemented inside isolated bounded contexts with strict
-separation between domain (business rules), application (I/O), and
-infrastructure (persistence). Simple class-based services and repository
-interfaces are preferred over functional architecture.
+This project follows a **Context-First, Framework-Native, Dockerized** approach.
+Bounded contexts organize business domains; Nuxt 4 provides the structure.
+Write thin handlers in the framework. All data access through a repository.
+The application runs fully containerized via Docker.
 
 ## Core Principles
 
-### I. Domain-First, Feature-Isolated Bounded Contexts
+### I. Bounded Contexts
 
 The system is organized by independent bounded contexts.
-`fiscal` is the **core domain** — it MUST be developed first and with
+`fiscal` is the **core domain** — it MUST be developed first with
 highest rigor. Supporting domains are `auth` and `financeiro`.
 
 **MVP Phase**: Contexts may be simplified and merged for speed. For example,
 `emitente` and `destinatario` may begin as value objects inside `nota/`,
-then graduate to full aggregates. `cfop`, `regime-tributario`, and
-`imposto` typically start as enums or value objects. Isolation is the
-long-term target, not the mandatory starting point.
+then graduate later. `cfop`, `regime-tributario`, and `imposto` start as
+enums or simple types. Isolation is the long-term target, not a mandatory
+starting point.
 
-Communication between contexts happens exclusively through IDs, DTOs, and
-public services.
-The `shared/` directory is infrastructure-only — it MUST NOT contain domain
-entities, domain types, or business logic.
+Communication between contexts happens through IDs, DTOs, and public
+functions. Direct type imports across contexts are discouraged.
+
+The `shared/` directory is infrastructure-only — it MUST NOT contain
+business types or logic.
 
 *Rationale: Bounded context isolation prevents coupling between separate
-business areas. Fiscal is the primary value driver and must remain the
-most rigorously structured context. The MVP clause prevents over-engineering
-the initial domain model. Cross-context contamination remains the primary
-source of architectural erosion in ERP systems.*
+business areas. Fiscal is the primary value driver.*
 
-### II. Three-Layer Separation of Responsibilities
+### II. Nuxt 4 Native + Repository Layer
 
-Every file belongs to exactly one of three layers:
+Route handlers live in `server/api/` and use Nitro's `defineEventHandler`.
+Handlers are thin: validate input, call a repository, return response.
+All data access goes through a typed repository interface.
 
-- **Application** — input/output (controllers, DTOs)
-- **Domain** — business rules (services, repository interfaces, types)
-- **Infrastructure** — persistence, external providers (repositories, clients)
+Rules:
+- Each route handler delegates data access to a repository — never
+  imports or calls Drizzle directly.
+- Repositories are defined in `server/utils/{context}/repository.ts`.
+  Each file exports an interface (e.g. `IAuthRepository`) and a
+  `DrizzleXxxRepository` implementation.
+- Interfaces enable Vitest mocks in unit tests and future ORM/DB swapping
+  without touching route handlers (Dependency Inversion Principle).
+- Keep all Drizzle table definitions in `server/utils/schema.ts`
+  (auto-imported by Nitro).
+- Extract shared business logic to `server/utils/{context}/helpers.ts`
+  only when it repeats across multiple routes.
+- No service layer unless a handler grows beyond clarity after extracting
+  to helpers. No DI containers. No decorators. No class inheritance.
 
-No file may mix these responsibilities.
-Controllers convert input to DTOs, call services, and return responses.
-Controllers contain zero business logic and MUST NOT import provider libraries.
-Services contain all domain rules and depend only on repository interfaces.
-Repositories implement those interfaces using provider-specific code.
+Nitro middleware in `server/middleware/` handles cross-cutting concerns
+(auth, tenant context).
 
-*Rationale: Strict layering ensures business rules remain testable and
-replaceable independently of frameworks and databases.*
+*Rationale: A thin repository layer costs almost nothing during MVP but
+unlocks Vitest mocking and the ability to swap Drizzle without touching
+handlers. Service layers are deferred — extract only when it hurts.*
 
-### III. Inward Dependency Flow
+### III. Test as You Go
 
-Dependencies flow inward: `application → domain ← infrastructure`.
-Domain NEVER depends on application or infrastructure.
-Domain types (`types.ts`) contain only interfaces and type aliases — no
-classes, no logic.
+Write tests alongside implementation. Vitest is the testing framework.
 
-Provider libraries MUST only appear inside infrastructure implementations —
-never in services, domain types, or controllers.
+**Test co-location**: Tests MUST reside beside the code they validate,
+never under `/specs`. The `/specs` directory is documentation-only and
+MUST NOT contain any executable code, including tests, mocks, fixtures,
+or scripts.
 
-**YAGNI**: Replacing Supabase is an aspirational goal, not an MVP requirement.
-Provider-specific code in repositories is acceptable. The swap path exists
-conceptually via interfaces; optimize for shipping over perfect interchangeability.
-
-*Rationale: A pure domain layer protects business rules from framework churn
-and infrastructure volatility.*
-
-### IV. Aggregate-Owned Repositories
-
-Each aggregate owns its own repository interface and implementation.
-Large contexts are split by aggregate (e.g., `nota/`, `emitente/`,
-`destinatario/`, `cfop/`, `regime-tributario/`, `imposto/`).
-No God repositories or God services with dozens of methods.
-Repository interfaces live in the domain layer; implementations are
-provider-specific (e.g., `SupabaseNotaRepository` → `PostgresNotaRepository`
-swap without changing services).
-
-*Rationale*: Aggregate boundaries mirror transaction consistency boundaries.
-Per-aggregate repositories keep each unit focused, testable, and
-independently replaceable.
-
-**MVP Phase**: A single repository per context is acceptable initially
-(e.g., `NotaRepository` handling `nota`, `emitente`, `destinatario`).
-Split when methods exceed clarity or transaction boundaries diverge.
-
-### V. Test-First Discipline
-
-Write tests alongside implementation in the same commit. Do not defer tests
-as a separate task. This is the preferred, expected workflow.
-
-Red → Green → Refactor is the recommended cycle, not a strict gate.
-Vitest is the testing framework.
-
-Prioritize coverage on fiscal critical paths: emission flows, tax
-calculations, status transitions, and validation rules. Avoid locking test
-suites to implementation details that shift frequently during early domain
-discovery — the fiscal model will evolve as business rules are clarified.
-
-**Unit tests**: Mock Supabase; services depend only on repository interfaces.
-Unit tests MUST NOT access a real database.
-
+**Unit tests**: Mock the repository interface. Do not access a real database.
 **Integration tests**: Cover real queries, constraints, and RLS.
-These run separately from unit tests (e.g., on CI or a dedicated test suite).
+Run separately from unit tests.
 
-Every service and repository MUST have a corresponding `.spec.ts` committed
-in the same logical feature, not necessarily the same commit.
-Tests describe behavior — WHAT is tested, not HOW.
+Test file naming: `<file-under-test>.test.ts` (e.g. `register.post.ts`
+→ `register.post.test.ts`).
 
-**MVP Shortcut**: For small features (screens, simple CRUD), tests may follow
-implementation in the next commit if shipping speed is critical.
+Priority: fiscal critical paths (emission, tax calculation, status
+transitions, validation rules).
 
-*Rationale*: Writing tests with implementation ensures interfaces are designed
-before implementation details ossify. Fiscal critical paths are the highest
-ROI coverage targets — they carry regulatory and financial risk. Mocked
-repositories ensure fast, deterministic, isolated unit tests; integration
-tests catch provider-specific breakage.
+Every route handler and repository MUST have a corresponding `.test.ts`
+file. Tests describe behavior — WHAT is tested, not HOW.
 
-### VI. Error Handling
+**No MVP Shortcut**: Tests are mandatory in every commit. Code without
+tests is not complete.
 
-Use typed exceptions consistently across all layers.
-All service failures must map to HTTP status codes explicitly via Nitro's
-`createError`. Unhandled errors must not leak internal details to clients.
+*Rationale: Tests validate behavior without coupling to implementation.
+The fiscal domain carries regulatory risk — coverage is non-negotiable
+there. Enforcing co-location prevents `/specs` from accumulating
+executable files and keeps implementation and validation tightly
+coupled.*
 
-A `Result<T, E>` pattern is a valid alternative but is not required for MVP —
-it adds expressive power at the cost of onboarding friction and verbosity.
-The default acceptable approach is a typed `throw` with a centralized error
-handler at the Nitro layer.
+### IV. Error Handling
 
-Whichever pattern is chosen, it MUST be applied consistently within a context.
-Do not mix `Result` and `throw` styles inside the same bounded context.
+Use `createError` from Nitro for all HTTP error responses. Be consistent
+within each bounded context.
 
-*Rationale*: Fiscal systems require predictable failure modes. Inconsistent
-error handling is a regulatory and UX risk. The Nitro-first approach is
-simpler to audit and sufficient for the MVP phase.*
+Unhandled errors MUST NOT leak internal details to clients. Use a
+centralized error handler at the Nitro layer for unexpected failures.
 
-### VII. Tenant Isolation
+*Rationale: Fiscal systems require predictable failure modes. Nitro's
+error handling is simple and sufficient for MVP.*
 
-All business entities MUST belong to a tenant.
+### V. Tenant Isolation
 
-Cross-tenant access is forbidden and should be prevented at both the
-repository and database levels whenever practical.
+All business entities MUST belong to a tenant (via `company_id`).
+Cross-tenant access is forbidden — enforce at both the database (RLS)
+and application levels.
 
-Tenant isolation is a core business requirement.
+*Rationale: ERP systems manage data for multiple companies. Tenant
+boundaries are business boundaries.*
 
-*Rationale*: ERP systems manage data belonging to multiple companies.
-Tenant boundaries are business boundaries and accidental data leakage is
-unacceptable.*
+### VI. Transactions & Idempotency
 
-### VIII. Transactions and Idempotency
+Operations spanning multiple tables SHOULD execute inside explicit
+database transactions.
 
-Operations spanning multiple aggregates or persistence steps SHOULD execute
-inside explicit database transactions.
+Commands with external side effects (NF-e emission, email, webhooks,
+boleto generation) SHOULD be idempotent whenever practical.
 
-Commands with external side effects (NF-e emission, email sending, webhook
-delivery, boleto generation) SHOULD be idempotent whenever practical.
+Domain events and outbox patterns are deferred until operational
+complexity requires them.
 
-Domain events and outbox patterns are intentionally deferred until
-operational complexity requires them.
-
-*Rationale*: Fiscal workflows involve external systems and multiple
-persistence operations. Transactions and idempotency reduce inconsistency
-and duplicate side effects without introducing unnecessary architectural
-complexity during the MVP phase.*
+*Rationale: Fiscal workflows involve external systems and multi-step
+writes. Transactions and idempotency reduce inconsistency without
+introducing unnecessary complexity during MVP.*
 
 ## Technology Stack
 
-| Concern            | Choice                                           |
-| ------------------ | ------------------------------------------------ |
-| Frontend / Backend | Nuxt 4 (monorepo)                                |
-| API Layer          | Nitro server routes                              |
-| Database / Storage | Supabase PostgreSQL via DATABASE_URL (MVP phase) |
-| ORM                | Drizzle ORM with drizzle-orm/postgres-js         |
-| Auth               | Better Auth with Drizzle adapter                 |
-| Language           | TypeScript everywhere                            |
-| Mobile             | Out of scope                                     |
+| Concern            | Choice                                   |
+| ------------------ | ---------------------------------------- |
+| Frontend / Backend | Nuxt 4 (monorepo)                        |
+| API Layer          | Nitro server routes                      |
+| Database           | PostgreSQL                               |
+| ORM                | Drizzle ORM with postgres-js             |
+| Containerization   | Docker (Dockerfile + docker-compose.yml) |
+| Auth               | Better Auth with Drizzle adapter         |
+| Testing            | Vitest                                   |
+| Language           | TypeScript                               |
+| Mobile             | Out of scope                             |
 
-Testing: Vitest with mocked repositories for unit tests.
-Integration tests cover real database access and run separately.
+## Project Layout
 
-## Shared Infrastructure
+```
+Dockerfile           # Multi-stage build for production
+docker-compose.yml   # PostgreSQL + app services
+server/
+├── api/             # Nitro routes — thin handlers (one file per endpoint)
+├── middleware/      # Server middleware (auth, tenant)
+└── utils/           # Auto-imported helpers
+    ├── schema.ts    # All Drizzle table definitions
+    ├── db.ts        # Database connection
+    └── {context}/   # e.g. auth/, companies/, fiscal/
+        ├── repository.ts  # IXxxRepository interface + DrizzleXxxRepository
+        └── helpers.ts     # Shared business logic (extracted when needed)
+shared/              # Infra config (auth instance, logger)
+app/                 # Nuxt frontend (Vue pages, components)
+specs/               # Feature documentation (Spec Kit)
+```
 
-| File               | Responsibility                                       |
-| ------------------ | ---------------------------------------------------- |
-| `shared/db.ts`     | Drizzle instance — imported only by repositories     |
-| `shared/auth.ts`   | Better Auth instance configured with Drizzle adapter |
-| `shared/logger.ts` | Structured logger — replaces all `console.log` usage |
+## Code Standards
+
+- Prefer simple async functions. Classes only for repository implementations.
+- No `any` — use `unknown` with type guards.
+- No `console.log` — use the shared logger (`shared/logger.ts`).
+- Split files when they grow beyond clarity (~150 lines as heuristic).
+- Conventional Commits: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
+- Tests are mandatory with every `feat` or `fix` commit. No exceptions.
+- Test files MUST be co-located with the code they test.
+
+**Forbidden**:
+- Business logic in route validation/parsing.
+- Drizzle queries outside repository implementations.
+- Provider libraries outside `shared/` and `server/utils/`.
+- Shared business types in `shared/`.
+- Cross-context repository imports.
 
 ## Database Migrations
 
-Drizzle Kit manages all schema changes. Migration files are the source of
-truth for database state and are treated with the same discipline as
-application code.
+Drizzle Kit manages all schema changes. Migration files are the source
+of truth and are treated with the same discipline as application code.
 
-| Command                | Purpose                                       |
-| ---------------------- | --------------------------------------------- |
-| `drizzle-kit generate` | Generate a migration file from schema changes |
-| `drizzle-kit migrate`  | Apply pending migrations to the target database |
-| `drizzle-kit studio`   | Inspect current schema state during development |
+| Command                | Purpose                       |
+| ---------------------- | ----------------------------- |
+| `drizzle-kit generate` | Generate migration from schema |
+| `drizzle-kit migrate`  | Apply migrations to database   |
+| `drizzle-kit studio`   | Inspect schema during dev      |
 
 **Rules**:
-
-- Migration files MUST be committed to source control alongside the schema
-  change that produced them — never in a separate commit.
-- Never edit generated migration files manually; adjust the schema and
+- Migration files MUST be committed with the schema change that produced
+  them — never in a separate commit.
+- Never edit generated migration files manually. Adjust the schema and
   regenerate instead.
 - For fiscal-domain schema changes, include a brief SQL comment explaining
   the business reason.
-- Destructive migrations (column drops, table renames, type changes) require
-  a documented rollback plan described in the PR body before merge.
+- Destructive migrations (column drops, table renames, type changes)
+  require a documented rollback plan in the PR body before merge.
 
-## Development Workflow & Code Standards
+## Containerization
 
-**Code Style**:
+The application MUST run fully containerized via Docker in both
+development and production environments.
 
-- Simple class-based services and repositories with async methods are preferred.
-- Repository interfaces may use the `I` prefix convention (e.g., `INotaRepository`);
-  it is recommended but not mandatory.
-- No `any` — prefer `unknown` with type guards.
-- No `console.log` — use the shared logger.
-- Split files when they grow beyond clarity.
+- `Dockerfile` at project root — multi-stage build producing an optimized
+  production image.
+- `docker-compose.yml` at project root — defines the app (Nuxt/Nitro)
+  and PostgreSQL services. The PostgreSQL service is the default database
+  target for local development.
+- All system-level dependencies MUST be declared in the Docker image.
+  No host-installed tooling outside the Docker environment is required
+  for development or deployment.
+- Docker volumes persist PostgreSQL data across restarts (`pgdata`).
+- Environment configuration (ports, secrets, database URL) flows through
+  `docker-compose.yml` environment variables or an accompanying `.env`
+  file — never hardcoded in the image.
 
-**Commits**:
+**Rules**:
+- The `docker-compose.yml` MUST be the single command to start the full
+  stack locally (`docker compose up`).
+- The `Dockerfile` MUST support both development (with hot-reload via
+  Nitro's dev server) and production (optimized, non-dev build).
+- Database credentials and secrets MUST NOT be committed — use `.env`
+  files (documented in `.env.example`).
+- CI pipelines MUST use the same Dockerfile and docker-compose setup
+  to ensure environment parity.
 
-Conventional Commits — `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
+*Rationale: Dockerized environments guarantee consistency across
+developer machines, CI, and production. Infrastructure as code keeps
+the runtime specification versioned alongside the application.*
 
-Every `feat` commit SHOULD include its tests in the same commit.
+## Database & Multi-tenancy
 
-**MVP Shortcut**:
+All tenant-scoped queries MUST use the `withTenant(tenantId, fn)` helper.
+It acquires a dedicated connection from the pool, sets the PostgreSQL
+session variable `app.tenant_id` via `set_config`, and provides a
+tenant-isolated Drizzle instance to the callback.
 
-For small features (screens, simple CRUD), tests may follow implementation
-in the next commit if shipping speed is critical.
+Rules:
+- Every query against a table with `tenant_id` MUST be wrapped in
+  `withTenant(tenantId, fn)` — no exceptions.
+- Direct `db` access is permitted only for global data: lookup tables,
+  tenant onboarding (company creation), and system-level operations
+  that precede tenant context.
+- `set_config('app.tenant_id', ...)` MUST NOT be called directly
+  outside the `withTenant` helper.
+- `withTenant` is the single runtime entry point for tenant context.
+- Every new table containing tenant data MUST have RLS enabled and a
+  policy that filters by `tenant_id` using
+  `current_setting('app.tenant_id')::UUID`.
+- Violations of these rules block PR approval — no exceptions.
 
-**Forbidden**:
-
-- Business logic in controllers.
-- Provider libraries leaking outside infrastructure and `shared/`.
-- Direct domain imports across bounded contexts are discouraged. Prefer IDs,
-  DTOs, and public services.
-- Shared business types in `shared/`.
-- God repositories and God services.
-- Infrastructure leaking into the domain layer.
+*Rationale: RLS guarantees that even a misrouted query cannot leak data
+across tenants. The `withTenant` helper enforces this at the application
+layer, creating a defense-in-depth boundary. A single helper keeps the
+contract explicit and testable.*
 
 ## Governance
 
-This constitution supersedes all other practices, conventions, and workflows
-defined in the project. Any deviation from the principles herein requires
-documented justification in the PR that introduces the deviation.
+This constitution supersedes all other practices defined in the project.
+Any deviation requires documented justification in the PR.
 
-**Amendment Process**:
-
-Any amendment is documented in the PR that introduces the change. The
-rationale must be written in the PR description. Team approval is a standard
-code review approval — no separate ceremony is required. Once merged, the
-constitution version is bumped and the Sync Impact Report at the top of this
-file is updated.
+**Amendment Process**: Document changes in the PR that introduces them.
+The rationale must be in the PR description. Standard code review approval
+is sufficient. Once merged, bump version and update the Sync Impact Report.
 
 Version bumps follow semantic versioning:
-
 - MAJOR — backward-incompatible governance changes or principle removals.
-- MINOR — new principles, new sections, or materially expanded guidance.
+- MINOR — new principles or materially expanded guidance.
 - PATCH — clarifications, wording refinements, typo fixes.
 
 Compliance is verified during code review and spec/plan generation.
 
-## Goal
-
-Keep the system extremely simple at the start, but structured enough so the
-fiscal domain can scale into a full ERP without rewrites. Infrastructure
-must be swappable without affecting domain logic — replacing providers should
-only require changing the infrastructure layer, never services or controllers.
-
-MVP speed takes precedence over architectural purity; structure is enforced
-gradually as the domain matures.
-
-**Version**: 1.4.1 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-10
-```
+**Version**: 2.4.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-15
