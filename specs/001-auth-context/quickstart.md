@@ -42,15 +42,17 @@ npm run dev
 
 ## Testing
 
+Tests are co-located beside the files they validate.
+
 ```bash
-# Unit tests (mocked repository)
-npx vitest run specs/001-auth-context/unit/
+# All unit tests (co-located)
+npx vitest run server/
 
-# Integration tests (real database)
-npx vitest run specs/001-auth-context/integration/
+# Run a specific test file
+npx vitest run server/api/auth/register.post.test.ts
 
-# All auth tests
-npx vitest run specs/001-auth-context/
+# Watch mode during development
+npx vitest
 ```
 
 ## Verification

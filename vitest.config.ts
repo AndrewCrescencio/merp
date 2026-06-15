@@ -14,6 +14,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['specs/001-auth-context/**/*.test.ts'],
+    include: ['server/**/*.test.ts', 'shared/**/*.test.ts'],
   },
 })
