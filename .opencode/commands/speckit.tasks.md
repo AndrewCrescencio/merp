@@ -131,7 +131,7 @@ The tasks.md should be immediately executable - each task must be specific enoug
 
 **CRITICAL**: Tasks MUST be organized by user story to enable independent implementation and testing.
 
-**Tests are OPTIONAL**: Only generate test tasks if explicitly requested in the feature specification or if user requests TDD approach.
+**Tests are MANDATORY**: Always generate test tasks for every implementation task. Test files MUST be co-located beside their implementation files (e.g. `register.post.test.ts` beside `register.post.ts`). Never generate test paths under `/specs/`.
 
 ### Checklist Format (REQUIRED)
 
@@ -178,7 +178,9 @@ Every task MUST strictly follow this format:
 
 2. **From Contracts**:
    - Map each interface contract → to the user story it serves
-   - If tests requested: Each interface contract → contract test task [P] before implementation in that story's phase
+    - Always generate test tasks: Each endpoint → unit test task [P] co-located at the same path with `.test.ts` suffix
+    - Each repository → unit test task [P] co-located at `server/utils/{context}/repository.test.ts`
+    - Never: generate test paths under `tests/`, `/specs/`, or centralized test directories
 
 3. **From Data Model**:
    - Map each entity to the user story(ies) that need it
@@ -195,6 +197,6 @@ Every task MUST strictly follow this format:
 - **Phase 1**: Setup (project initialization)
 - **Phase 2**: Foundational (blocking prerequisites - MUST complete before user stories)
 - **Phase 3+**: User Stories in priority order (P1, P2, P3...)
-  - Within each story: Tests (if requested) → Models → Services → Endpoints → Integration
-  - Each phase should be a complete, independently testable increment
+    - Within each story: Tests (mandatory) → Models → Services → Endpoints → Integration
+    - Each phase should be a complete, independently testable increment
 - **Final Phase**: Polish & Cross-Cutting Concerns
