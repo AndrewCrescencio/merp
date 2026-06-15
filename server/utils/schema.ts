@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, uniqueIndex, index, jsonb } from "drizzle-orm/pg-core";
 
 export const user = pgTable(
   "user",
@@ -88,5 +88,26 @@ export const verification = pgTable(
   },
   (table) => [
     index("verification_identifier_idx").on(table.identifier),
+  ],
+);
+
+export const authEvent = pgTable(
+  "auth_event",
+  {
+    id: text("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: text("user_id"),
+    email: text("email").notNull(),
+    eventType: text("event_type").notNull(),
+    ipAddress: text("ip_address"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("auth_event_user_id_idx").on(table.userId),
+    index("auth_event_email_idx").on(table.email),
+    index("auth_event_event_type_idx").on(table.eventType),
+    index("auth_event_created_at_idx").on(table.createdAt),
   ],
 );
