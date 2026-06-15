@@ -50,11 +50,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T017 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), rejects duplicates with 409 (FR-003), returns 201 without creating session (FR-001, FR-013)
-- [ ] T018 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with 24h/7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
-- [ ] T019 [P] [US1] Implement `GET /api/auth/me` in `server/api/auth/me.get.ts` — returns current user info and company memberships, requires valid session (FR-007)
-- [ ] T020 [US1] Implement account lockout logic in `server/utils/auth/helpers.ts` — count failed attempts, lock after 10 (any window), auto-unlock after 30 min (FR-016)
-- [ ] T021 [US1] Wire rate limiting to register and login endpoints per FR-010
+- [X] T017 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), rejects duplicates with 409 (FR-003), returns 201 without creating session (FR-001, FR-013)
+- [X] T018 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with 24h/7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
+- [X] T019 [P] [US1] Implement `GET /api/auth/me` in `server/api/auth/me.get.ts` — returns current user info and company memberships, requires valid session (FR-007)
+- [X] T020 [US1] Implement account lockout logic in `server/utils/auth/helpers.ts` — count failed attempts, lock after 10 (any window), auto-unlock after 30 min (FR-016)
+- [X] T021 [US1] Wire rate limiting to register and login endpoints per FR-010
 
 **Checkpoint**: User Story 1 is fully functional — user can register, login, and verify session
 
