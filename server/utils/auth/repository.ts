@@ -1,11 +1,11 @@
-import { and, eq, gt, lte, or, sql } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db";
 import { user, session } from "../schema";
 import { handleDatabaseError } from "./helpers";
 
 export interface IAuthRepository {
   register(input: RegisterInput): Promise<UserResult>;
-  findByEmail(email: string): Promise<UserWithPassword | null>;
+  findByEmail(email: string): Promise<UserResult | null>;
   findById(id: string): Promise<UserResult | null>;
   createSession(userId: string, token: string, expiresAt: Date, rememberMe: boolean): Promise<SessionResult>;
   validateSession(token: string): Promise<SessionWithUser | null>;
@@ -13,9 +13,6 @@ export interface IAuthRepository {
   terminateUserSessions(userId: string): Promise<void>;
   updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult>;
   isEmailTaken(email: string): Promise<boolean>;
-  countFailedAttempts(email: string): Promise<number>;
-  recordFailedAttempt(email: string): Promise<void>;
-  resetFailedAttempts(email: string): Promise<void>;
 }
 
 export interface RegisterInput {
@@ -31,12 +28,6 @@ export interface UserResult {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface UserWithPassword extends UserResult {
-  hashedPassword: string;
-  failedAttempts: number;
-  lockedUntil: Date | null;
 }
 
 export interface SessionResult {
@@ -62,23 +53,11 @@ export interface UpdateUserInput {
 }
 
 export class DrizzleAuthRepository implements IAuthRepository {
-  async register(input: RegisterInput): Promise<UserResult> {
-    try {
-      const [newUser] = await db
-        .insert(user)
-        .values({
-          email: input.email,
-          name: input.name || null,
-        })
-        .returning();
-
-      return newUser!;
-    } catch (error) {
-      return handleDatabaseError(error);
-    }
+  async register(_input: RegisterInput): Promise<UserResult> {
+    throw new Error("TODO: delegate to auth.api.signUpEmail in T017");
   }
 
-  async findByEmail(email: string): Promise<UserWithPassword | null> {
+  async findByEmail(email: string): Promise<UserResult | null> {
     try {
       const [found] = await db
         .select()
@@ -86,14 +65,7 @@ export class DrizzleAuthRepository implements IAuthRepository {
         .where(eq(user.email, email))
         .limit(1);
 
-      if (!found) return null;
-
-      return {
-        ...found,
-        hashedPassword: "",
-        failedAttempts: 0,
-        lockedUntil: null,
-      };
+      return found || null;
     } catch (error) {
       return handleDatabaseError(error);
     }
@@ -197,15 +169,6 @@ export class DrizzleAuthRepository implements IAuthRepository {
     }
   }
 
-  async countFailedAttempts(email: string): Promise<number> {
-    return 0;
-  }
-
-  async recordFailedAttempt(email: string): Promise<void> {
-  }
-
-  async resetFailedAttempts(email: string): Promise<void> {
-  }
 }
 
 export const authRepository: IAuthRepository = new DrizzleAuthRepository();
