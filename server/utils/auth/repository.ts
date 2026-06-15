@@ -1,5 +1,6 @@
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db";
+import { auth } from "#shared/auth";
 import { user, session } from "../schema";
 import { handleDatabaseError } from "./helpers";
 
@@ -53,8 +54,37 @@ export interface UpdateUserInput {
 }
 
 export class DrizzleAuthRepository implements IAuthRepository {
-  async register(_input: RegisterInput): Promise<UserResult> {
-    throw new Error("TODO: delegate to auth.api.signUpEmail in T017");
+  async register(input: RegisterInput): Promise<UserResult> {
+    try {
+      const { data } = await auth.api.signUpEmail({
+        body: {
+          email: input.email,
+          password: input.password,
+          name: input.name,
+        },
+      });
+
+      return {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+        isActive: true,
+        createdAt: data.user.createdAt,
+        updatedAt: data.user.createdAt,
+      };
+    } catch (error: any) {
+      if (error?.status === 409 || error?.message?.includes?.("already")) {
+        throw createError({
+          status: 409,
+          statusText: "409",
+          message: JSON.stringify({
+            error: "conflict",
+            message: "Email already registered",
+          }),
+        });
+      }
+      return handleDatabaseError(error);
+    }
   }
 
   async findByEmail(email: string): Promise<UserResult | null> {
