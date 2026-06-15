@@ -1,10 +1,12 @@
 <!--
   Sync Impact Report
 
-  Version change: 2.2.0 → 2.3.0 (MINOR)
+  Version change: 2.3.0 → 2.4.0 (MINOR)
   Changes:
     - Added: Database & Multi-tenancy section with withTenant helper mandate,
       RLS policy rules, and PR gate for violations
+    - Updated: III. Test as You Go — mandated co-located tests, removed MVP
+      shortcut, changed SHOULD to MUST. Updated Code Standards accordingly.
   Templates requiring updates:
     - .specify/templates/plan-template.md: ✅ updated (no changes needed - generic)
     - .specify/templates/spec-template.md: ✅ updated (no changes needed - generic)
@@ -77,22 +79,32 @@ handlers. Service layers are deferred — extract only when it hurts.*
 
 Write tests alongside implementation. Vitest is the testing framework.
 
+**Test co-location**: Tests MUST reside beside the code they validate,
+never under `/specs`. The `/specs` directory is documentation-only and
+MUST NOT contain any executable code, including tests, mocks, fixtures,
+or scripts.
+
 **Unit tests**: Mock the repository interface. Do not access a real database.
 **Integration tests**: Cover real queries, constraints, and RLS.
 Run separately from unit tests.
 
+Test file naming: `<file-under-test>.test.ts` (e.g. `register.post.ts`
+→ `register.post.test.ts`).
+
 Priority: fiscal critical paths (emission, tax calculation, status
 transitions, validation rules).
 
-Every route handler and repository SHOULD have a corresponding
-`.spec.ts`. Tests describe behavior — WHAT is tested, not HOW.
+Every route handler and repository MUST have a corresponding `.test.ts`
+file. Tests describe behavior — WHAT is tested, not HOW.
 
-**MVP Shortcut**: Tests may follow in the next commit if shipping speed
-is critical.
+**No MVP Shortcut**: Tests are mandatory in every commit. Code without
+tests is not complete.
 
 *Rationale: Tests validate behavior without coupling to implementation.
 The fiscal domain carries regulatory risk — coverage is non-negotiable
-there.*
+there. Enforcing co-location prevents `/specs` from accumulating
+executable files and keeps implementation and validation tightly
+coupled.*
 
 ### IV. Error Handling
 
@@ -169,7 +181,8 @@ specs/               # Feature documentation (Spec Kit)
 - No `console.log` — use the shared logger (`shared/logger.ts`).
 - Split files when they grow beyond clarity (~150 lines as heuristic).
 - Conventional Commits: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
-- Every `feat` commit SHOULD include tests (or in the next commit).
+- Tests are mandatory with every `feat` or `fix` commit. No exceptions.
+- Test files MUST be co-located with the code they test.
 
 **Forbidden**:
 - Business logic in route validation/parsing.
@@ -273,4 +286,4 @@ Version bumps follow semantic versioning:
 
 Compliance is verified during code review and spec/plan generation.
 
-**Version**: 2.3.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-11
+**Version**: 2.4.0 | **Ratified**: 2026-06-08 | **Last Amended**: 2026-06-15
