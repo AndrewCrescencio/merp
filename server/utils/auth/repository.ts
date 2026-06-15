@@ -56,7 +56,7 @@ export interface UpdateUserInput {
 export class DrizzleAuthRepository implements IAuthRepository {
   async register(input: RegisterInput): Promise<UserResult> {
     try {
-      const { data } = await auth.api.signUpEmail({
+      const { user } = await auth.api.signUpEmail({
         body: {
           email: input.email,
           password: input.password,
@@ -65,12 +65,12 @@ export class DrizzleAuthRepository implements IAuthRepository {
       });
 
       return {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.name,
+        id: user.id,
+        email: user.email,
+        name: user.name,
         isActive: true,
-        createdAt: data.user.createdAt,
-        updatedAt: data.user.createdAt,
+        createdAt: user.createdAt,
+        updatedAt: user.createdAt,
       };
     } catch (error: any) {
       if (error?.status === 409 || error?.message?.includes?.("already")) {
