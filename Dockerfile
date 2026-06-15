@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
 
 FROM base AS development
+COPY pnpm-workspace.yaml ./
 RUN pnpm install
 COPY . .
 EXPOSE 3000
