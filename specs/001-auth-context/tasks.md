@@ -68,11 +68,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T022 [P] [US2] Implement `POST /api/auth/logout` in `server/api/auth/logout.post.ts` — terminates current session (FR-006), clears session cookie
-- [ ] T023 [P] [US2] Implement session expiry handling in auth middleware (`server/middleware/auth.ts`) — return 401 with `session_expired` error code when session past TTL (FR-023)
-- [ ] T024 [US2] Emit `session_expired` observability event on middleware session validation failure per FR-023
-- [ ] T025 [US2] Create Drizzle schema for `AuthEvent` table in `server/utils/schema.ts` per data-model.md
-- [ ] T026 Generate and apply Drizzle migration for `AuthEvent` table via `drizzle-kit generate && drizzle-kit migrate`
+- [X] T022 [P] [US2] Implement `POST /api/auth/logout` in `server/api/auth/logout.post.ts` — terminates current session (FR-006), clears session cookie
+- [X] T023 [P] [US2] Implement session expiry handling in auth middleware (`server/middleware/auth.ts`) — return 401 with `session_expired` error code when session past TTL (FR-023)
+- [X] T024 [US2] Emit `session_expired` observability event on middleware session validation failure per FR-023
+- [X] T025 [US2] Create Drizzle schema for `AuthEvent` table in `server/utils/schema.ts` per data-model.md
+- [X] T026 Generate and apply Drizzle migration for `AuthEvent` table via `drizzle-kit generate && drizzle-kit migrate`
 
 **Checkpoint**: User Story 2 is fully functional — user can logout, sessions expire
 
