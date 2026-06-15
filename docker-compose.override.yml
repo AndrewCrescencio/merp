@@ -8,10 +8,13 @@ services:
     develop:
       watch:
         - path: ./server
+          target: /app/server
           action: sync
         - path: ./shared
+          target: /app/shared
           action: sync
         - path: ./nuxt.config.ts
+          target: /app/nuxt.config.ts
           action: sync
         - path: ./package.json
           action: rebuild
