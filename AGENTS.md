@@ -12,8 +12,9 @@ You have access to the Nuxt MCP server which provides documentation tools and pr
 ## Test Co-location Rule
 
 Tests MUST be co-located beside the code they validate.
+Naming: unit tests → `.spec.ts`, integration tests (real DB) → `.test.ts`.
 
-- `server/api/auth/register.post.ts` → `server/api/auth/register.post.test.ts`
+- `server/api/auth/register.post.ts` → `server/api/auth/register.post.spec.ts`
 - `server/utils/auth/repository.ts` → `server/utils/auth/repository.test.ts`
 - NEVER place tests under `/specs/` — `/specs` is documentation-only.
 

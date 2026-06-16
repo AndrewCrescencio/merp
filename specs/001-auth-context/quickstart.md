@@ -49,7 +49,7 @@ Tests are co-located beside the files they validate.
 npx vitest run server/
 
 # Run a specific test file
-npx vitest run server/api/auth/register.post.test.ts
+npx vitest run server/api/auth/register.post.spec.ts
 
 # Watch mode during development
 npx vitest
