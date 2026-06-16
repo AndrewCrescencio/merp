@@ -7,7 +7,7 @@ export const user = pgTable(
     id: text('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    name: text('name'),
+    name: text('name').notNull(),
     email: text('email').notNull(),
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),

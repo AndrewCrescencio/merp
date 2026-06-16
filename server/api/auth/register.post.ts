@@ -13,12 +13,16 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Password must be at least 8 characters')
   }
 
+  if (!body?.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
+    sendValidationError('Name is required')
+  }
+
   checkRateLimit(event, body.email)
 
   const user = await authRepository.register({
     email: body.email,
     password: body.password,
-    name: typeof body.name === 'string' ? body.name : undefined,
+    name: body.name.trim(),
   })
 
   setResponseStatus(event, 201)

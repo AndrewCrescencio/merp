@@ -38,7 +38,7 @@ export interface IAuthRepository {
 export interface RegisterInput {
   email: string
   password: string
-  name?: string
+  name: string
 }
 
 export interface SignInInput {

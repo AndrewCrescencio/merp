@@ -66,12 +66,34 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
-  it('calls checkRateLimit with email', async () => {
+  it('validates name is required', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Name is required')
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
+  it('validates name is not empty', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123', name: '' })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Name is required')
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
+  it('calls checkRateLimit with email', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+    })
     mockRegister.mockResolvedValue({
       id: 'uuid',
       email: 'user@example.com',
-      name: null,
+      name: 'Test User',
       createdAt: new Date(),
     })
 
@@ -84,7 +106,11 @@ describe('POST /api/auth/register', () => {
   })
 
   it('returns 201 with user data on successful registration', async () => {
-    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+    })
     const createdAt = new Date('2026-01-01')
     mockRegister.mockResolvedValue({
       id: 'uuid-123',
@@ -106,29 +132,7 @@ describe('POST /api/auth/register', () => {
     expect(mockSetResponseStatus).toHaveBeenCalledWith(expect.anything(), 201)
   })
 
-  it('returns 201 without name when name is not provided', async () => {
-    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
-    const createdAt = new Date('2026-01-01')
-    mockRegister.mockResolvedValue({
-      id: 'uuid-123',
-      email: 'user@example.com',
-      name: null,
-      createdAt,
-    })
-
-    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
-
-    const result = await handler({} as any)
-
-    expect(result).toEqual({
-      id: 'uuid-123',
-      email: 'user@example.com',
-      name: null,
-      createdAt,
-    })
-  })
-
-  it('registers with optional name', async () => {
+  it('registers with name', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'password123',
@@ -152,5 +156,28 @@ describe('POST /api/auth/register', () => {
       name: 'Alice',
     })
     expect(result).toHaveProperty('name', 'Alice')
+  })
+
+  it('trims whitespace from name', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: '  Alice  ',
+    })
+    mockRegister.mockResolvedValue({
+      id: 'uuid-123',
+      email: 'user@example.com',
+      name: 'Alice',
+      createdAt: new Date(),
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+    await handler({} as any)
+
+    expect(mockRegister).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Alice',
+    })
   })
 })
