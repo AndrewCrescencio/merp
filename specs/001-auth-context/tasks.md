@@ -109,7 +109,7 @@
 - [x] T038 [P] Implement company deletion endpoint `POST /api/auth/companies/delete` in `server/api/auth/companies.delete.post.ts` per FR-019 (soft delete with cascade)
 - [x] T039 [P] Implement PII access logging middleware in `server/middleware/pii-audit.ts` per FR-022 (log email/name access with purpose and timestamp)
 - [x] T040 Add data export endpoint `GET /api/auth/export` per FR-020 (user personal data in JSON)
-- [ ] T041 Add session purge job for expired sessions (past TTL + 24h grace) per data retention policy
+- [x] T041 Add session purge job for expired sessions (past TTL + 24h grace) per data retention policy
 - [ ] T042 Run quickstart.md validation — verify all endpoints work end-to-end
 
 ---
