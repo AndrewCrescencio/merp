@@ -24,21 +24,21 @@ npm run dev
 
 ## Relevant Files
 
-| Path | Purpose |
-|------|---------|
-| `server/api/auth/register.post.ts` | Registration endpoint |
-| `server/api/auth/login.post.ts` | Login endpoint |
-| `server/api/auth/logout.post.ts` | Logout endpoint |
-| `server/api/auth/me.get.ts` | Session check endpoint |
-| `server/api/auth/companies.post.ts` | Company creation endpoint |
-| `server/api/auth/companies.get.ts` | Company search endpoint |
-| `server/api/auth/companies.switch.post.ts` | Company context switch |
-| `server/middleware/auth.ts` | Session validation middleware |
-| `server/utils/auth/repository.ts` | IAuthRepository + DrizzleAuthRepository |
-| `server/utils/auth/helpers.ts` | Auth business logic helpers |
-| `server/utils/schema.ts` | Drizzle table definitions |
-| `shared/auth.ts` | Better Auth instance initialization |
-| `shared/logger.ts` | Shared logger |
+| Path                                       | Purpose                                 |
+| ------------------------------------------ | --------------------------------------- |
+| `server/api/auth/register.post.ts`         | Registration endpoint                   |
+| `server/api/auth/login.post.ts`            | Login endpoint                          |
+| `server/api/auth/logout.post.ts`           | Logout endpoint                         |
+| `server/api/auth/me.get.ts`                | Session check endpoint                  |
+| `server/api/auth/companies.post.ts`        | Company creation endpoint               |
+| `server/api/auth/companies.get.ts`         | Company search endpoint                 |
+| `server/api/auth/companies.switch.post.ts` | Company context switch                  |
+| `server/middleware/auth.ts`                | Session validation middleware           |
+| `server/utils/auth/repository.ts`          | IAuthRepository + DrizzleAuthRepository |
+| `server/utils/auth/helpers.ts`             | Auth business logic helpers             |
+| `server/utils/schema.ts`                   | Drizzle table definitions               |
+| `shared/auth.ts`                           | Better Auth instance initialization     |
+| `shared/logger.ts`                         | Shared logger                           |
 
 ## Testing
 

@@ -1,17 +1,24 @@
-import { defineEventHandler, readBody } from "h3";
-import { authRepository } from "~~/server/utils/auth/repository";
-import { checkAccountLockout, checkRateLimit, recordFailedAttempt, resetFailedAttempts, sendUnauthorizedError, sendValidationError } from "~~/server/utils/auth/helpers";
+import { defineEventHandler, readBody } from 'h3'
+import { authRepository } from '~~/server/utils/auth/repository'
+import {
+  checkAccountLockout,
+  checkRateLimit,
+  recordFailedAttempt,
+  resetFailedAttempts,
+  sendUnauthorizedError,
+  sendValidationError,
+} from '~~/server/utils/auth/helpers'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event);
+  const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event)
 
   if (!body?.email || !body?.password) {
-    sendValidationError("Email and password are required");
+    sendValidationError('Email and password are required')
   }
 
-  checkRateLimit(event, body.email);
+  checkRateLimit(event, body.email)
 
-  checkAccountLockout(body.email);
+  checkAccountLockout(body.email)
 
   try {
     const user = await authRepository.signIn(
@@ -21,22 +28,22 @@ export default defineEventHandler(async (event) => {
         rememberMe: body.rememberMe === true,
       },
       event.headers,
-    );
+    )
 
-    resetFailedAttempts(body.email);
+    resetFailedAttempts(body.email)
 
     return {
       id: user.id,
       email: user.email,
       name: user.name,
-    };
+    }
   } catch (error: any) {
-    recordFailedAttempt(body.email);
+    recordFailedAttempt(body.email)
 
     if (error?.statusCode === 401) {
-      sendUnauthorizedError("Invalid email or password");
+      sendUnauthorizedError('Invalid email or password')
     }
 
-    throw error;
+    throw error
   }
-});
+})

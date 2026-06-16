@@ -23,11 +23,11 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-merp}
       POSTGRES_DB: ${DB_NAME:-merp}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - '${DB_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-merp} -d ${DB_NAME:-merp}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-merp} -d ${DB_NAME:-merp}']
       interval: 5s
       timeout: 5s
       retries: 5

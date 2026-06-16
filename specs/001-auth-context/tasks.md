@@ -14,11 +14,11 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [X] T001 Scaffold Nuxt 4 project with TypeScript, Drizzle ORM, and Better Auth dependencies in `package.json`
-- [X] T002 [P] Create multi-stage Dockerfile at project root per constitution — dev stage with hot-reload, production stage with optimized build in `Dockerfile`
-- [X] T003 [P] Configure Docker Compose for PostgreSQL service in `docker-compose.yml`, dev override in `docker-compose.override.yml`, and production stack in `docker-compose.prod.yml`
-- [X] T004 [P] Configure environment variables template in `.env.example` (DATABASE_URL, BETTER_AUTH_SECRET, CORS_ORIGIN)
-- [X] T005 [P] Configure Drizzle Kit for migrations in `drizzle.config.ts`
+- [x] T001 Scaffold Nuxt 4 project with TypeScript, Drizzle ORM, and Better Auth dependencies in `package.json`
+- [x] T002 [P] Create multi-stage Dockerfile at project root per constitution — dev stage with hot-reload, production stage with optimized build in `Dockerfile`
+- [x] T003 [P] Configure Docker Compose for PostgreSQL service in `docker-compose.yml`, dev override in `docker-compose.override.yml`, and production stack in `docker-compose.prod.yml`
+- [x] T004 [P] Configure environment variables template in `.env.example` (DATABASE_URL, BETTER_AUTH_SECRET, CORS_ORIGIN)
+- [x] T005 [P] Configure Drizzle Kit for migrations in `drizzle.config.ts`
 
 ---
 
@@ -26,17 +26,17 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-- [X] T006 [P] Create Drizzle schema for `User` and `Session` tables in `server/utils/schema.ts` per data-model.md
-- [X] T007 Generate and apply initial Drizzle migration for `User` + `Session` tables via `drizzle-kit generate && drizzle-kit migrate`
-- [X] T008 [P] Create database connection module in `server/utils/db.ts`
-- [X] T009 [P] Create shared logger in `shared/logger.ts`
-- [X] T010 [P] Initialize Better Auth instance with Drizzle adapter in `shared/auth.ts` (email/password provider, session config)
-- [X] T011 [P] Implement auth middleware in `server/middleware/auth.ts` — reads session cookie, validates via Better Auth, sets `event.context.user`
-- [X] T012 [P] Configure CORS in `nuxt.config.ts` with explicit origin (FR-027)
-- [X] T013 [P] Implement error response helpers in `server/utils/auth/helpers.ts` (consistent `{ error, message }` format per FR-026)
-- [X] T014 [P] Implement rate limiting utility in `server/utils/auth/helpers.ts` (sliding window, per email, with Retry-After/RateLimit-Reset/RateLimit-Remaining headers per FR-010)
-- [X] T015 Implement `IAuthRepository` interface and `DrizzleAuthRepository` class in `server/utils/auth/repository.ts` with register/findByEmail/createSession/validateSession/terminateSession methods
-- [X] T016 [P] Implement database unreachable error handler per FR-028 in `server/utils/auth/helpers.ts` — catch connection errors, return 503, log full details
+- [x] T006 [P] Create Drizzle schema for `User` and `Session` tables in `server/utils/schema.ts` per data-model.md
+- [x] T007 Generate and apply initial Drizzle migration for `User` + `Session` tables via `drizzle-kit generate && drizzle-kit migrate`
+- [x] T008 [P] Create database connection module in `server/utils/db.ts`
+- [x] T009 [P] Create shared logger in `shared/logger.ts`
+- [x] T010 [P] Initialize Better Auth instance with Drizzle adapter in `shared/auth.ts` (email/password provider, session config)
+- [x] T011 [P] Implement auth middleware in `server/middleware/auth.ts` — reads session cookie, validates via Better Auth, sets `event.context.user`
+- [x] T012 [P] Configure CORS in `nuxt.config.ts` with explicit origin (FR-027)
+- [x] T013 [P] Implement error response helpers in `server/utils/auth/helpers.ts` (consistent `{ error, message }` format per FR-026)
+- [x] T014 [P] Implement rate limiting utility in `server/utils/auth/helpers.ts` (sliding window, per email, with Retry-After/RateLimit-Reset/RateLimit-Remaining headers per FR-010)
+- [x] T015 Implement `IAuthRepository` interface and `DrizzleAuthRepository` class in `server/utils/auth/repository.ts` with register/findByEmail/createSession/validateSession/terminateSession methods
+- [x] T016 [P] Implement database unreachable error handler per FR-028 in `server/utils/auth/helpers.ts` — catch connection errors, return 503, log full details
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -50,11 +50,11 @@
 
 ### Implementation for User Story 1
 
-- [X] T017 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), rejects duplicates with 409 (FR-003), returns 201 without creating session (FR-001, FR-013)
-- [X] T018 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with 24h/7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
-- [X] T019 [P] [US1] Implement `GET /api/auth/me` in `server/api/auth/me.get.ts` — returns current user info and company memberships, requires valid session (FR-007)
-- [X] T020 [US1] Implement account lockout logic in `server/utils/auth/helpers.ts` — count failed attempts, lock after 10 (any window), auto-unlock after 30 min (FR-016)
-- [X] T021 [US1] Wire rate limiting to register and login endpoints per FR-010
+- [x] T017 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), rejects duplicates with 409 (FR-003), returns 201 without creating session (FR-001, FR-013)
+- [x] T018 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with 24h/7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
+- [x] T019 [P] [US1] Implement `GET /api/auth/me` in `server/api/auth/me.get.ts` — returns current user info and company memberships, requires valid session (FR-007)
+- [x] T020 [US1] Implement account lockout logic in `server/utils/auth/helpers.ts` — count failed attempts, lock after 10 (any window), auto-unlock after 30 min (FR-016)
+- [x] T021 [US1] Wire rate limiting to register and login endpoints per FR-010
 
 **Checkpoint**: User Story 1 is fully functional — user can register, login, and verify session
 
@@ -68,11 +68,11 @@
 
 ### Implementation for User Story 2
 
-- [X] T022 [P] [US2] Implement `POST /api/auth/logout` in `server/api/auth/logout.post.ts` — terminates current session (FR-006), clears session cookie
-- [X] T023 [P] [US2] Implement session expiry handling in auth middleware (`server/middleware/auth.ts`) — return 401 with `session_expired` error code when session past TTL (FR-023)
-- [X] T024 [US2] Emit `session_expired` observability event on middleware session validation failure per FR-023
-- [X] T025 [US2] Create Drizzle schema for `AuthEvent` table in `server/utils/schema.ts` per data-model.md
-- [X] T026 Generate and apply Drizzle migration for `AuthEvent` table via `drizzle-kit generate && drizzle-kit migrate`
+- [x] T022 [P] [US2] Implement `POST /api/auth/logout` in `server/api/auth/logout.post.ts` — terminates current session (FR-006), clears session cookie
+- [x] T023 [P] [US2] Implement session expiry handling in auth middleware (`server/middleware/auth.ts`) — return 401 with `session_expired` error code when session past TTL (FR-023)
+- [x] T024 [US2] Emit `session_expired` observability event on middleware session validation failure per FR-023
+- [x] T025 [US2] Create Drizzle schema for `AuthEvent` table in `server/utils/schema.ts` per data-model.md
+- [x] T026 Generate and apply Drizzle migration for `AuthEvent` table via `drizzle-kit generate && drizzle-kit migrate`
 
 **Checkpoint**: User Story 2 is fully functional — user can logout, sessions expire
 

@@ -3,6 +3,7 @@
 Base path: `/api/auth`
 
 All endpoints follow consistent error format:
+
 ```json
 { "error": "snake_case_code", "message": "Human-readable message" }
 ```
@@ -16,6 +17,7 @@ Error codes: `validation_error`, `conflict` (409), `unauthorized` (401), `sessio
 Register a new user account.
 
 **Request Body**:
+
 ```json
 {
   "email": "user@example.com",
@@ -25,6 +27,7 @@ Register a new user account.
 ```
 
 **Success Response**: `201 Created`
+
 ```json
 {
   "id": "uuid",
@@ -51,6 +54,7 @@ Register a new user account.
 Authenticate with email and password. Creates a session (FR-005).
 
 **Request Body**:
+
 ```json
 {
   "email": "user@example.com",
@@ -60,6 +64,7 @@ Authenticate with email and password. Creates a session (FR-005).
 ```
 
 **Success Response**: `200 OK` — Session cookie (`Set-Cookie`) set automatically.
+
 ```json
 {
   "id": "uuid",
@@ -89,6 +94,7 @@ Terminate the current session (FR-006).
 **Auth**: Required (session cookie)
 
 **Success Response**: `200 OK`
+
 ```json
 { "message": "Logged out successfully" }
 ```
@@ -107,15 +113,14 @@ Return the currently authenticated user and active company context.
 **Auth**: Required (session cookie)
 
 **Success Response**: `200 OK`
+
 ```json
 {
   "id": "uuid",
   "email": "user@example.com",
   "name": "User Name",
   "activeCompanyId": "uuid-or-null",
-  "companies": [
-    { "id": "uuid", "name": "Company Name", "role": "member" }
-  ]
+  "companies": [{ "id": "uuid", "name": "Company Name", "role": "member" }]
 }
 ```
 
@@ -134,6 +139,7 @@ Create a new company. The requesting user becomes its first member (FR-014).
 **Auth**: Required (session cookie)
 
 **Request Body**:
+
 ```json
 {
   "name": "Company Name",
@@ -143,6 +149,7 @@ Create a new company. The requesting user becomes its first member (FR-014).
 ```
 
 **Success Response**: `201 Created`
+
 ```json
 {
   "id": "uuid",
@@ -166,6 +173,7 @@ Join an existing company by ID (FR-015).
 **Auth**: Required (session cookie)
 
 **Request Body**:
+
 ```json
 {
   "companyId": "uuid"
@@ -173,6 +181,7 @@ Join an existing company by ID (FR-015).
 ```
 
 **Success Response**: `200 OK`
+
 ```json
 { "message": "Joined company successfully" }
 ```
@@ -193,14 +202,14 @@ Search for companies to join (FR-015).
 **Auth**: Required (session cookie)
 
 **Query Parameters**:
+
 - `q` — search query (name or CNPJ partial match)
 
 **Success Response**: `200 OK`
+
 ```json
 {
-  "companies": [
-    { "id": "uuid", "name": "Company Name", "cnpj": "XX.XXX.XXX/XXXX-XX" }
-  ]
+  "companies": [{ "id": "uuid", "name": "Company Name", "cnpj": "XX.XXX.XXX/XXXX-XX" }]
 }
 ```
 
@@ -213,6 +222,7 @@ Switch the active company context for the current session.
 **Auth**: Required (session cookie)
 
 **Request Body**:
+
 ```json
 {
   "companyId": "uuid"
@@ -220,6 +230,7 @@ Switch the active company context for the current session.
 ```
 
 **Success Response**: `200 OK`
+
 ```json
 { "message": "Active company switched" }
 ```

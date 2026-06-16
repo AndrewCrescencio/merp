@@ -1,64 +1,69 @@
-import { and, eq, gt } from "drizzle-orm";
-import { db } from "../db";
-import { auth } from "#shared/auth";
-import { user, session } from "../schema";
-import { createError } from "h3";
-import { handleDatabaseError } from "./helpers";
+import { and, eq, gt } from 'drizzle-orm'
+import { db } from '../db'
+import { auth } from '#shared/auth'
+import { user, session } from '../schema'
+import { createError } from 'h3'
+import { handleDatabaseError } from './helpers'
 
 export interface IAuthRepository {
-  register(input: RegisterInput): Promise<UserResult>;
-  signIn(input: SignInInput, headers?: Headers): Promise<UserResult>;
-  findByEmail(email: string): Promise<UserResult | null>;
-  findById(id: string): Promise<UserResult | null>;
-  createSession(userId: string, token: string, expiresAt: Date, rememberMe: boolean): Promise<SessionResult>;
-  validateSession(token: string): Promise<SessionWithUser | null>;
-  terminateSession(token: string): Promise<void>;
-  terminateUserSessions(userId: string): Promise<void>;
-  updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult>;
-  isEmailTaken(email: string): Promise<boolean>;
+  register(input: RegisterInput): Promise<UserResult>
+  signIn(input: SignInInput, headers?: Headers): Promise<UserResult>
+  findByEmail(email: string): Promise<UserResult | null>
+  findById(id: string): Promise<UserResult | null>
+  createSession(
+    userId: string,
+    token: string,
+    expiresAt: Date,
+    rememberMe: boolean,
+  ): Promise<SessionResult>
+  validateSession(token: string): Promise<SessionWithUser | null>
+  terminateSession(token: string): Promise<void>
+  terminateUserSessions(userId: string): Promise<void>
+  updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult>
+  isEmailTaken(email: string): Promise<boolean>
 }
 
 export interface RegisterInput {
-  email: string;
-  password: string;
-  name?: string;
+  email: string
+  password: string
+  name?: string
 }
 
 export interface SignInInput {
-  email: string;
-  password: string;
-  rememberMe?: boolean;
+  email: string
+  password: string
+  rememberMe?: boolean
 }
 
 export interface UserResult {
-  id: string;
-  email: string;
-  name: string | null;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  id: string
+  email: string
+  name: string | null
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
 }
 
 export interface SessionResult {
-  id: string;
-  userId: string;
-  token: string;
-  expiresAt: Date;
-  rememberMe: boolean;
-  createdAt: Date;
+  id: string
+  userId: string
+  token: string
+  expiresAt: Date
+  rememberMe: boolean
+  createdAt: Date
 }
 
 export interface SessionWithUser {
-  session: SessionResult;
-  user: UserResult;
+  session: SessionResult
+  user: UserResult
 }
 
 export interface UpdateUserInput {
-  name: string;
-  isActive: boolean;
-  consentTermsVersion: string;
-  consentTermsAcceptedAt: Date;
-  consentWithdrawnAt: Date;
+  name: string
+  isActive: boolean
+  consentTermsVersion: string
+  consentTermsAcceptedAt: Date
+  consentWithdrawnAt: Date
 }
 
 export class DrizzleAuthRepository implements IAuthRepository {
@@ -70,7 +75,7 @@ export class DrizzleAuthRepository implements IAuthRepository {
           password: input.password,
           name: input.name,
         },
-      });
+      })
 
       return {
         id: user.id,
@@ -79,19 +84,19 @@ export class DrizzleAuthRepository implements IAuthRepository {
         isActive: true,
         createdAt: user.createdAt,
         updatedAt: user.createdAt,
-      };
+      }
     } catch (error: any) {
-      if (error?.statusCode === 409 || error?.message?.includes?.("already")) {
+      if (error?.statusCode === 409 || error?.message?.includes?.('already')) {
         throw createError({
           status: 409,
-          statusText: "409",
+          statusText: '409',
           message: JSON.stringify({
-            error: "conflict",
-            message: "Email already registered",
+            error: 'conflict',
+            message: 'Email already registered',
           }),
-        });
+        })
       }
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
@@ -104,7 +109,7 @@ export class DrizzleAuthRepository implements IAuthRepository {
           rememberMe: input.rememberMe ?? false,
         },
         headers,
-      });
+      })
       return {
         id: result.user.id,
         email: result.user.email,
@@ -112,53 +117,50 @@ export class DrizzleAuthRepository implements IAuthRepository {
         isActive: true,
         createdAt: result.user.createdAt,
         updatedAt: result.user.updatedAt,
-      };
+      }
     } catch (error: any) {
       if (error?.statusCode === 401) {
-        throw error;
+        throw error
       }
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
   async findByEmail(email: string): Promise<UserResult | null> {
     try {
-      const [found] = await db
-        .select()
-        .from(user)
-        .where(eq(user.email, email))
-        .limit(1);
+      const [found] = await db.select().from(user).where(eq(user.email, email)).limit(1)
 
-      return found || null;
+      return found || null
     } catch (error) {
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
   async findById(id: string): Promise<UserResult | null> {
     try {
-      const [found] = await db
-        .select()
-        .from(user)
-        .where(eq(user.id, id))
-        .limit(1);
+      const [found] = await db.select().from(user).where(eq(user.id, id)).limit(1)
 
-      return found || null;
+      return found || null
     } catch (error) {
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
-  async createSession(userId: string, token: string, expiresAt: Date, rememberMe: boolean): Promise<SessionResult> {
+  async createSession(
+    userId: string,
+    token: string,
+    expiresAt: Date,
+    rememberMe: boolean,
+  ): Promise<SessionResult> {
     try {
       const [newSession] = await db
         .insert(session)
         .values({ userId, token, expiresAt, rememberMe })
-        .returning();
+        .returning()
 
-      return newSession!;
+      return newSession!
     } catch (error) {
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
@@ -168,40 +170,36 @@ export class DrizzleAuthRepository implements IAuthRepository {
         .select()
         .from(session)
         .where(and(eq(session.token, token), gt(session.expiresAt, new Date())))
-        .limit(1);
+        .limit(1)
 
-      if (!found) return null;
+      if (!found) return null
 
-      const [userRecord] = await db
-        .select()
-        .from(user)
-        .where(eq(user.id, found.userId))
-        .limit(1);
+      const [userRecord] = await db.select().from(user).where(eq(user.id, found.userId)).limit(1)
 
-      if (!userRecord || !userRecord.isActive) return null;
+      if (!userRecord || !userRecord.isActive) return null
 
       return {
         session: found,
         user: userRecord,
-      };
+      }
     } catch (error) {
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
   async terminateSession(token: string): Promise<void> {
     try {
-      await db.delete(session).where(eq(session.token, token));
+      await db.delete(session).where(eq(session.token, token))
     } catch (error) {
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
   async terminateUserSessions(userId: string): Promise<void> {
     try {
-      await db.delete(session).where(eq(session.userId, userId));
+      await db.delete(session).where(eq(session.userId, userId))
     } catch (error) {
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
@@ -211,11 +209,11 @@ export class DrizzleAuthRepository implements IAuthRepository {
         .update(user)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(user.id, id))
-        .returning();
+        .returning()
 
-      return updated!;
+      return updated!
     } catch (error) {
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
 
@@ -225,14 +223,13 @@ export class DrizzleAuthRepository implements IAuthRepository {
         .select({ id: user.id })
         .from(user)
         .where(eq(user.email, email))
-        .limit(1);
+        .limit(1)
 
-      return !!found;
+      return !!found
     } catch (error) {
-      return handleDatabaseError(error);
+      return handleDatabaseError(error)
     }
   }
-
 }
 
-export const authRepository: IAuthRepository = new DrizzleAuthRepository();
+export const authRepository: IAuthRepository = new DrizzleAuthRepository()
