@@ -88,7 +88,7 @@
 
 - [x] T027 [P] [US3] Create Drizzle schema for `Company` and `CompanyMember` tables in `server/utils/schema.ts` per data-model.md (with RLS and tenant isolation)
 - [x] T028 Generate and apply Drizzle migration for `Company` + `CompanyMember` tables via `drizzle-kit generate && drizzle-kit migrate`
-- [ ] T029 [P] [US3] Implement `POST /api/auth/companies` in `server/api/auth/companies.post.ts` — creates company, makes requesting user first member (FR-014)
+- [x] T029 [P] [US3] Implement `POST /api/auth/companies` in `server/api/auth/companies.post.ts` — creates company, makes requesting user first member (FR-014)
 - [ ] T030 [P] [US3] Implement `GET /api/auth/companies` in `server/api/auth/companies.get.ts` — search companies by name/CNPJ (FR-015)
 - [ ] T031 [P] [US3] Implement `POST /api/auth/companies/join` in `server/api/auth/companies.join.post.ts` — join an existing company by ID, creates CompanyMember (FR-015)
 - [ ] T032 [P] [US3] Implement `POST /api/auth/companies/switch` in `server/api/auth/companies.switch.post.ts` — switch active company context
