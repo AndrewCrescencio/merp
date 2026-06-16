@@ -55,7 +55,7 @@ describe("POST /api/auth/login", () => {
 
   it("calls checkRateLimit with email", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ data: { user: { id: "uuid", email: "user@example.com", name: null } } });
+    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
     const event = {} as any;
@@ -67,7 +67,7 @@ describe("POST /api/auth/login", () => {
 
   it("calls checkAccountLockout before authentication", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ data: { user: { id: "uuid", email: "user@example.com", name: null } } });
+    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -78,7 +78,7 @@ describe("POST /api/auth/login", () => {
 
   it("returns user data on successful login", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ data: { user: { id: "uuid-123", email: "user@example.com", name: "Test User" } } });
+    mockSignInEmail.mockResolvedValue({ user: { id: "uuid-123", email: "user@example.com", name: "Test User" }, token: "tok", redirect: false });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -93,7 +93,7 @@ describe("POST /api/auth/login", () => {
 
   it("resets failed attempts on successful login", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ data: { user: { id: "uuid", email: "user@example.com", name: null } } });
+    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -116,7 +116,7 @@ describe("POST /api/auth/login", () => {
 
   it("passes rememberMe flag to Better Auth", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123", rememberMe: true });
-    mockSignInEmail.mockResolvedValue({ data: { user: { id: "uuid", email: "user@example.com", name: null } } });
+    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -124,12 +124,13 @@ describe("POST /api/auth/login", () => {
 
     expect(mockSignInEmail).toHaveBeenCalledWith({
       body: { email: "user@example.com", password: "password123", rememberMe: true },
+      headers: undefined,
     });
   });
 
   it("defaults rememberMe to false", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ data: { user: { id: "uuid", email: "user@example.com", name: null } } });
+    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -137,6 +138,7 @@ describe("POST /api/auth/login", () => {
 
     expect(mockSignInEmail).toHaveBeenCalledWith({
       body: { email: "user@example.com", password: "password123", rememberMe: false },
+      headers: undefined,
     });
   });
 

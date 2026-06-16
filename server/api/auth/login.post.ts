@@ -14,20 +14,21 @@ export default defineEventHandler(async (event) => {
   checkAccountLockout(body.email);
 
   try {
-    const { data } = await auth.api.signInEmail({
+    const result = await auth.api.signInEmail({
       body: {
         email: body.email,
         password: body.password,
         rememberMe: body.rememberMe === true,
       },
+      headers: event.headers,
     });
 
     resetFailedAttempts(body.email);
 
     return {
-      id: data.user.id,
-      email: data.user.email,
-      name: data.user.name,
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
     };
   } catch (error: any) {
     recordFailedAttempt(body.email);
