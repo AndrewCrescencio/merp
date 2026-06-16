@@ -1,4 +1,5 @@
 import type { H3Event } from "h3";
+import { createError } from "h3";
 import { logger } from "#shared/logger";
 
 export interface ApiError {

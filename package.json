@@ -7,7 +7,9 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.18",
@@ -19,8 +21,10 @@
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
+    "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^25.9.3",
     "drizzle-kit": "^0.31.10",
+    "h3": "^1.15.11",
     "vitest": "^4.1.8"
   }
 }
