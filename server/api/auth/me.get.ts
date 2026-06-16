@@ -1,4 +1,5 @@
 import { defineEventHandler, createError } from 'h3'
+import { authRepository } from '~~/server/utils/auth/repository'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as
@@ -8,6 +9,7 @@ export default defineEventHandler(async (event) => {
         name: string | null
       }
     | undefined
+  const currentSession = event.context.session as { id: string } | undefined
 
   if (!user) {
     throw createError({
@@ -20,11 +22,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const [companies, activeCompanyId] = await Promise.all([
+    authRepository.findUserCompanies(user.id),
+    currentSession ? authRepository.getActiveCompany(currentSession.id) : Promise.resolve(null),
+  ])
+
   return {
     id: user.id,
     email: user.email,
     name: user.name || null,
-    activeCompanyId: null,
-    companies: [],
+    activeCompanyId,
+    companies: companies.map((c) => ({
+      id: c.id,
+      name: c.name,
+      role: c.role,
+    })),
   }
 })
