@@ -21,8 +21,9 @@ description: "Task list template for feature implementation"
 
 ## Path Conventions
 
-- **All projects**: Tests are co-located beside the code they validate
-  (e.g. `server/api/auth/register.post.test.ts` beside `register.post.ts`)
+- **All projects**: Tests are co-located beside the code they validate.
+  Naming: unit tests → `.spec.ts`, integration tests (real DB) → `.test.ts`
+  (e.g. `register.post.spec.ts` for unit, `repository.test.ts` for integration).
 - **Never**: Place tests under `/specs` or in a centralized `tests/` directory
 - Paths shown below assume single project - adjust based on plan.md structure
 
@@ -83,11 +84,12 @@ Examples of foundational tasks (adjust based on your project):
 ### Tests for User Story 1 (MANDATORY) 🎯
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation.**
-> All test files MUST be co-located next to their implementation files
-> (e.g. `register.post.test.ts` beside `register.post.ts`).
+> All test files MUST be co-located next to their implementation files.
+> Naming: unit tests → `.spec.ts`, integration tests (real DB) → `.test.ts`
+> (e.g. `register.post.spec.ts` for unit, `repository.test.ts` for integration).
 
-- [ ] T010 [P] [US1] Unit test for [Endpoint] at [path/to/endpoint.test.ts]
-- [ ] T011 [P] [US1] Unit test for [Repository] at [path/to/repository.test.ts]
+- [ ] T010 [P] [US1] Unit test for [Endpoint] at [path/to/endpoint.spec.ts]
+- [ ] T011 [P] [US1] Unit test for [Repository] at [path/to/repository.spec.ts]
 - [ ] T012 [US1] Integration test for [user journey] at [path/to/endpoint.test.ts]
 
 ### Implementation for User Story 1

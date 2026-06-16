@@ -16,7 +16,9 @@
   you should still have a viable MVP (Minimum Viable Product) that delivers value.
 
   Tests are MANDATORY for every implementation task. Test files MUST be co-located
-  beside the code they validate (e.g. `register.post.test.ts` beside `register.post.ts`).
+  beside the code they validate. Naming convention: unit tests use `.spec.ts`,
+  integration tests (real DB) use `.test.ts`
+  (e.g. `register.post.spec.ts` for unit, `repository.test.ts` for integration).
   The `/specs` directory is documentation-only and MUST NOT contain tests.
 
   Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
