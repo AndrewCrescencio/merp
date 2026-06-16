@@ -1,0 +1,7 @@
+echo "🧪 Running tests..."
+pnpm test --run
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed. Fix all failing tests before pushing."
+  exit 1
+fi
+echo "✅ Tests passed."
