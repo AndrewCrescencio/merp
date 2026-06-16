@@ -1,24 +1,4 @@
 services:
-  app:
-    ports:
-      - '${PORT:-3000}:3000'
-    volumes:
-      - .:/app
-      - /app/node_modules
-    develop:
-      watch:
-        - path: ./server
-          target: /app/server
-          action: sync
-        - path: ./shared
-          target: /app/shared
-          action: sync
-        - path: ./nuxt.config.ts
-          target: /app/nuxt.config.ts
-          action: sync
-        - path: ./package.json
-          action: rebuild
-
   postgres:
     ports:
       - '${DB_PORT:-5432}:5432'
