@@ -5,9 +5,36 @@ shell commands, and other important information, read the current plan at specs/
 
 <!-- SPECKIT END -->
 
-## Nuxt Documentation
+## Available MCPs
 
-You have access to the Nuxt MCP server which provides documentation tools and prompts.
+This project has the following MCP servers configured. You MUST use them
+whenever a question or task matches their domain — prefer MCP tool calls
+over guessing or making up documentation URLs.
+
+### Nuxt MCP
+
+Use when the user asks about Nuxt components, composables, configuration,
+deployment, migration, modules, or any Nuxt-specific topic.
+
+Tools:
+
+- `list_documentation_pages` / `get_documentation_page` — official docs
+- `list_modules` / `get_module` — module discovery and details
+- `list_blog_posts` / `get_blog_post` — Nuxt announcements and guides
+- `list_deploy_providers` / `get_deploy_provider` — deployment instructions
+- `get_getting_started_guide` — setup overview for a given version
+- `get_changelog` — latest releases and changes
+
+### Better Auth MCP
+
+Use when the user asks about authentication setup, session management,
+providers (email, OAuth, passkeys), plugins (2FA, admin, organization),
+or any Better Auth-specific topic.
+
+Tools:
+
+- `search_docs` — find relevant documentation pages by query
+- `get_doc` — retrieve full page content by path
 
 ## Test Co-location Rule
 
@@ -40,11 +67,3 @@ test(auth): rename unit test files from .test.ts to .spec.ts
 Model: deepseek-v4-flash-free
 Agent: opencode
 ```
-
-## Nuxt Documentation
-
-When the user asks anything related to Nuxt (components, composables, configuration, deployment, migration, etc.), you MUST use the Nuxt MCP server before answering:
-
-- Use the `find_documentation_for_topic` prompt to find the best documentation pages for the topic
-- Use `list_documentation_pages` to browse available docs
-- Use `get_documentation_page` to retrieve specific page content
