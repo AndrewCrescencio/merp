@@ -2,10 +2,12 @@ import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db";
 import { auth } from "#shared/auth";
 import { user, session } from "../schema";
+import { createError } from "h3";
 import { handleDatabaseError } from "./helpers";
 
 export interface IAuthRepository {
   register(input: RegisterInput): Promise<UserResult>;
+  signIn(input: SignInInput, headers?: Headers): Promise<UserResult>;
   findByEmail(email: string): Promise<UserResult | null>;
   findById(id: string): Promise<UserResult | null>;
   createSession(userId: string, token: string, expiresAt: Date, rememberMe: boolean): Promise<SessionResult>;
@@ -20,6 +22,12 @@ export interface RegisterInput {
   email: string;
   password: string;
   name?: string;
+}
+
+export interface SignInInput {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
 }
 
 export interface UserResult {
@@ -73,7 +81,7 @@ export class DrizzleAuthRepository implements IAuthRepository {
         updatedAt: user.createdAt,
       };
     } catch (error: any) {
-      if (error?.status === 409 || error?.message?.includes?.("already")) {
+      if (error?.statusCode === 409 || error?.message?.includes?.("already")) {
         throw createError({
           status: 409,
           statusText: "409",
@@ -82,6 +90,32 @@ export class DrizzleAuthRepository implements IAuthRepository {
             message: "Email already registered",
           }),
         });
+      }
+      return handleDatabaseError(error);
+    }
+  }
+
+  async signIn(input: SignInInput, headers?: Headers): Promise<UserResult> {
+    try {
+      const result = await auth.api.signInEmail({
+        body: {
+          email: input.email,
+          password: input.password,
+          rememberMe: input.rememberMe ?? false,
+        },
+        headers,
+      });
+      return {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        isActive: true,
+        createdAt: result.user.createdAt,
+        updatedAt: result.user.updatedAt,
+      };
+    } catch (error: any) {
+      if (error?.statusCode === 401) {
+        throw error;
       }
       return handleDatabaseError(error);
     }

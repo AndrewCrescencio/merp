@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockSignInEmail = vi.fn();
+const mockSignIn = vi.fn();
 const mockCheckRateLimit = vi.fn();
 const mockCheckAccountLockout = vi.fn();
 const mockRecordFailedAttempt = vi.fn();
@@ -20,8 +20,8 @@ vi.mock("h3", () => ({
   },
 }));
 
-vi.mock("#shared/auth", () => ({
-  auth: { api: { signInEmail: mockSignInEmail } },
+vi.mock("~~/server/utils/auth/repository", () => ({
+  authRepository: { signIn: mockSignIn },
 }));
 
 vi.mock("~~/server/utils/auth/helpers", () => ({
@@ -50,12 +50,12 @@ describe("POST /api/auth/login", () => {
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
     await expect(handler({} as any)).rejects.toThrow("Email and password are required");
-    expect(mockSignInEmail).not.toHaveBeenCalled();
+    expect(mockSignIn).not.toHaveBeenCalled();
   });
 
   it("calls checkRateLimit with email", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
+    mockSignIn.mockResolvedValue({ id: "uuid", email: "user@example.com", name: null });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
     const event = {} as any;
@@ -67,7 +67,7 @@ describe("POST /api/auth/login", () => {
 
   it("calls checkAccountLockout before authentication", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
+    mockSignIn.mockResolvedValue({ id: "uuid", email: "user@example.com", name: null });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -78,7 +78,7 @@ describe("POST /api/auth/login", () => {
 
   it("returns user data on successful login", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ user: { id: "uuid-123", email: "user@example.com", name: "Test User" }, token: "tok", redirect: false });
+    mockSignIn.mockResolvedValue({ id: "uuid-123", email: "user@example.com", name: "Test User" });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -93,7 +93,7 @@ describe("POST /api/auth/login", () => {
 
   it("resets failed attempts on successful login", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
+    mockSignIn.mockResolvedValue({ id: "uuid", email: "user@example.com", name: null });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -105,8 +105,8 @@ describe("POST /api/auth/login", () => {
   it("returns 401 on invalid credentials and records failed attempt", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "wrongpassword" });
     const authError = new Error("Invalid credentials");
-    (authError as any).status = 401;
-    mockSignInEmail.mockRejectedValue(authError);
+    (authError as any).statusCode = 401;
+    mockSignIn.mockRejectedValue(authError);
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
@@ -114,32 +114,34 @@ describe("POST /api/auth/login", () => {
     expect(mockRecordFailedAttempt).toHaveBeenCalledWith("user@example.com");
   });
 
-  it("passes rememberMe flag to Better Auth", async () => {
+  it("passes rememberMe flag and headers to repository", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123", rememberMe: true });
-    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
+    mockSignIn.mockResolvedValue({ id: "uuid", email: "user@example.com", name: null });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
+    const headers = new Headers({ cookie: "merp-session_token=abc" });
+    const event = { headers } as any;
 
-    await handler({} as any);
+    await handler(event);
 
-    expect(mockSignInEmail).toHaveBeenCalledWith({
-      body: { email: "user@example.com", password: "password123", rememberMe: true },
-      headers: undefined,
-    });
+    expect(mockSignIn).toHaveBeenCalledWith(
+      { email: "user@example.com", password: "password123", rememberMe: true },
+      headers,
+    );
   });
 
   it("defaults rememberMe to false", async () => {
     mockReadBody.mockResolvedValue({ email: "user@example.com", password: "password123" });
-    mockSignInEmail.mockResolvedValue({ user: { id: "uuid", email: "user@example.com", name: null }, token: "tok", redirect: false });
+    mockSignIn.mockResolvedValue({ id: "uuid", email: "user@example.com", name: null });
 
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
     await handler({} as any);
 
-    expect(mockSignInEmail).toHaveBeenCalledWith({
-      body: { email: "user@example.com", password: "password123", rememberMe: false },
-      headers: undefined,
-    });
+    expect(mockSignIn).toHaveBeenCalledWith(
+      { email: "user@example.com", password: "password123", rememberMe: false },
+      undefined,
+    );
   });
 
   it("returns 401 lockout error when account is locked", async () => {
@@ -154,6 +156,6 @@ describe("POST /api/auth/login", () => {
     const handler = await import("~~/server/api/auth/login.post").then(m => m.default);
 
     await expect(handler({} as any)).rejects.toThrow();
-    expect(mockSignInEmail).not.toHaveBeenCalled();
+    expect(mockSignIn).not.toHaveBeenCalled();
   });
 });

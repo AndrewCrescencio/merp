@@ -1,5 +1,5 @@
 import { defineEventHandler, readBody } from "h3";
-import { auth } from "#shared/auth";
+import { authRepository } from "~~/server/utils/auth/repository";
 import { checkAccountLockout, checkRateLimit, recordFailedAttempt, resetFailedAttempts, sendUnauthorizedError, sendValidationError } from "~~/server/utils/auth/helpers";
 
 export default defineEventHandler(async (event) => {
@@ -14,26 +14,26 @@ export default defineEventHandler(async (event) => {
   checkAccountLockout(body.email);
 
   try {
-    const result = await auth.api.signInEmail({
-      body: {
+    const user = await authRepository.signIn(
+      {
         email: body.email,
         password: body.password,
         rememberMe: body.rememberMe === true,
       },
-      headers: event.headers,
-    });
+      event.headers,
+    );
 
     resetFailedAttempts(body.email);
 
     return {
-      id: result.user.id,
-      email: result.user.email,
-      name: result.user.name,
+      id: user.id,
+      email: user.email,
+      name: user.name,
     };
   } catch (error: any) {
     recordFailedAttempt(body.email);
 
-    if (error?.status === 401) {
+    if (error?.statusCode === 401) {
       sendUnauthorizedError("Invalid email or password");
     }
 
