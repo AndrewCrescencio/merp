@@ -1,9 +1,17 @@
 import { and, eq, gt, or, like } from 'drizzle-orm'
 import { db } from '../db'
 import { auth } from '#shared/auth'
-import { user, session, company, companyMember } from '../schema'
+import { user, session, company, companyMember, authEvent } from '../schema'
 import { createError } from 'h3'
 import { handleDatabaseError } from './helpers'
+
+export interface CreateAuthEventInput {
+  userId?: string | null
+  email: string
+  eventType: string
+  ipAddress?: string | null
+  metadata?: Record<string, unknown> | null
+}
 
 export interface IAuthRepository {
   register(input: RegisterInput): Promise<UserResult>
@@ -33,6 +41,7 @@ export interface IAuthRepository {
   isCompanyMember(userId: string, companyId: string): Promise<boolean>
   setActiveCompany(sessionId: string, companyId: string | null): Promise<void>
   getActiveCompany(sessionId: string): Promise<string | null>
+  createAuthEvent(input: CreateAuthEventInput): Promise<void>
 }
 
 export interface RegisterInput {
@@ -421,6 +430,20 @@ export class DrizzleAuthRepository implements IAuthRepository {
         .limit(1)
 
       return found?.activeCompanyId || null
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async createAuthEvent(input: CreateAuthEventInput): Promise<void> {
+    try {
+      await db.insert(authEvent).values({
+        userId: input.userId || null,
+        email: input.email,
+        eventType: input.eventType,
+        ipAddress: input.ipAddress || null,
+        metadata: (input.metadata as Record<string, unknown>) || null,
+      })
     } catch (error) {
       return handleDatabaseError(error)
     }

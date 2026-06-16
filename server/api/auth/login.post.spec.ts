@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockSignIn = vi.fn()
+const mockCreateAuthEvent = vi.fn()
 const mockCheckRateLimit = vi.fn()
 const mockCheckAccountLockout = vi.fn()
 const mockRecordFailedAttempt = vi.fn()
@@ -8,10 +9,12 @@ const mockResetFailedAttempts = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockSendUnauthorizedError = vi.fn()
 const mockReadBody = vi.fn()
+const mockGetRequestIP = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
+  getRequestIP: mockGetRequestIP,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -21,7 +24,7 @@ vi.mock('h3', () => ({
 }))
 
 vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: { signIn: mockSignIn },
+  authRepository: { signIn: mockSignIn, createAuthEvent: mockCreateAuthEvent },
 }))
 
 vi.mock('~~/server/utils/auth/helpers', () => ({

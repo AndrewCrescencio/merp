@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, setResponseStatus } from 'h3'
+import { defineEventHandler, readBody, setResponseStatus, getRequestIP } from 'h3'
 import { authRepository } from '~~/server/utils/auth/repository'
 import { checkRateLimit, sendValidationError } from '~~/server/utils/auth/helpers'
 
@@ -29,6 +29,14 @@ export default defineEventHandler(async (event) => {
     password: body.password,
     name: body.name.trim(),
     consentTermsVersion: body.consentTermsVersion,
+  })
+
+  const ip = getRequestIP(event, { xForwardedFor: true })
+  await authRepository.createAuthEvent({
+    userId: user.id,
+    email: user.email,
+    eventType: 'registration',
+    ipAddress: ip || null,
   })
 
   setResponseStatus(event, 201)

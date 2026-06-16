@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody } from 'h3'
+import { defineEventHandler, readBody, getRequestIP } from 'h3'
 import { authRepository } from '~~/server/utils/auth/repository'
 import {
   checkAccountLockout,
@@ -32,12 +32,28 @@ export default defineEventHandler(async (event) => {
 
     resetFailedAttempts(body.email)
 
+    const ip = getRequestIP(event, { xForwardedFor: true })
+    await authRepository.createAuthEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: 'login',
+      ipAddress: ip || null,
+    })
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
     }
   } catch (error: any) {
+    const ip = getRequestIP(event, { xForwardedFor: true })
+    await authRepository.createAuthEvent({
+      email: body.email,
+      eventType: 'failed_login',
+      ipAddress: ip || null,
+      metadata: { reason: error?.statusCode === 401 ? 'invalid_credentials' : 'unknown' },
+    })
+
     recordFailedAttempt(body.email)
 
     if (error?.statusCode === 401) {
