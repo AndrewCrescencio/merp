@@ -103,7 +103,7 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T035 [P] Add LGPD consent recording to registration endpoint (`POST /api/auth/register`) per FR-021 (consent_terms_version, consent_terms_accepted_at)
+- [x] T035 [P] Add LGPD consent recording to registration endpoint (`POST /api/auth/register`) per FR-021 (consent_terms_version, consent_terms_accepted_at)
 - [ ] T036 [P] Add auth event logging to all endpoints (registration, login, failed login, logout) per FR-018
 - [ ] T037 [P] Implement user deactivation endpoint `POST /api/auth/deactivate` in `server/api/auth/deactivate.post.ts` per FR-017 (soft delete, invalidates sessions)
 - [ ] T038 [P] Implement company deletion endpoint `POST /api/auth/companies/delete` in `server/api/auth/companies.delete.post.ts` per FR-019 (soft delete with cascade)

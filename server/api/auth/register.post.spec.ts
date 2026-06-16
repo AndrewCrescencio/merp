@@ -180,4 +180,30 @@ describe('POST /api/auth/register', () => {
       name: 'Alice',
     })
   })
+
+  it('passes consentTermsVersion to repository when provided', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+      consentTermsVersion: 'v1',
+    })
+    const createdAt = new Date('2026-01-01')
+    mockRegister.mockResolvedValue({
+      id: 'uuid-123',
+      email: 'user@example.com',
+      name: 'Test User',
+      createdAt,
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+    await handler({} as any)
+
+    expect(mockRegister).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+      consentTermsVersion: 'v1',
+    })
+  })
 })

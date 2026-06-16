@@ -39,6 +39,7 @@ export interface RegisterInput {
   email: string
   password: string
   name: string
+  consentTermsVersion?: string
 }
 
 export interface SignInInput {
@@ -105,21 +106,33 @@ export interface CompanyMemberResult {
 export class DrizzleAuthRepository implements IAuthRepository {
   async register(input: RegisterInput): Promise<UserResult> {
     try {
-      const { user } = await auth.api.signUpEmail({
+      const { user: createdUser } = await auth.api.signUpEmail({
         body: {
           email: input.email,
           password: input.password,
           name: input.name,
-        },
+          consentTermsVersion: input.consentTermsVersion,
+        } as any,
       })
 
+      if (input.consentTermsVersion) {
+        await db
+          .update(user)
+          .set({
+            consentTermsVersion: input.consentTermsVersion,
+            consentTermsAcceptedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(user.id, createdUser.id))
+      }
+
       return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        id: createdUser.id,
+        email: createdUser.email,
+        name: createdUser.name,
         isActive: true,
-        createdAt: user.createdAt,
-        updatedAt: user.createdAt,
+        createdAt: createdUser.createdAt,
+        updatedAt: createdUser.createdAt,
       }
     } catch (error: any) {
       if (error?.statusCode === 409 || error?.message?.includes?.('already')) {

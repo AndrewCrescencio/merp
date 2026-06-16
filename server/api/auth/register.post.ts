@@ -3,7 +3,12 @@ import { authRepository } from '~~/server/utils/auth/repository'
 import { checkRateLimit, sendValidationError } from '~~/server/utils/auth/helpers'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ email?: string; password?: string; name?: string }>(event)
+  const body = await readBody<{
+    email?: string
+    password?: string
+    name?: string
+    consentTermsVersion?: string
+  }>(event)
 
   if (!body?.email || typeof body.email !== 'string' || !body.email.includes('@')) {
     sendValidationError('Valid email is required')
@@ -23,6 +28,7 @@ export default defineEventHandler(async (event) => {
     email: body.email,
     password: body.password,
     name: body.name.trim(),
+    consentTermsVersion: body.consentTermsVersion,
   })
 
   setResponseStatus(event, 201)
