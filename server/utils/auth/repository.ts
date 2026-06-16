@@ -1,7 +1,7 @@
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, or, like } from 'drizzle-orm'
 import { db } from '../db'
 import { auth } from '#shared/auth'
-import { user, session } from '../schema'
+import { user, session, company, companyMember } from '../schema'
 import { createError } from 'h3'
 import { handleDatabaseError } from './helpers'
 
@@ -21,6 +21,18 @@ export interface IAuthRepository {
   terminateUserSessions(userId: string): Promise<void>
   updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult>
   isEmailTaken(email: string): Promise<boolean>
+  createCompany(input: CreateCompanyInput): Promise<CompanyResult>
+  createCompanyMember(
+    companyId: string,
+    userId: string,
+    role?: string,
+  ): Promise<CompanyMemberResult>
+  searchCompanies(query: string): Promise<CompanyResult[]>
+  findCompanyById(id: string): Promise<CompanyResult | null>
+  findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>>
+  isCompanyMember(userId: string, companyId: string): Promise<boolean>
+  setActiveCompany(sessionId: string, companyId: string | null): Promise<void>
+  getActiveCompany(sessionId: string): Promise<string | null>
 }
 
 export interface RegisterInput {
@@ -64,6 +76,30 @@ export interface UpdateUserInput {
   consentTermsVersion: string
   consentTermsAcceptedAt: Date
   consentWithdrawnAt: Date
+}
+
+export interface CreateCompanyInput {
+  name: string
+  cnpj?: string
+  razaoSocial?: string
+}
+
+export interface CompanyResult {
+  id: string
+  name: string
+  cnpj: string | null
+  razaoSocial: string | null
+  isDeleted: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface CompanyMemberResult {
+  id: string
+  companyId: string
+  userId: string
+  role: string
+  createdAt: Date
 }
 
 export class DrizzleAuthRepository implements IAuthRepository {
@@ -226,6 +262,152 @@ export class DrizzleAuthRepository implements IAuthRepository {
         .limit(1)
 
       return !!found
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
+    try {
+      const [created] = await db
+        .insert(company)
+        .values({
+          name: input.name,
+          cnpj: input.cnpj || null,
+          razaoSocial: input.razaoSocial || null,
+        })
+        .returning()
+
+      return created!
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw createError({
+          status: 409,
+          statusText: '409',
+          message: JSON.stringify({
+            error: 'conflict',
+            message: 'CNPJ already registered',
+          }),
+        })
+      }
+      return handleDatabaseError(error)
+    }
+  }
+
+  async createCompanyMember(
+    companyId: string,
+    userId: string,
+    role = 'member',
+  ): Promise<CompanyMemberResult> {
+    try {
+      const [created] = await db
+        .insert(companyMember)
+        .values({ companyId, userId, role })
+        .returning()
+
+      return created!
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw createError({
+          status: 409,
+          statusText: '409',
+          message: JSON.stringify({
+            error: 'conflict',
+            message: 'User is already a member of this company',
+          }),
+        })
+      }
+      return handleDatabaseError(error)
+    }
+  }
+
+  async searchCompanies(query: string): Promise<CompanyResult[]> {
+    try {
+      const pattern = `%${query}%`
+      return await db
+        .select()
+        .from(company)
+        .where(
+          and(
+            eq(company.isDeleted, false),
+            or(like(company.name, pattern), like(company.cnpj, pattern)),
+          ),
+        )
+        .limit(20)
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async findCompanyById(id: string): Promise<CompanyResult | null> {
+    try {
+      const [found] = await db
+        .select()
+        .from(company)
+        .where(and(eq(company.id, id), eq(company.isDeleted, false)))
+        .limit(1)
+
+      return found || null
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>> {
+    try {
+      return await db
+        .select({
+          id: company.id,
+          name: company.name,
+          cnpj: company.cnpj,
+          razaoSocial: company.razaoSocial,
+          isDeleted: company.isDeleted,
+          createdAt: company.createdAt,
+          updatedAt: company.updatedAt,
+          role: companyMember.role,
+        })
+        .from(companyMember)
+        .innerJoin(company, eq(companyMember.companyId, company.id))
+        .where(and(eq(companyMember.userId, userId), eq(company.isDeleted, false)))
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async isCompanyMember(userId: string, companyId: string): Promise<boolean> {
+    try {
+      const [found] = await db
+        .select({ id: companyMember.id })
+        .from(companyMember)
+        .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
+        .limit(1)
+
+      return !!found
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async setActiveCompany(sessionId: string, companyId: string | null): Promise<void> {
+    try {
+      await db
+        .update(session)
+        .set({ activeCompanyId: companyId, updatedAt: new Date() })
+        .where(eq(session.id, sessionId))
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async getActiveCompany(sessionId: string): Promise<string | null> {
+    try {
+      const [found] = await db
+        .select({ activeCompanyId: session.activeCompanyId })
+        .from(session)
+        .where(eq(session.id, sessionId))
+        .limit(1)
+
+      return found?.activeCompanyId || null
     } catch (error) {
       return handleDatabaseError(error)
     }

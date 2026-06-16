@@ -93,7 +93,7 @@
 - [ ] T031 [P] [US3] Implement `POST /api/auth/companies/join` in `server/api/auth/companies.join.post.ts` — join an existing company by ID, creates CompanyMember (FR-015)
 - [ ] T032 [P] [US3] Implement `POST /api/auth/companies/switch` in `server/api/auth/companies.switch.post.ts` — switch active company context
 - [ ] T033 [US3] Update `GET /api/auth/me` to include `activeCompanyId` and `companies` list per contracts/auth-api.md
-- [ ] T034 [US3] Implement `withTenant(tenantId, fn)` helper in `server/utils/auth/helpers.ts` per constitution (set `app.tenant_id` session variable, RLS enforcement)
+- [x] T034 [US3] Implement `withTenant(tenantId, fn)` helper in `server/utils/auth/helpers.ts` per constitution (set `app.tenant_id` session variable, RLS enforcement)
 
 **Checkpoint**: User Story 3 is fully functional — user can create/join/switch companies
 

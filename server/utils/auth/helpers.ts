@@ -1,6 +1,9 @@
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import { logger } from '#shared/logger'
+import postgres from 'postgres'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import * as schema from '../schema'
 
 export interface ApiError {
   error: string
@@ -145,4 +148,18 @@ export function handleDatabaseError(error: unknown): never {
 
 export function handleUpstreamTimeout(): never {
   sendAuthError(503, 'upstream_timeout', 'Authentication service timed out. Please try again.')
+}
+
+export async function withTenant<T>(
+  tenantId: string,
+  fn: (tenantDb: ReturnType<typeof drizzle>) => Promise<T>,
+): Promise<T> {
+  const conn = postgres(process.env.DATABASE_URL!, { max: 1 })
+  try {
+    await conn`SELECT set_config('app.tenant_id', ${tenantId}, true)`
+    const tenantDb = drizzle(conn, { schema })
+    return await fn(tenantDb)
+  } finally {
+    await conn.end()
+  }
 }
