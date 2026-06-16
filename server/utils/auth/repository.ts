@@ -43,6 +43,7 @@ export interface IAuthRepository {
   getActiveCompany(sessionId: string): Promise<string | null>
   createAuthEvent(input: CreateAuthEventInput): Promise<void>
   deactivateUser(userId: string): Promise<UserResult>
+  softDeleteCompany(companyId: string): Promise<CompanyResult>
 }
 
 export interface RegisterInput {
@@ -444,6 +445,22 @@ export class DrizzleAuthRepository implements IAuthRepository {
         .update(user)
         .set({ isActive: false, updatedAt: new Date() })
         .where(eq(user.id, userId))
+        .returning()
+
+      return updated!
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async softDeleteCompany(companyId: string): Promise<CompanyResult> {
+    try {
+      await db.delete(companyMember).where(eq(companyMember.companyId, companyId))
+
+      const [updated] = await db
+        .update(company)
+        .set({ isDeleted: true, updatedAt: new Date() })
+        .where(eq(company.id, companyId))
         .returning()
 
       return updated!
