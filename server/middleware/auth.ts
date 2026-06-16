@@ -3,7 +3,7 @@ import { auth } from '#shared/auth'
 import { logger } from '#shared/logger'
 import { sendAuthError } from '~~/server/utils/auth/helpers'
 
-const publicRoutes = ['/api/auth/register', '/api/auth/login']
+const publicRoutes = ['/api/auth/register', '/api/auth/login', '/']
 
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
