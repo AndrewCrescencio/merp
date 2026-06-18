@@ -1,41 +1,65 @@
-import { defineEventHandler, readBody } from "h3";
-import { auth } from "#shared/auth";
-import { checkAccountLockout, checkRateLimit, recordFailedAttempt, resetFailedAttempts, sendUnauthorizedError, sendValidationError } from "~~/server/utils/auth/helpers";
+import { defineEventHandler, readBody, getRequestIP } from 'h3'
+import { authRepository } from '~~/server/utils/auth/repository'
+import {
+  checkAccountLockout,
+  checkRateLimit,
+  recordFailedAttempt,
+  resetFailedAttempts,
+  sendUnauthorizedError,
+  sendValidationError,
+} from '~~/server/utils/auth/helpers'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event);
+  const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event)
 
   if (!body?.email || !body?.password) {
-    sendValidationError("Email and password are required");
+    sendValidationError('Email and password are required')
   }
 
-  checkRateLimit(event, body.email);
+  checkRateLimit(event, body.email)
 
-  checkAccountLockout(body.email);
+  checkAccountLockout(body.email)
 
   try {
-    const { data } = await auth.api.signInEmail({
-      body: {
+    const user = await authRepository.signIn(
+      {
         email: body.email,
         password: body.password,
         rememberMe: body.rememberMe === true,
       },
-    });
+      event.headers,
+    )
 
-    resetFailedAttempts(body.email);
+    resetFailedAttempts(body.email)
+
+    const ip = getRequestIP(event, { xForwardedFor: true })
+    await authRepository.createAuthEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: 'login',
+      ipAddress: ip || null,
+    })
 
     return {
-      id: data.user.id,
-      email: data.user.email,
-      name: data.user.name,
-    };
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    }
   } catch (error: any) {
-    recordFailedAttempt(body.email);
+    const ip = getRequestIP(event, { xForwardedFor: true })
+    await authRepository.createAuthEvent({
+      email: body.email,
+      eventType: 'failed_login',
+      ipAddress: ip || null,
+      metadata: { reason: error?.statusCode === 401 ? 'invalid_credentials' : 'unknown' },
+    })
 
-    if (error?.status === 401) {
-      sendUnauthorizedError("Invalid email or password");
+    recordFailedAttempt(body.email)
+
+    if (error?.statusCode === 401) {
+      sendUnauthorizedError('Invalid email or password')
     }
 
-    throw error;
+    throw error
   }
-});
+})

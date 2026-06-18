@@ -1,9 +1,10 @@
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
 
 FROM base AS development
+COPY pnpm-workspace.yaml ./
 RUN pnpm install
 COPY . .
 EXPOSE 3000

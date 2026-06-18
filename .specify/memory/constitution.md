@@ -88,13 +88,15 @@ or scripts.
 **Integration tests**: Cover real queries, constraints, and RLS.
 Run separately from unit tests.
 
-Test file naming: `<file-under-test>.test.ts` (e.g. `register.post.ts`
-→ `register.post.test.ts`).
+Test file naming: `<file-under-test>.spec.ts` for unit tests (mocked),
+`<file-under-test>.test.ts` for integration tests (real DB).
+(e.g. `register.post.ts` → `register.post.spec.ts`,
+ `repository.ts` → `repository.test.ts`).
 
 Priority: fiscal critical paths (emission, tax calculation, status
 transitions, validation rules).
 
-Every route handler and repository MUST have a corresponding `.test.ts`
+Every route handler and repository MUST have a corresponding test file
 file. Tests describe behavior — WHAT is tested, not HOW.
 
 **No MVP Shortcut**: Tests are mandatory in every commit. Code without

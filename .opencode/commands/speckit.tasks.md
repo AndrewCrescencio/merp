@@ -131,7 +131,7 @@ The tasks.md should be immediately executable - each task must be specific enoug
 
 **CRITICAL**: Tasks MUST be organized by user story to enable independent implementation and testing.
 
-**Tests are MANDATORY**: Always generate test tasks for every implementation task. Test files MUST be co-located beside their implementation files (e.g. `register.post.test.ts` beside `register.post.ts`). Never generate test paths under `/specs/`.
+**Tests are MANDATORY**: Always generate test tasks for every implementation task. Test files MUST be co-located beside their implementation files. Naming: unit tests → `.spec.ts`, integration tests (real DB) → `.test.ts` (e.g. `register.post.spec.ts` for unit, `repository.test.ts` for integration). Never generate test paths under `/specs/`.
 
 ### Checklist Format (REQUIRED)
 

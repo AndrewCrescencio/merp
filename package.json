@@ -7,10 +7,27 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "prepare": "husky",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check"
+  },
+  "lint-staged": {
+    "*.{ts,mjs,vue}": [
+      "prettier --write",
+      "eslint --no-warn-ignored"
+    ],
+    "*.{md,yml,yaml,json}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.18",
+    "@nuxt/eslint": "1.16.0",
     "better-auth": "^1.6.18",
     "drizzle-orm": "^0.45.2",
     "nuxt": "^4.4.8",
@@ -19,8 +36,15 @@
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
+    "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^25.9.3",
     "drizzle-kit": "^0.31.10",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "h3": "^1.15.11",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.4",
     "vitest": "^4.1.8"
   }
 }

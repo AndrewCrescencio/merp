@@ -63,7 +63,7 @@ Auth is the gate — every interaction flows through it.
   credentials (`Access-Control-Allow-Credentials: true`). No wildcard
   origins — cookies require explicit origin.
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Email & Password Registration and Login (Priority: P1)
 
@@ -123,7 +123,7 @@ first member) or search for an existing company to join. Once a member
 of at least one company, the user operates within that tenant context.
 
 **Why this priority**: Merp serves multiple companies. User identity
-without tenant context is incomplete — we need to know *which company*
+without tenant context is incomplete — we need to know _which company_
 the user is acting on behalf of. P3 because tenant membership builds on
 top of basic auth (P1) and session management (P2).
 
@@ -160,7 +160,7 @@ authenticated requests carry the correct tenant context.
 - What happens when a deactivated user tries to log in? → Login denied with HTTP 401 per FR-017.
 - What happens to a user's sessions when their account is deactivated? → All sessions immediately invalidated per FR-017.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -179,7 +179,7 @@ authenticated requests carry the correct tenant context.
 - **FR-009**: Sessions MUST expire after 24h by default. Sessions with
   a "remember me" flag expire after 7d.
 - **FR-010**: Login attempts MUST be rate-limited to mitigate brute-force
-  attacks.   Rate limiting uses a **sliding window** of 5 requests per 1 minute per
+  attacks. Rate limiting uses a **sliding window** of 5 requests per 1 minute per
   email address. When the limit is exceeded, the server
   responds with HTTP 429 Too Many Requests. The response body MUST follow
   the standard error format:
@@ -262,7 +262,7 @@ authenticated requests carry the correct tenant context.
 - **Company**: A tenant in the multi-tenant model. Users are members of
   companies and operate within their scope.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
@@ -297,6 +297,7 @@ authenticated requests carry the correct tenant context.
 ## Threat Model & Security Scope
 
 **In scope for MVP**:
+
 - Brute-force mitigation via rate limiting (sliding window, 5 req/min per
   email) and account lockout (10 failures, 30 min auto-unlock).
 - Session token protection: httpOnly, Secure, SameSite=Lax cookies.
@@ -309,6 +310,7 @@ authenticated requests carry the correct tenant context.
   context's implementation).
 
 **Out of scope for MVP**:
+
 - OAuth / social login flows and their CSRF protections.
 - Role-based access control (RBAC) — all authenticated members have equal
   access within a tenant.
@@ -345,15 +347,15 @@ RLS policy validation, and error message leakage.
 The following fields contain Personally Identifiable Information (PII)
 under Brazilian LGPD:
 
-| Field | Classification | Sensitivity | Retention |
-|-------|---------------|-------------|-----------|
-| email | Direct identifier | High | Indefinite while active, 5y after deactivation |
-| name | Direct identifier | Medium | Same as email |
-| hashed_password | Auth secret | High | Same as email (irreversibly hashed) |
-| CNPJ | Indirect identifier | Medium | Indefinite (fiscal record) |
-| razao_social | Business data | Low | Indefinite (fiscal record) |
-| IP address | Behavioral | Low | 90 days (auth logs) |
-| session_token | Auth secret | High | 24h / 7d (session TTL) |
+| Field           | Classification      | Sensitivity | Retention                                      |
+| --------------- | ------------------- | ----------- | ---------------------------------------------- |
+| email           | Direct identifier   | High        | Indefinite while active, 5y after deactivation |
+| name            | Direct identifier   | Medium      | Same as email                                  |
+| hashed_password | Auth secret         | High        | Same as email (irreversibly hashed)            |
+| CNPJ            | Indirect identifier | Medium      | Indefinite (fiscal record)                     |
+| razao_social    | Business data       | Low         | Indefinite (fiscal record)                     |
+| IP address      | Behavioral          | Low         | 90 days (auth logs)                            |
+| session_token   | Auth secret         | High        | 24h / 7d (session TTL)                         |
 
 ### Data Retention & Purging
 
@@ -389,11 +391,11 @@ Per LGPD Art. 48:
 
 ### Cross-Border Data Transfers
 
-| Service | Data Transited | Jurisdiction | Safeguard |
-|---------|---------------|-------------|-----------|
-| PostgreSQL | All user data | USA (us-east-1) | SCC + encryption at rest (AES-256) + TLS 1.3 |
-| Better Auth (lib) | In-memory hashing | N/A (local lib) | No transfer |
-| Resend (email) | Email, name | USA | SCC + Data Processing Agreement |
+| Service           | Data Transited    | Jurisdiction    | Safeguard                                    |
+| ----------------- | ----------------- | --------------- | -------------------------------------------- |
+| PostgreSQL        | All user data     | USA (us-east-1) | SCC + encryption at rest (AES-256) + TLS 1.3 |
+| Better Auth (lib) | In-memory hashing | N/A (local lib) | No transfer                                  |
+| Resend (email)    | Email, name       | USA             | SCC + Data Processing Agreement              |
 
 Per LGPD Art. 33, adequate safeguards (Standard Contractual Clauses +
 DPA) are maintained with each provider.

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.output/
+.nuxt/
+.opencode/
+.specify/
+coverage/
+drizzle/
+pnpm-lock.yaml

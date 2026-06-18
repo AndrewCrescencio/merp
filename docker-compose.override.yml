@@ -1,36 +1,19 @@
 services:
-  app:
-    ports:
-      - "${PORT:-3000}:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    develop:
-      watch:
-        - path: ./server
-          action: sync
-        - path: ./shared
-          action: sync
-        - path: ./nuxt.config.ts
-          action: sync
-        - path: ./package.json
-          action: rebuild
-
   postgres:
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - '${DB_PORT:-5432}:5432'
 
   adminer:
     image: adminer:latest
     ports:
-      - "8080:8080"
+      - '8080:8080'
     networks:
       - merp_network
 
   mailpit:
     image: axllent/mailpit:latest
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - '1025:1025'
+      - '8025:8025'
     networks:
       - merp_network

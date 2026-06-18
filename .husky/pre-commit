@@ -1,0 +1,7 @@
+echo "🔍 Linting staged files..."
+pnpm lint-staged
+if [ $? -ne 0 ]; then
+  echo "❌ Lint failed on staged files. Fix errors before committing."
+  exit 1
+fi
+echo "✅ Lint passed."

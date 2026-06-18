@@ -1,5 +1,8 @@
 .PHONY: help dev dev-d prod prod-down prod-logs db migrate migrate-prod seed studio
 
+setup: ## Install dependencies and generate Nuxt types
+	pnpm install && pnpm nuxt prepare
+
 help:
 	@echo "Merp — Docker Compose shortcuts"
 	@echo ""

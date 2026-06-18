@@ -147,7 +147,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 7. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
-   - **Tests before code (MANDATORY)**: Always write tests for every endpoint, repository, and service. Tests are co-located beside the implementation (e.g. `register.post.test.ts` beside `register.post.ts`). Never place tests under `/specs/`.
+   - **Tests before code (MANDATORY)**: Always write tests for every endpoint, repository, and service. Tests are co-located beside the implementation. Naming: unit tests → `.spec.ts`, integration tests (real DB) → `.test.ts` (e.g. `register.post.spec.ts` for unit, `repository.test.ts` for integration). Never place tests under `/specs/`.
    - **Core development**: Implement models, services, CLI commands, endpoints
    - **Integration work**: Database connections, middleware, logging, external services
    - **Polish and validation**: Unit tests, performance optimization, documentation
