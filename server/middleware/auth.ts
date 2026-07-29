@@ -32,4 +32,6 @@ export default defineEventHandler(async (event) => {
 
   event.context.user = session.user
   event.context.session = session.session
+  event.context.tenantId = (session.session as any)?.activeCompanyId ?? null
+  event.context.userId = session.user.id
 })
