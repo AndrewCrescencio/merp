@@ -4,6 +4,7 @@ import { auth } from '#shared/auth'
 import { user, session, company, companyMember, authEvent } from '../schema'
 import { createError } from 'h3'
 import { handleDatabaseError } from './helpers'
+import { withTenant } from './tenant-context'
 
 export interface CreateAuthEventInput {
   userId?: string | null
@@ -325,12 +326,13 @@ export class DrizzleAuthRepository implements IAuthRepository {
     role = 'member',
   ): Promise<CompanyMemberResult> {
     try {
-      const [created] = await db
-        .insert(companyMember)
-        .values({ companyId, userId, role })
-        .returning()
-
-      return created!
+      return await withTenant(companyId, userId, async (tx) => {
+        const [created] = await tx
+          .insert(companyMember)
+          .values({ companyId, userId, role })
+          .returning()
+        return created!
+      })
     } catch (error: any) {
       if (error?.code === '23505') {
         throw createError({
@@ -380,20 +382,22 @@ export class DrizzleAuthRepository implements IAuthRepository {
 
   async findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>> {
     try {
-      return await db
-        .select({
-          id: company.id,
-          name: company.name,
-          cnpj: company.cnpj,
-          razaoSocial: company.razaoSocial,
-          isDeleted: company.isDeleted,
-          createdAt: company.createdAt,
-          updatedAt: company.updatedAt,
-          role: companyMember.role,
-        })
-        .from(companyMember)
-        .innerJoin(company, eq(companyMember.companyId, company.id))
-        .where(and(eq(companyMember.userId, userId), eq(company.isDeleted, false)))
+      return await withTenant(null, userId, async (tx) => {
+        return await tx
+          .select({
+            id: company.id,
+            name: company.name,
+            cnpj: company.cnpj,
+            razaoSocial: company.razaoSocial,
+            isDeleted: company.isDeleted,
+            createdAt: company.createdAt,
+            updatedAt: company.updatedAt,
+            role: companyMember.role,
+          })
+          .from(companyMember)
+          .innerJoin(company, eq(companyMember.companyId, company.id))
+          .where(and(eq(companyMember.userId, userId), eq(company.isDeleted, false)))
+      })
     } catch (error) {
       return handleDatabaseError(error)
     }
@@ -401,13 +405,14 @@ export class DrizzleAuthRepository implements IAuthRepository {
 
   async isCompanyMember(userId: string, companyId: string): Promise<boolean> {
     try {
-      const [found] = await db
-        .select({ id: companyMember.id })
-        .from(companyMember)
-        .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
-        .limit(1)
-
-      return !!found
+      return await withTenant(companyId, userId, async (tx) => {
+        const [found] = await tx
+          .select({ id: companyMember.id })
+          .from(companyMember)
+          .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
+          .limit(1)
+        return !!found
+      })
     } catch (error) {
       return handleDatabaseError(error)
     }
@@ -415,10 +420,12 @@ export class DrizzleAuthRepository implements IAuthRepository {
 
   async setActiveCompany(sessionId: string, companyId: string | null): Promise<void> {
     try {
-      await db
-        .update(session)
-        .set({ activeCompanyId: companyId, updatedAt: new Date() })
-        .where(eq(session.id, sessionId))
+      await withTenant(companyId, null, async (tx) => {
+        await tx
+          .update(session)
+          .set({ activeCompanyId: companyId, updatedAt: new Date() })
+          .where(eq(session.id, sessionId))
+      })
     } catch (error) {
       return handleDatabaseError(error)
     }
@@ -456,15 +463,15 @@ export class DrizzleAuthRepository implements IAuthRepository {
 
   async softDeleteCompany(companyId: string): Promise<CompanyResult> {
     try {
-      await db.delete(companyMember).where(eq(companyMember.companyId, companyId))
-
-      const [updated] = await db
-        .update(company)
-        .set({ isDeleted: true, updatedAt: new Date() })
-        .where(eq(company.id, companyId))
-        .returning()
-
-      return updated!
+      return await withTenant(companyId, null, async (tx) => {
+        await tx.delete(companyMember).where(eq(companyMember.companyId, companyId))
+        const [updated] = await tx
+          .update(company)
+          .set({ isDeleted: true, updatedAt: new Date() })
+          .where(eq(company.id, companyId))
+          .returning()
+        return updated!
+      })
     } catch (error) {
       return handleDatabaseError(error)
     }
