@@ -41,6 +41,7 @@ function databaseExists(): boolean {
 export async function setup(): Promise<void> {
   if (!isDockerAvailable()) {
     console.warn('[test-setup] Docker não disponível — a saltar setup da base de dados')
+    process.env.DB_AVAILABLE = 'false'
     return
   }
 
@@ -68,6 +69,8 @@ export async function setup(): Promise<void> {
   run(
     `DATABASE_URL="${TEST_DB_URL}" npx drizzle-kit push --config="${resolve(__dirname, '../../drizzle.config.ts')}"`,
   )
+
+  process.env.DB_AVAILABLE = 'true'
 }
 
 export async function teardown(): Promise<void> {
