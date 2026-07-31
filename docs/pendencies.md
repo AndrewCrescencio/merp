@@ -116,10 +116,12 @@ Não persistem restart do servidor e não funcionam com múltiplos workers/inst�
 
 ---
 
-### 10. Páginas de UI
+### 10. Páginas de UI — **ADIADO**
 
 `app/app.vue` renderiza apenas `<NuxtWelcome />`. Não há páginas de login, registro,
 dashboard, gerenciamento de companies, etc.
+
+> **Adiado:** sem trabalho de frontend no momento. Backend/API apenas.
 
 ---
 
