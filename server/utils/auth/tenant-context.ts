@@ -7,8 +7,9 @@ export async function withTenant<T>(
   tenantId: string | null,
   userId: string | null,
   fn: (tx: Tx) => Promise<T>,
+  existingTx?: Tx,
 ): Promise<T> {
-  return db.transaction(async (tx) => {
+  const run = async (tx: Tx): Promise<T> => {
     if (tenantId) {
       await tx.execute(sql`SELECT set_config('app.tenant_id', ${tenantId}, true)`)
     }
@@ -16,5 +17,11 @@ export async function withTenant<T>(
       await tx.execute(sql`SELECT set_config('app.user_id', ${userId}, true)`)
     }
     return await fn(tx)
-  })
+  }
+
+  if (existingTx) {
+    return run(existingTx)
+  }
+
+  return db.transaction(run)
 }

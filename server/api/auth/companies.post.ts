@@ -18,13 +18,14 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Company name is required')
   }
 
-  const created = await authRepository.createCompany({
-    name: body.name.trim(),
-    cnpj: body.cnpj?.trim() || undefined,
-    razaoSocial: body.razaoSocial?.trim() || undefined,
-  })
-
-  await authRepository.createCompanyMember(created.id, user.id, 'owner')
+  const created = await authRepository.createCompanyWithOwner(
+    {
+      name: body.name.trim(),
+      cnpj: body.cnpj?.trim() || undefined,
+      razaoSocial: body.razaoSocial?.trim() || undefined,
+    },
+    user.id,
+  )
 
   return {
     id: created.id,

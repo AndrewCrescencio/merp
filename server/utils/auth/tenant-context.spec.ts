@@ -30,4 +30,51 @@ describe('withTenant', () => {
     `)
     expect((row as any).tenant_id).toBe('')
   })
+
+  it('reuses an existing transaction when existingTx is passed', async () => {
+    const { withTenant } = await import('./tenant-context')
+
+    const result = await db.transaction(async (tx) => {
+      return await withTenant(
+        'outer-tenant',
+        'outer-user',
+        async (ctxTx) => {
+          const [row] = await ctxTx.execute(sql`
+          SELECT current_setting('app.tenant_id', true) AS tenant_id,
+                 current_setting('app.user_id', true) AS user_id
+        `)
+          return row as { tenant_id: string; user_id: string }
+        },
+        tx,
+      )
+    })
+
+    expect(result.tenant_id).toBe('outer-tenant')
+    expect(result.user_id).toBe('outer-user')
+  })
+
+  it('context set via existingTx persists until the outer transaction commits', async () => {
+    const { withTenant } = await import('./tenant-context')
+
+    await db.transaction(async (tx) => {
+      await withTenant(
+        'persist-tenant',
+        null,
+        async (ctxTx) => {
+          await ctxTx.execute(sql`SELECT 1`)
+        },
+        tx,
+      )
+
+      const [row] = await tx.execute(sql`
+        SELECT current_setting('app.tenant_id', true) AS tenant_id
+      `)
+      expect((row as { tenant_id: string }).tenant_id).toBe('persist-tenant')
+    })
+
+    const [row] = await db.execute(sql`
+      SELECT current_setting('app.tenant_id', true) AS tenant_id
+    `)
+    expect((row as any).tenant_id).toBe('')
+  })
 })

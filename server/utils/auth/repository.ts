@@ -36,6 +36,7 @@ export interface IAuthRepository {
   updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult>
   isEmailTaken(email: string): Promise<boolean>
   createCompany(input: CreateCompanyInput): Promise<CompanyResult>
+  createCompanyWithOwner(data: CreateCompanyInput, ownerUserId: string): Promise<CompanyResult>
   createCompanyMember(
     companyId: string,
     userId: string,
@@ -335,6 +336,45 @@ export class DrizzleAuthRepository implements IAuthRepository {
       return created!
     } catch (error: any) {
       if (error?.code === '23505') {
+        throw createError({
+          status: 409,
+          statusText: '409',
+          message: JSON.stringify({
+            error: 'conflict',
+            message: 'CNPJ already registered',
+          }),
+        })
+      }
+      return handleDatabaseError(error)
+    }
+  }
+
+  async createCompanyWithOwner(
+    data: CreateCompanyInput,
+    ownerUserId: string,
+  ): Promise<CompanyResult> {
+    try {
+      return await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(company)
+          .values({ name: data.name, cnpj: data.cnpj, razaoSocial: data.razaoSocial })
+          .returning()
+
+        await withTenant(
+          created!.id,
+          ownerUserId,
+          async (ctxTx) => {
+            await ctxTx
+              .insert(companyMember)
+              .values({ companyId: created!.id, userId: ownerUserId, role: 'owner' })
+          },
+          tx,
+        )
+
+        return created!
+      })
+    } catch (error: any) {
+      if (getPostgresErrorCode(error) === '23505') {
         throw createError({
           status: 409,
           statusText: '409',

@@ -148,6 +148,30 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
     })
   })
 
+  describe('createCompanyWithOwner', () => {
+    it('creates company and owner atomically', async () => {
+      const owner = await repo.register({
+        email: `atomic-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Atomic Owner',
+      })
+
+      const company = await repo.createCompanyWithOwner({ name: 'Atomic Company' }, owner.id)
+
+      expect(company).toMatchObject({ name: 'Atomic Company', isDeleted: false })
+      expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBe('owner')
+    })
+
+    it('rolls back company creation when owner insert fails', async () => {
+      const name = `Atomic Fail ${Date.now()}`
+
+      await expect(repo.createCompanyWithOwner({ name }, 'nonexistent-user-id')).rejects.toThrow()
+
+      const results = await repo.searchCompanies('Atomic Fail')
+      expect(results.some((c: any) => c.name === name)).toBe(false)
+    })
+  })
+
   describe('company membership roles', () => {
     it('returns the role of a member and null for non-members', async () => {
       const email = `role-${Date.now()}@example.com`
