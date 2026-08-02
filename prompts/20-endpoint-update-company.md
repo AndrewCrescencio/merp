@@ -1,3 +1,6 @@
+> **ESTADO (2026-08-02):** ⏳ pendente — pendência #5 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/13`).
+
 Resolva a pendência #5 de `docs/pendencies.md` — endpoint de update de company.
 
 ### Contexto

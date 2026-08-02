@@ -1,3 +1,6 @@
+> **ESTADO (2026-08-02):** ⏳ pendente — pendência #6 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/14`).
+
 Resolva a pendência #6 de `docs/pendencies.md` — endpoint de remover/leave member.
 
 ### Contexto

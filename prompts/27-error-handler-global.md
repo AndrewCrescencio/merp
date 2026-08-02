@@ -1,3 +1,6 @@
+> **ESTADO (2026-08-02):** ⏳ pendente — pendência #13 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/20`).
+
 Resolva a pendência #13 de `docs/pendencies.md` — error handler global (FR-026).
 
 ### Contexto

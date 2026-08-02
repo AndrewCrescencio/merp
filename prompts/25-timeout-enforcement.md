@@ -1,3 +1,6 @@
+> **ESTADO (2026-08-02):** ⏳ pendente — pendência #11 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/18`).
+
 Resolva a pendência #11 de `docs/pendencies.md` — timeout enforcement (FR-024).
 
 ### Contexto

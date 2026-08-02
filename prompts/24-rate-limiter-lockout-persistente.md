@@ -1,3 +1,6 @@
+> **ESTADO (2026-08-02):** ⏳ pendente — pendência #9 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/17`).
+
 Resolva a pendência #9 de `docs/pendencies.md` — rate limiter e lockout persistentes.
 
 ### Contexto

@@ -1,4 +1,7 @@
-# 12 — Tabela e API de Invites
+# 19 — Tabela e API de Invites
+
+> **ESTADO (2026-08-02):** ✅ resolvido (commit `aa48a91`). Movido de
+> `prompts/pendencies/12` (pendência #4 de `docs/pendencies.md`).
 
 > **RESOLVIDO em 2026-08-01** — implementado integralmente como parte da correção
 > do self-join aberto (substitui `companies.join.post.ts`):

@@ -1,4 +1,7 @@
-# 16 — Remover `withTenant` duplicado em `helpers.ts`
+# 23 — Remover `withTenant` duplicado em `helpers.ts`
+
+> **ESTADO (2026-08-02):** ✅ resolvido (commit `69f8c06`). Movido de
+> `prompts/pendencies/16` (pendência #8 de `docs/pendencies.md`).
 
 > **RESOLVIDO** — o bloco duplicado (linhas 153-165) e os imports sem uso
 > (`postgres`, `drizzle-orm/postgres-js`, `* as schema`) foram removidos de

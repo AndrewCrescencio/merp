@@ -1,3 +1,6 @@
+> **ESTADO (2026-08-02):** ⏳ pendente — pendência #14 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/21`).
+
 Resolva a pendência #14 de `docs/pendencies.md` — startup failure handling (FR-025).
 
 ### Contexto

@@ -1,3 +1,6 @@
+> **ESTADO (2026-08-02):** ⏳ pendente — pendência #7 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/15`).
+
 Resolva a pendência #7 de `docs/pendencies.md` — eventos de observabilidade do ciclo de
 vida da sessão (FR-023).
 

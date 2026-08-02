@@ -1,3 +1,6 @@
+> **ESTADO (2026-08-02):** ⏳ pendente — pendência #12 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/19`).
+
 Resolva a pendência #12 de `docs/pendencies.md` — consent withdrawal flow (FR-021).
 
 ### Contexto

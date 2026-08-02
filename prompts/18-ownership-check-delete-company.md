@@ -1,4 +1,8 @@
-# 11 — Ownership check no delete de company (FR-019)
+# 18 — Ownership check no delete de company (FR-019)
+
+> **ESTADO (2026-08-02):** ✅ resolvido via `prompts/11-guards-ownership-endpoints.md`
+> (commit `4327b69`). Movido de `prompts/pendencies/11` (pendência #3 de
+> `docs/pendencies.md`).
 
 > **SUPERSEDIDO** — este prompt foi absorvido e generalizado em
 > `prompts/11-guards-ownership-endpoints.md` (guards `getCompanyMembershipRole` +
