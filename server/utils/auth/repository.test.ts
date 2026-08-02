@@ -91,6 +91,57 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
       expect(userBCompanies[0].id).toBe(companyB.id)
     })
 
+    it('prevents cross-tenant SELECT without tenant context (fail-closed 0 rows)', async () => {
+      const emailA = `iso-select-a-${Date.now()}@example.com`
+      const emailB = `iso-select-b-${Date.now()}@example.com`
+
+      const userA = await repo.register({ email: emailA, password: 'password123', name: 'Sel A' })
+      const userB = await repo.register({ email: emailB, password: 'password123', name: 'Sel B' })
+
+      const companyA = await repo.createCompany({ name: 'Sel Company A' })
+      const companyB = await repo.createCompany({ name: 'Sel Company B' })
+
+      await repo.createCompanyMember(companyA.id, userA.id, 'owner')
+      await repo.createCompanyMember(companyB.id, userB.id, 'owner')
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+
+      // cm_select_policy confia no tenant context (fornecido pelo app, não pelo
+      // atacante) — sem contexto, user A não vê nada da empresa B (fail-closed).
+      const rows = await withTenant(null, userA.id, (tx) =>
+        tx.select().from(companyMember).where(eq(companyMember.companyId, companyB.id)),
+      )
+
+      expect(rows).toHaveLength(0)
+    })
+
+    it('prevents cross-tenant UPDATE on company via raw SQL (0 rows)', async () => {
+      const emailA = `iso-update-a-${Date.now()}@example.com`
+      const emailB = `iso-update-b-${Date.now()}@example.com`
+
+      const userA = await repo.register({ email: emailA, password: 'password123', name: 'Upd A' })
+      const userB = await repo.register({ email: emailB, password: 'password123', name: 'Upd B' })
+
+      const companyA = await repo.createCompany({ name: 'Upd Company A' })
+      const companyB = await repo.createCompany({ name: 'Upd Company B' })
+
+      await repo.createCompanyMember(companyA.id, userA.id, 'owner')
+      await repo.createCompanyMember(companyB.id, userB.id, 'owner')
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { company } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+
+      const updated = await withTenant(companyB.id, userA.id, (tx) =>
+        tx.update(company).set({ name: 'Hacked' }).where(eq(company.id, companyB.id)).returning(),
+      )
+
+      expect(updated).toHaveLength(0)
+      expect(await repo.findCompanyById(companyB.id)).toMatchObject({ name: 'Upd Company B' })
+    })
+
     it('allows company search without tenant context', async () => {
       const result = await repo.searchCompanies('Company')
       expect(result.length).toBeGreaterThanOrEqual(2)
