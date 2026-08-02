@@ -289,14 +289,17 @@ atacante** — sem checagem de ownership, é IDOR.
 
 ## 5. Plano de correção priorizado
 
-| #   | Severidade | Ação                                                       | Onde                                       | Prompt                                     |
-| --- | ---------- | ---------------------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
-| 1   | 🔴 Crítica | Role de app separada + `FORCE ROW LEVEL SECURITY` + grants | Migrations + infra                         | `prompts/09-force-rls-role-app.md`         |
-| 2   | 🔴 Crítica | Policy de INSERT/UPDATE com verificação real de owner      | `drizzle` (nova migration)                 | `prompts/10-policy-insert-owner.md`        |
-| 3   | ⚠️ Alta    | Guard `assertCompanyRole` em todo endpoint tenant-scoped   | `server/utils/auth/helpers.ts` + endpoints | `prompts/11-guards-ownership-endpoints.md` |
-| 4   | ⚠️ Média   | Tratar `42501`/`P0001` como 403, nunca 503                 | `server/utils/auth/helpers.ts`             | `prompts/12-mapper-erros-rls.md`           |
-| 5   | ⚠️ Média   | Teste de integração de isolamento entre tenants            | `repository.test.ts`                       | `prompts/13-teste-isolamento-tenants.md`   |
-| 6   | ⚠️ Baixa   | `withTenant` aninhável (reuso de transação)                | `tenant-context.ts`                        | `prompts/14-with-tenant-aninhavel.md`      |
+| #   | Severidade | Ação                                                       | Onde                                       | Prompt                                     | Status |
+| --- | ---------- | ---------------------------------------------------------- | ------------------------------------------ | ------------------------------------------ | ------ |
+| 1   | 🔴 Crítica | Role de app separada + `FORCE ROW LEVEL SECURITY` + grants | Migrations + infra                         | `prompts/09-force-rls-role-app.md`         | ✅     |
+| 2   | 🔴 Crítica | Policy de INSERT/UPDATE com verificação real de owner      | `drizzle` (nova migration)                 | `prompts/10-policy-insert-owner.md`        | ✅     |
+| 3   | ⚠️ Alta    | Guard `assertCompanyRole` em todo endpoint tenant-scoped   | `server/utils/auth/helpers.ts` + endpoints | `prompts/11-guards-ownership-endpoints.md` | ✅     |
+| 4   | ⚠️ Média   | Tratar `42501`/`P0001` como 403, nunca 503                 | `server/utils/auth/helpers.ts`             | `prompts/12-mapper-erros-rls.md`           | ✅     |
+| 5   | ⚠️ Média   | Teste de integração de isolamento entre tenants            | `repository.test.ts`                       | `prompts/13-teste-isolamento-tenants.md`   | ✅     |
+| 6   | ⚠️ Baixa   | `withTenant` aninhável (reuso de transação)                | `tenant-context.ts`                        | `prompts/14-with-tenant-aninhavel.md`      | ✅     |
+
+**Status (2026-08-02):** todos os 6 problemas fechados (prompts 09–14, commit
+`43d6796`). Nenhum item adiado.
 
 Ordem de execução: 09 → 10 → 11 → 12 → 13 → 14 → `prompts/15-verificacao-final.md`.
 **Nenhum item é adiado.**

@@ -40,14 +40,19 @@ O `checkAccountLockout` deve lançar `account_locked` em vez de `unauthorized`.
 
 ---
 
-### 3. Ownership check no soft delete de company
+### 3. Ownership check no soft delete de company ✅ RESOLVIDO
 
-**Arquivo:** `server/api/auth/companies/delete.post.ts`
+**Arquivo:** `server/api/auth/companies.delete.post.ts`
 
 A spec (FR-019) diz "Only company owners and super_admin can delete", mas a implementação
 atual só verifica `isCompanyMember()`, ignorando o `role`. Qualquer member pode deletar.
 
 **Solução:** Verificar se `role === 'owner'` antes de permitir a deleção.
+
+**Status (2026-08-02, prompt 11):** Implementado — `companies.delete.post.ts`
+exige owner via `assertCompanyRole` + `getCompanyMembershipRole`; backstop RLS
+na migration `0009` (UPDATE/DELETE de `company` e DELETE de `company_member`
+exigem `is_company_owner` avaliado na execução — TOCTOU).
 
 ---
 

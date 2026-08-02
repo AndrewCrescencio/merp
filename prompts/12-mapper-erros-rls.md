@@ -1,12 +1,16 @@
 # 12 — Erros de RLS mapeados para 403 (P4)
 
-> **ESTADO (2026-08-01):** parcialmente implementado.
-> ✅ `getPostgresErrorCode(error)` — já existe em `helpers.ts` (lê `code` ou
-> `cause.code`, necessária porque o drizzle 0.45 envolve o erro do postgres em
-> `DrizzleQueryError`). Usada em `createCompanyMember`, `createInvite`,
-> `acceptInvite` (duplicados → 409).
-> ❌ `classifyDatabaseError` e o mapeamento `42501`/`P0001` → 403 — pendentes.
-> **Use `getPostgresErrorCode` como base** (ex.: `getPostgresErrorCode(error) === '42501'`).
+> **ESTADO (2026-08-02):** ✅ implementado — commit `f098081`.
+> ✅ `classifyDatabaseError` + `handleDatabaseError` distinguindo RLS (403) de
+> indisponibilidade (503), com `logger.warn` para RLS e `logger.error` para 503.
+> ✅ Testes em `helpers.spec.ts` (42501/P0001/embrulhado em cause → 403;
+> conexão/ECONNREFUSED/23505 → 503; `handleDatabaseError` 403/503).
+>
+> **AMENDMENT (2026-08-02, pós-execução):** o código do plano lia
+> `(error as { code?: string })?.code` direto, mas o drizzle 0.45 embrulha o erro
+> do postgres em `DrizzleQueryError` (code em `cause.code`) — o mapeamento nunca
+> dispararia. A implementação usa `getPostgresErrorCode(error)` (lê `code` ou
+> `cause.code`), já existente e usada pelos conflitos 409.
 
 ## Contexto
 

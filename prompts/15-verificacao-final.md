@@ -1,10 +1,20 @@
 # 15 — Verificação final dos prompts 09–14
 
+> **ESTADO (2026-08-02):** ✅ executado (código: commits `f098081`, `7de9974`,
+> `43d6796`; este prompt = commit `(ver 15)`).
+> Build, testes (123), lint e format passando; FORCE RLS confirmado em
+> `company`/`company_member`/`invite`; `is_company_owner` e policies confirmados
+> no banco dev; review doc atualizado com status de todos os problemas.
+
 ## Contexto
 
 Os prompts 09–14 corrigem os 6 problemas do review de multi-tenancy
 (`docs/multi-tenancy/withtenant-rls-review.md`). Este prompt roda a verificação
 final ponta a ponta. **Executar apenas depois de concluir todos os anteriores.**
+
+> **Nota (2026-08-02):** o repo usa **npm** (não pnpm) — os comandos abaixo
+> foram corrigidos de `pnpm` para `npm`. O review doc não tem "seções P1–P6"
+> como títulos; o status foi adicionado à tabela da seção 5.
 
 ## 1. Ordem de execução
 
@@ -20,13 +30,13 @@ final ponta a ponta. **Executar apenas depois de concluir todos os anteriores.**
 ## 2. Verificação de build e testes
 
 ```bash
-pnpm test
-pnpm build
-pnpm lint
-pnpm format:check
+npm test
+npm run build
+npm run lint
+npm run format:check
 ```
 
-> **Nota de ambiente:** para `pnpm test` com integração real, o Postgres deve estar
+> **Nota de ambiente:** para `npm test` com integração real, o Postgres deve estar
 > up (`docker compose up -d postgres`; o CLI do Docker usa o contexto `default`,
 > não o Docker Desktop). `vitest.config.ts` já injeta `DATABASE_URL`
 > (`merp_test@localhost`) e o setup cria/sincroniza o banco automaticamente.
@@ -55,18 +65,18 @@ docker compose exec -T postgres psql -U merp -d merp -c "\dp company_member"
 
 ## 4. Checklist final
 
-- [ ] `company` e `company_member` com `FORCE ROW LEVEL SECURITY`
-- [ ] `APP_DATABASE_URL` suportado em `server/utils/db.ts` + infra documentada
-- [ ] `cm_insert_policy` bloqueia cross-tenant; `cm_update_policy` bloqueia
+- [x] `company` e `company_member` com `FORCE ROW LEVEL SECURITY`
+- [x] `APP_DATABASE_URL` suportado em `server/utils/db.ts` + infra documentada
+- [x] `cm_insert_policy` bloqueia cross-tenant; `cm_update_policy` bloqueia
       auto-promoção
-- [ ] `assertCompanyRole` em todos os endpoints tenant-scoped (delete → owner)
-- [ ] Erros RLS → 403 (nunca 503)
-- [ ] Teste de isolamento cross-tenant passando
-- [ ] `createCompanyWithOwner` atômico e endpoint refatorado
-- [ ] `docs/multi-tenancy/withtenant-rls-review.md` atualizado (seções P1–P6 com
-      status concluído)
-- [ ] `docs/pendencies.md` refletindo as correções (se houver pendências
-      relacionadas, marcar como resolvidas)
+- [x] `assertCompanyRole` em todos os endpoints tenant-scoped (delete → owner)
+- [x] Erros RLS → 403 (nunca 503)
+- [x] Teste de isolamento cross-tenant passando
+- [x] `createCompanyWithOwner` atômico e endpoint refatorado
+- [x] `docs/multi-tenancy/withtenant-rls-review.md` atualizado (status de todos
+      os problemas na tabela da seção 5 — o doc não tem títulos P1–P6)
+- [x] `docs/pendencies.md` refletindo as correções (pendência 3 — ownership no
+      soft delete — marcada como resolvida)
 
 ## 5. Commits sugeridos (um por prompt, na ordem)
 

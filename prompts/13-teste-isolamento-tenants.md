@@ -1,14 +1,22 @@
 # 13 — Teste de isolamento entre tenants (P5)
 
-> **ESTADO (2026-08-01):** parcialmente implementado.
-> ✅ Bloco `RLS isolation` existe em `repository.test.ts` (visibilidade
-> cross-tenant + busca pública) e testes de convite/roles.
-> ❌ Testes de violação via SQL raw (INSERT cross-tenant, UPDATE de
-> auto-promoção) — pendentes.
-> ⚠️ **Dependência de ordem:** estes testes só passam **depois** dos prompts 09
-> (FORCE RLS) e 10 (policies) — hoje `cm_insert_policy` é `WITH CHECK (true)` e o
-> owner do banco bypassa RLS sem FORCE, então os INSERTs de violação **ainda
-> passariam**. Não rodar este prompt antes de 09+10.
+> **ESTADO (2026-08-02):** ✅ implementado — commit `7de9974`.
+> ✅ Bloco `RLS isolation` (visibilidade cross-tenant + busca pública) e
+> violações via SQL raw: INSERT cross-tenant, UPDATE de auto-promoção, mover
+> membro entre empresas — implementados na execução dos prompts 10/11 com
+> asserção mais forte que a do plano (`getPostgresErrorCode === '42501'` em vez
+> de `rejects.toThrow()`).
+> ✅ Adicionados nesta execução: SELECT fail-closed sem tenant context (0 rows)
+> e UPDATE cross-tenant em `company` (0 rows).
+> ⚠️ A dependência de ordem (09+10 antes) está satisfeita.
+>
+> **AMENDMENT (2026-08-02, pós-execução):** o teste de SELECT cross-tenant com
+> tenant context arbitrário (rascunho do plano) **não falha** — e isso é design:
+> `cm_select_policy` permite leitura por `company_id = get_tenant_id()` e o
+> tenant context é fornecido pelo app, nunca pelo atacante. O isolamento de
+> leitura vem do guard do app (P3) + fail-closed sem contexto — o teste cobre o
+> caminho fail-closed; o caminho "contexto arbitrário" é responsabilidade do
+> endpoint (guard).
 
 ## Contexto
 

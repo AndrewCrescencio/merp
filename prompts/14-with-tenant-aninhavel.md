@@ -1,8 +1,12 @@
 # 14 — `withTenant` aninhável (P6)
 
-> **ESTADO (2026-08-01):** nada implementado. `withTenant` ainda abre
-> `db.transaction` sempre; `companies.post.ts` segue com
-> `createCompany` + `createCompanyMember` em duas chamadas. Este prompt cobre tudo.
+> **ESTADO (2026-08-02):** ✅ implementado — commit `43d6796`.
+> ✅ `withTenant` com `existingTx` (reuso em vez de aninhamento).
+> ✅ `createCompanyWithOwner` no repositório (atômico: empresa + membro owner
+> numa transação só) e `companies.post.ts` refatorado para usá-lo.
+> ✅ Testes: `tenant-context.spec.ts` (reuso + persistência até o commit da
+> transação externa), integração em `repository.test.ts` (criação atômica +
+> rollback se o INSERT do membro falhar), `companies.post.spec.ts` atualizado.
 
 ## Contexto
 
