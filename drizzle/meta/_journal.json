@@ -43,6 +43,13 @@
       "when": 1782000000000,
       "tag": "0005_misty_silver_sable",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782400000000,
+      "tag": "0006_invites_rls",
+      "breakpoints": true
     }
   ]
 }

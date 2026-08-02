@@ -1,0 +1,90 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const mockFindCompanyById = vi.fn()
+const mockIsCompanyMember = vi.fn()
+const mockListCompanyInvites = vi.fn()
+
+vi.mock('h3', () => ({
+  defineEventHandler: (fn: any) => fn,
+  getQuery: (event: any) => event.context.query,
+  createError: (opts: any) => {
+    const err = new Error(opts.message)
+    ;(err as any).status = opts.status
+    ;(err as any).statusCode = opts.status
+    throw err
+  },
+}))
+
+vi.mock('~~/server/utils/auth/repository', () => ({
+  authRepository: {
+    findCompanyById: mockFindCompanyById,
+    isCompanyMember: mockIsCompanyMember,
+    listCompanyInvites: mockListCompanyInvites,
+  },
+}))
+
+vi.mock('~~/server/utils/auth/helpers', () => ({
+  sendValidationError: (msg: string) => {
+    throw new Error(msg)
+  },
+  sendNotFoundError: (msg: string) => {
+    throw new Error(msg)
+  },
+  sendForbiddenError: (msg: string) => {
+    throw new Error(msg)
+  },
+}))
+
+const eventWithUser = (query: Record<string, unknown>) =>
+  ({ context: { user: { id: 'user-1' }, query } }) as any
+
+describe('GET /api/auth/invites', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('requires authentication', async () => {
+    const handler = await import('~~/server/api/auth/invites.get').then((m) => m.default)
+    await expect(handler({ context: {} } as any)).rejects.toThrow('Authentication required.')
+  })
+
+  it('validates companyId is required', async () => {
+    const handler = await import('~~/server/api/auth/invites.get').then((m) => m.default)
+    await expect(handler(eventWithUser({}))).rejects.toThrow('companyId is required')
+  })
+
+  it('rejects when company does not exist', async () => {
+    mockFindCompanyById.mockResolvedValue(null)
+
+    const handler = await import('~~/server/api/auth/invites.get').then((m) => m.default)
+    await expect(handler(eventWithUser({ companyId: 'company-1' }))).rejects.toThrow(
+      'Company not found',
+    )
+  })
+
+  it('rejects when user is not a member', async () => {
+    mockFindCompanyById.mockResolvedValue({ id: 'company-1' })
+    mockIsCompanyMember.mockResolvedValue(false)
+
+    const handler = await import('~~/server/api/auth/invites.get').then((m) => m.default)
+    await expect(handler(eventWithUser({ companyId: 'company-1' }))).rejects.toThrow(
+      'You are not a member of this company',
+    )
+  })
+
+  it('returns invites when member', async () => {
+    mockFindCompanyById.mockResolvedValue({ id: 'company-1' })
+    mockIsCompanyMember.mockResolvedValue(true)
+    mockListCompanyInvites.mockResolvedValue([
+      { id: 'invite-1', companyId: 'company-1', email: 'user@example.com' },
+    ])
+
+    const handler = await import('~~/server/api/auth/invites.get').then((m) => m.default)
+    const result = await handler(eventWithUser({ companyId: 'company-1' }))
+
+    expect(mockListCompanyInvites).toHaveBeenCalledWith('company-1')
+    expect(result).toEqual({
+      invites: [{ id: 'invite-1', companyId: 'company-1', email: 'user@example.com' }],
+    })
+  })
+})

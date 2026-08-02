@@ -96,4 +96,111 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
       expect(result.length).toBeGreaterThanOrEqual(2)
     })
   })
+
+  describe('company membership roles', () => {
+    it('returns the role of a member and null for non-members', async () => {
+      const email = `role-${Date.now()}@example.com`
+      const user = await repo.register({ email, password: 'password123', name: 'Role User' })
+      const company = await repo.createCompany({ name: 'Role Company' })
+
+      expect(await repo.getCompanyMembershipRole(user.id, company.id)).toBeNull()
+
+      await repo.createCompanyMember(company.id, user.id, 'owner')
+      expect(await repo.getCompanyMembershipRole(user.id, company.id)).toBe('owner')
+
+      const outsider = await repo.register({
+        email: `outsider-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Outsider',
+      })
+      expect(await repo.getCompanyMembershipRole(outsider.id, company.id)).toBeNull()
+    })
+  })
+
+  describe('invites', () => {
+    it('creates, lists, finds and accepts an invite', async () => {
+      const ownerEmail = `owner-${Date.now()}@example.com`
+      const inviteeEmail = `invitee-${Date.now()}@example.com`
+      const owner = await repo.register({
+        email: ownerEmail,
+        password: 'password123',
+        name: 'Owner',
+      })
+      const invitee = await repo.register({
+        email: inviteeEmail,
+        password: 'password123',
+        name: 'Invitee',
+      })
+      const company = await repo.createCompany({ name: 'Invite Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+
+      const created = await repo.createInvite({
+        companyId: company.id,
+        email: inviteeEmail,
+        invitedBy: owner.id,
+      })
+      expect(created).toMatchObject({ companyId: company.id, email: inviteeEmail })
+      expect(created.expiresAt.getTime()).toBeGreaterThan(Date.now())
+
+      const pending = await repo.findPendingInvite(company.id, inviteeEmail)
+      expect(pending?.id).toBe(created.id)
+
+      const listed = await repo.listCompanyInvites(company.id)
+      expect(listed.map((i: any) => i.id)).toContain(created.id)
+
+      const accepted = await repo.acceptInvite(company.id, inviteeEmail, invitee.id)
+      expect(accepted.acceptedAt).toBeInstanceOf(Date)
+
+      expect(await repo.findPendingInvite(company.id, inviteeEmail)).toBeNull()
+      expect(await repo.isCompanyMember(invitee.id, company.id)).toBe(true)
+      expect(await repo.getCompanyMembershipRole(invitee.id, company.id)).toBe('member')
+    })
+
+    it('rejects duplicate invites for the same company and email', async () => {
+      const ownerEmail = `dupowner-${Date.now()}@example.com`
+      const inviteeEmail = `dupinvitee-${Date.now()}@example.com`
+      const owner = await repo.register({
+        email: ownerEmail,
+        password: 'password123',
+        name: 'Dup Owner',
+      })
+      const company = await repo.createCompany({ name: 'Dup Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+
+      await repo.createInvite({ companyId: company.id, email: inviteeEmail, invitedBy: owner.id })
+
+      await expect(
+        repo.createInvite({ companyId: company.id, email: inviteeEmail, invitedBy: owner.id }),
+      ).rejects.toMatchObject({ statusCode: 409 })
+    })
+
+    it('returns null for expired invites', async () => {
+      const ownerEmail = `expowner-${Date.now()}@example.com`
+      const owner = await repo.register({
+        email: ownerEmail,
+        password: 'password123',
+        name: 'Exp Owner',
+      })
+      const company = await repo.createCompany({ name: 'Exp Company' })
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { invite } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+
+      const created = await repo.createInvite({
+        companyId: company.id,
+        email: `expired-${Date.now()}@example.com`,
+        invitedBy: owner.id,
+      })
+
+      await withTenant(company.id, null, async (tx) => {
+        await tx
+          .update(invite)
+          .set({ expiresAt: new Date(Date.now() - 60_000) })
+          .where(eq(invite.id, created.id))
+      })
+
+      expect(await repo.findPendingInvite(company.id, created.email)).toBeNull()
+    })
+  })
 })

@@ -150,3 +150,28 @@ export const companyMember = pgTable(
     index('company_member_company_id_idx').on(table.companyId),
   ],
 )
+
+export const invite = pgTable(
+  'invite',
+  {
+    id: text('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    companyId: text('company_id')
+      .notNull()
+      .references(() => company.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    invitedBy: text('invited_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('invite_company_email_idx').on(table.companyId, table.email),
+    index('invite_pending_email_idx')
+      .on(table.email)
+      .where(sql`${table.acceptedAt} IS NULL`),
+  ],
+)
