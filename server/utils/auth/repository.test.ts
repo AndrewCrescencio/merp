@@ -182,6 +182,7 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
         name: 'Exp Owner',
       })
       const company = await repo.createCompany({ name: 'Exp Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
 
       const { withTenant } = await import('~~/server/utils/auth/tenant-context')
       const { invite } = await import('~~/server/utils/schema')
@@ -201,6 +202,121 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
       })
 
       expect(await repo.findPendingInvite(company.id, created.email)).toBeNull()
+    })
+  })
+
+  describe('company_member insert/update policies (0008)', () => {
+    it('lets an owner add a member to their own company', async () => {
+      const owner = await repo.register({
+        email: `add-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Add Owner',
+      })
+      const member = await repo.register({
+        email: `add-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Add Member',
+      })
+      const company = await repo.createCompany({ name: 'Add Member Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
+    })
+
+    it('blocks an outsider from inserting themselves as owner via raw SQL', async () => {
+      const owner = await repo.register({
+        email: `raw-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Raw Owner',
+      })
+      const outsider = await repo.register({
+        email: `raw-outsider-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Raw Outsider',
+      })
+      const company = await repo.createCompany({ name: 'Raw Insert Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+
+      const { db } = await import('~~/server/utils/db')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { getPostgresErrorCode } = await import('~~/server/utils/auth/helpers')
+
+      await expect(
+        db.insert(companyMember).values({
+          companyId: company.id,
+          userId: outsider.id,
+          role: 'owner',
+        }),
+      ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
+    })
+
+    it('blocks a member from promoting themselves to owner via UPDATE', async () => {
+      const owner = await repo.register({
+        email: `up-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Up Owner',
+      })
+      const member = await repo.register({
+        email: `up-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Up Member',
+      })
+      const company = await repo.createCompany({ name: 'Up Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+      const { getPostgresErrorCode } = await import('~~/server/utils/auth/helpers')
+
+      await expect(
+        withTenant(company.id, member.id, (tx) =>
+          tx
+            .update(companyMember)
+            .set({ role: 'owner' })
+            .where(eq(companyMember.userId, member.id)),
+        ),
+      ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
+    })
+
+    it('blocks a member from moving their own row to another company via UPDATE', async () => {
+      const ownerA = await repo.register({
+        email: `move-owner-a-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Move Owner A',
+      })
+      const ownerB = await repo.register({
+        email: `move-owner-b-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Move Owner B',
+      })
+      const member = await repo.register({
+        email: `move-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Move Member',
+      })
+      const companyA = await repo.createCompany({ name: 'Move Company A' })
+      const companyB = await repo.createCompany({ name: 'Move Company B' })
+      await repo.createCompanyMember(companyA.id, ownerA.id, 'owner')
+      await repo.createCompanyMember(companyB.id, ownerB.id, 'owner')
+      await repo.createCompanyMember(companyA.id, member.id, 'member')
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+      const { getPostgresErrorCode } = await import('~~/server/utils/auth/helpers')
+
+      await expect(
+        withTenant(companyA.id, member.id, (tx) =>
+          tx
+            .update(companyMember)
+            .set({ companyId: companyB.id })
+            .where(eq(companyMember.userId, member.id)),
+        ),
+      ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
     })
   })
 })
