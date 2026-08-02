@@ -6,9 +6,12 @@ import { user, session, company, companyMember, authEvent, invite } from '../sch
 import { createError, H3Error } from 'h3'
 import {
   handleDatabaseError,
+  handleUpstreamTimeout,
   getPostgresErrorCode,
   sendConflictError,
   sendNotFoundError,
+  TimeoutError,
+  withTimeout,
 } from './helpers'
 import { withTenant } from './tenant-context'
 
@@ -157,16 +160,21 @@ export interface InviteResult {
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 export class DrizzleAuthRepository implements IAuthRepository {
+  // FR-024: chamadas OAuth futuras (auth.api.signInOAuth etc.) devem usar
+  // withTimeout(..., 10_000) — nenhum provider OAuth está configurado ainda.
   async register(input: RegisterInput): Promise<UserResult> {
     try {
-      const { user: createdUser } = await auth.api.signUpEmail({
-        body: {
-          email: input.email,
-          password: input.password,
-          name: input.name,
-          consentTermsVersion: input.consentTermsVersion,
-        } as any,
-      })
+      const { user: createdUser } = await withTimeout(
+        auth.api.signUpEmail({
+          body: {
+            email: input.email,
+            password: input.password,
+            name: input.name,
+            consentTermsVersion: input.consentTermsVersion,
+          } as any,
+        }),
+        5_000,
+      )
 
       if (input.consentTermsVersion) {
         await db
@@ -188,6 +196,9 @@ export class DrizzleAuthRepository implements IAuthRepository {
         updatedAt: createdUser.createdAt,
       }
     } catch (error: any) {
+      if (error instanceof TimeoutError) {
+        return handleUpstreamTimeout()
+      }
       if (error?.statusCode === 409 || error?.message?.includes?.('already')) {
         throw createError({
           status: 409,
@@ -216,14 +227,17 @@ export class DrizzleAuthRepository implements IAuthRepository {
         })
       }
 
-      const result = await auth.api.signInEmail({
-        body: {
-          email: input.email,
-          password: input.password,
-          rememberMe: input.rememberMe ?? false,
-        },
-        headers,
-      })
+      const result = await withTimeout(
+        auth.api.signInEmail({
+          body: {
+            email: input.email,
+            password: input.password,
+            rememberMe: input.rememberMe ?? false,
+          },
+          headers,
+        }),
+        5_000,
+      )
 
       // FR-023: session_created — fire-and-forget para não atrasar/falhar o
       // login se o registro do evento falhar (auditoria não pode ser crítica).
@@ -259,6 +273,9 @@ export class DrizzleAuthRepository implements IAuthRepository {
         updatedAt: result.user.updatedAt,
       }
     } catch (error: any) {
+      if (error instanceof TimeoutError) {
+        return handleUpstreamTimeout()
+      }
       if (error?.statusCode === 401) {
         throw error
       }

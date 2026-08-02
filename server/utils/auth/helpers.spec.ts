@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import {
   assertCompanyRole,
   classifyDatabaseError,
   evaluateLockout,
   evaluateRateLimit,
   handleDatabaseError,
+  TimeoutError,
+  withTimeout,
 } from './helpers'
 
 describe('assertCompanyRole', () => {
@@ -167,5 +169,38 @@ describe('handleDatabaseError', () => {
     expect(() => handleDatabaseError(new Error('connection refused'))).toThrowError(
       expect.objectContaining({ statusCode: 503 }),
     )
+  })
+})
+
+describe('withTimeout', () => {
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
+  })
+
+  it('resolves when the promise resolves before the deadline (FR-024)', async () => {
+    vi.useFakeTimers()
+
+    await expect(withTimeout(Promise.resolve('ok'), 5_000)).resolves.toBe('ok')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('rejects with the original error when the promise fails early', async () => {
+    vi.useFakeTimers()
+
+    await expect(withTimeout(Promise.reject(new Error('boom')), 5_000)).rejects.toThrow('boom')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('rejects with TimeoutError when the deadline is exceeded', async () => {
+    vi.useFakeTimers()
+
+    const promise = new Promise<string>(() => {})
+    const assertion = expect(withTimeout(promise, 5_000)).rejects.toBeInstanceOf(TimeoutError)
+
+    vi.advanceTimersByTime(5_000)
+    await assertion
+
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
