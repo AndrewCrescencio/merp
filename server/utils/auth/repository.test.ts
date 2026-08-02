@@ -530,4 +530,106 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
       expect(await repo.findCompanyById(company.id)).toMatchObject({ name: 'Upd TOC Company' })
     })
   })
+
+  describe('removeCompanyMember (0010)', () => {
+    it('lets an owner remove a member; the member is no longer a member', async () => {
+      const owner = await repo.register({
+        email: `rm-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'RM Owner',
+      })
+      const member = await repo.register({
+        email: `rm-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'RM Member',
+      })
+      const company = await repo.createCompany({ name: 'RM Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      await repo.removeCompanyMember(company.id, owner.id, member.id)
+
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
+      expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBe('owner')
+    })
+
+    it('lets a member leave the company themselves', async () => {
+      const owner = await repo.register({
+        email: `lv-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'LV Owner',
+      })
+      const member = await repo.register({
+        email: `lv-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'LV Member',
+      })
+      const company = await repo.createCompany({ name: 'LV Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      await repo.removeCompanyMember(company.id, member.id, member.id)
+
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
+      expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBe('owner')
+    })
+
+    it('backstop RLS: a member cannot remove another member (404, RLS denied)', async () => {
+      const owner = await repo.register({
+        email: `blk-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Blk Owner',
+      })
+      const memberA = await repo.register({
+        email: `blk-member-a-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Blk Member A',
+      })
+      const memberB = await repo.register({
+        email: `blk-member-b-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Blk Member B',
+      })
+      const company = await repo.createCompany({ name: 'Blk Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, memberA.id, 'member')
+      await repo.createCompanyMember(company.id, memberB.id, 'member')
+
+      await expect(
+        repo.removeCompanyMember(company.id, memberA.id, memberB.id),
+      ).rejects.toMatchObject({ statusCode: 404 })
+
+      expect(await repo.getCompanyMembershipRole(memberA.id, company.id)).toBe('member')
+      expect(await repo.getCompanyMembershipRole(memberB.id, company.id)).toBe('member')
+    })
+
+    it('clears activeCompanyId on sessions of the removed user', async () => {
+      const owner = await repo.register({
+        email: `clr-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Clr Owner',
+      })
+      const member = await repo.register({
+        email: `clr-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Clr Member',
+      })
+      const company = await repo.createCompany({ name: 'Clr Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      const session = await repo.createSession(
+        member.id,
+        `clr-token-${Date.now()}`,
+        new Date(Date.now() + 60_000),
+        false,
+      )
+      await repo.setActiveCompany(session.id, company.id)
+      expect(await repo.getActiveCompany(session.id)).toBe(company.id)
+
+      await repo.removeCompanyMember(company.id, owner.id, member.id)
+
+      expect(await repo.getActiveCompany(session.id)).toBeNull()
+    })
+  })
 })

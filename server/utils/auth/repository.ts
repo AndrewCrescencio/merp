@@ -47,6 +47,11 @@ export interface IAuthRepository {
   findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>>
   isCompanyMember(userId: string, companyId: string): Promise<boolean>
   getCompanyMembershipRole(userId: string, companyId: string): Promise<string | null>
+  removeCompanyMember(
+    companyId: string,
+    executedByUserId: string,
+    targetUserId: string,
+  ): Promise<void>
   createInvite(input: CreateInviteInput): Promise<InviteResult>
   findPendingInvite(companyId: string, email: string): Promise<InviteResult | null>
   listCompanyInvites(companyId: string): Promise<InviteResult[]>
@@ -514,6 +519,43 @@ export class DrizzleAuthRepository implements IAuthRepository {
         return found?.role ?? null
       })
     } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async removeCompanyMember(
+    companyId: string,
+    executedByUserId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    try {
+      // executedByUserId define app.user_id: cm_delete_policy (0010) só permite
+      // (a) owner remover qualquer member ou (b) o próprio member (não owner)
+      // sair. Passar o target como "executor" faria o backstop RLS avaliar a
+      // autorização do alvo — nunca fazer isso (mesmo desvio do prompt 20).
+      return await withTenant(companyId, executedByUserId, async (tx) => {
+        const deleted = await tx
+          .delete(companyMember)
+          .where(
+            and(eq(companyMember.companyId, companyId), eq(companyMember.userId, targetUserId)),
+          )
+          .returning({ id: companyMember.id })
+
+        if (deleted.length === 0) {
+          sendNotFoundError('Company member not found') // RLS negou ou não é membro (0 rows)
+        }
+
+        // Sessões do removido não podem continuar apontando para a empresa
+        // (context.tenantId no middleware vem de activeCompanyId).
+        await tx
+          .update(session)
+          .set({ activeCompanyId: null, updatedAt: new Date() })
+          .where(and(eq(session.userId, targetUserId), eq(session.activeCompanyId, companyId)))
+      })
+    } catch (error) {
+      if (error instanceof H3Error) {
+        throw error
+      }
       return handleDatabaseError(error)
     }
   }
