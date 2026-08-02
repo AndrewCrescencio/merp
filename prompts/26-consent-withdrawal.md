@@ -1,5 +1,12 @@
-> **ESTADO (2026-08-02):** ⏳ pendente — pendência #12 de `docs/pendencies.md`
-> (movido de `prompts/pendencies/19`).
+> **ESTADO (2026-08-02):** ✅ resolvido (commit `2372a4f`). Pendência #12 de
+> `docs/pendencies.md` implementada — `withdrawConsent` em transação
+> (`withTenant(null, userId, ...)`): `consentWithdrawnAt = now()`,
+> `isActive = false`, DELETE de todas as sessões; endpoint
+> `POST /api/auth/consent/withdraw` (401 sem sessão, padrão de `deactivate.post.ts`)
+> registra `auth_event` `consent_withdrawal` com metadata `{ consentWithdrawnAt }`
+> e retorna a mensagem padrão. `UserResult` ganhou o campo `consentWithdrawnAt`
+> (necessário para o metadata). Fila de deleção/anonymização fora do escopo.
+> 36 testes passando (spec + integração com DB), lint e format limpos.
 
 Resolva a pendência #12 de `docs/pendencies.md` — consent withdrawal flow (FR-021).
 

@@ -168,10 +168,21 @@ configurado ainda).
 
 ---
 
-### 12. Consent withdrawal flow (FR-021)
+### 12. Consent withdrawal flow (FR-021) ✅ RESOLVIDO
 
 O campo `consentWithdrawnAt` existe na tabela `user`, mas não há endpoint para
 retirar consentimento, nem lógica de desativação/fila de deleção.
+
+**Status (2026-08-02, prompt 26):** Implementado — `withdrawConsent(userId)` no
+repositório (`IAuthRepository`), transação via `withTenant(null, userId, ...)`
+que seta `consentWithdrawnAt = now()`, `isActive = false` e deleta todas as
+sessões; endpoint `POST /api/auth/consent/withdraw` (auth obrigatório) registra
+`auth_event` `consent_withdrawal` com metadata `{ consentWithdrawnAt }` e
+retorna `{ message: 'Consent withdrawn successfully' }`. A fila de
+deleção/anonymização fica fora do escopo (escopo do prompt). `UserResult` ganhou
+o campo `consentWithdrawnAt`. Testes: spec do endpoint (401/sucesso/evento) e
+casos de integração (desativação + fim de sessões + signIn rejeitado com
+`account_deactivated`).
 
 ---
 
