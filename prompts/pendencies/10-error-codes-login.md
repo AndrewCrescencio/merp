@@ -1,3 +1,8 @@
+> **ESTADO (2026-08-02):** ✅ implementado — commit `dcc3d97`.
+> `checkAccountLockout` → 401 `account_locked`; catch do login repassa
+> `account_locked`/`account_deactivated` e registra `metadata.reason` com o
+> código; 401 genérico continua `unauthorized`. Specs atualizados.
+
 Resolva a pendência crítica #2 de `docs/pendencies.md` — códigos de erro no login
 (`account_locked` / `account_deactivated`).
 
