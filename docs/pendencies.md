@@ -207,7 +207,22 @@ visível em produção.
 
 ---
 
-### 14. Startup failure handling (FR-025)
+### 14. Startup failure handling (FR-025) ✅ RESOLVIDO
 
 Se a inicialização do Better Auth em `shared/auth.ts` falhar, os endpoints de auth
 devem retornar 503 `auth_unavailable`. Não há graceful degradation nem health check.
+
+**Status (2026-08-02, prompt 28):** Implementado — `shared/auth.ts` com
+inicialização lazy + cache de promise (`getAuth()`): o módulo não executa
+`betterAuth()` no import; a instância só é criada no primeiro uso. Novo
+`isAuthAvailable()` (resolve `getAuth()`, retorna `false` com log de erro se a
+inicialização falhar). Consumidores ajustados: `server/utils/auth/repository.ts`
+(`register`/`signIn` resolvem via `resolveAuth()` e repassam H3Errors — falha de
+resolução → 503 `auth_unavailable` via novo helper `sendAuthUnavailableError()`),
+`server/middleware/auth.ts` (falha de resolução → 503 em vez de 401; `/api/health`
+adicionado às rotas públicas) e `server/api/auth/logout.post.ts`. Health check:
+`GET /api/health` (público, sem auth) responde 200 com
+`{ status, auth: ready|unavailable, db: ok|unavailable }` — `auth` via
+`isAuthAvailable()`, `db` via `db.execute(sql\`SELECT 1\`)`em try/catch. Testes:
+spec`server/api/health.get.spec.ts`(4 casos) + spec do middleware (503`auth_unavailable`, `/api/health`público) e do logout atualizadas para o mock`getAuth`. Verificado em runtime: `GET /api/health`→ 200 com`auth: ready`e`db: ok`(com`DATABASE_URL`alcançável do host). Nota:`server/api/auth/register.post.spec.ts`mantém um mock morto de`#shared/auth` (registro não importa mais o módulo) —
+inofensivo.

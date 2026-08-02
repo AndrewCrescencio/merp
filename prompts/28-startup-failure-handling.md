@@ -1,5 +1,16 @@
-> **ESTADO (2026-08-02):** ⏳ pendente — pendência #14 de `docs/pendencies.md`
-> (movido de `prompts/pendencies/21`).
+> **ESTADO (2026-08-02):** ✅ resolvido (commit `a570122`). Pendência #14 de
+> `docs/pendencies.md` implementada — `shared/auth.ts` com inicialização lazy +
+> cache de promise (`getAuth()`, `isAuthAvailable()`); consumidores ajustados
+> (`repository.ts`, `middleware/auth.ts`, `logout.post.ts`); novo `GET /api/health`
+> público (200, `auth`/`db` ready/unavailable). Desvios: (a) helper
+> `sendAuthUnavailableError()` em `server/utils/auth/helpers.ts` em vez do
+> `createError` inline (mesmo contrato JSON `{ error: 'auth_unavailable', message }`,
+> DRY entre middleware/repositório/logout); (b) `/api/health` adicionado às rotas
+> públicas do middleware (necessário para o health check funcionar sem auth);
+> (c) `server/api/auth/register.post.spec.ts` tem mock morto de `#shared/auth`
+> (o handler nunca importou o módulo) — mantido inofensivo. Testes de integração
+> (`.test.ts`) falham por ambiente (DB/role) — pré-existente, confirmado com
+> stash sem as alterações.
 
 Resolva a pendência #14 de `docs/pendencies.md` — startup failure handling (FR-025).
 
