@@ -1,5 +1,24 @@
-> **ESTADO (2026-08-02):** ⏳ pendente — pendência #6 de `docs/pendencies.md`
+> **ESTADO (2026-08-02):** ✅ executado (ver ESTADO abaixo; código no commit
+> `??`). Pendência #6 de `docs/pendencies.md`
 > (movido de `prompts/pendencies/14`).
+> **Desvios (revisão de segurança antes da implementação):**
+>
+> 1. **RLS impedia o leave** — `cm_delete_policy` (0009) exigia `is_company_owner`
+>    para QUALQUER DELETE em `company_member`; um member comum não conseguia
+>    deletar a própria linha (0 rows silencioso). Nova migration
+>    `drizzle/0010_member_delete_self.sql` estende a policy com self-delete
+>    (`user_id = get_user_id() AND role <> 'owner'`), mantendo a cláusula de
+>    owner e o backstop TOCTOU. `softDeleteCompany` continua funcionando
+>    (owner deleta todas as linhas, incluindo a própria).
+> 2. **Assinatura ajustada** — o prompt dizia `removeCompanyMember(companyId, userId)`
+>    com `withTenant(companyId, userId)`; o `userId` do target setaria `app.user_id`
+>    e o backstop RLS avaliaria a autorização do ALVO (IDOR na policy). Assinatura
+>    final: `removeCompanyMember(companyId, executedByUserId, targetUserId)` com
+>    `withTenant(companyId, executedByUserId)` — mesmo desvio documentado no
+>    prompt 20 (`updateCompany`).
+> 3. **Adição: limpeza de `activeCompanyId`** — após remoção/leave, as sessões do
+>    usuário removido perdem `activeCompanyId` apontando para a empresa (evita
+>    `context.tenantId` stale no middleware). Feito na mesma transação do delete.
 
 Resolva a pendência #6 de `docs/pendencies.md` — endpoint de remover/leave member.
 

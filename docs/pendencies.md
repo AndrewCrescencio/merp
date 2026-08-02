@@ -78,11 +78,19 @@ Não há endpoint para atualizar nome, CNPJ ou razaoSocial de uma company.
 
 ---
 
-### 6. Endpoint de remover/leave member
+### 6. Endpoint de remover/leave member ✅ RESOLVIDO
 
 Não há endpoint para remover um usuário de uma company ou para um member sair.
 
 **Solução:** Criar `server/api/auth/companies/members.delete.post.ts`.
+
+**Status (2026-08-02, prompt 21):** Implementado — `POST /api/auth/companies/members/delete`
+com `{ companyId, userId? }`: sem `userId` o próprio member sai (403 se não for membro;
+owner não pode sair — deve transferir/deletar a empresa); com `userId` apenas owner
+remove (403 não-owner, 403 removendo owner, 404 membro inexistente). RLS: nova
+policy `cm_delete_policy` (migration `0010`) permite self-delete de linha não-owner
+(backstop TOCTOU mantido para o resto). Sessões do removido perdem `activeCompanyId`.
+`auth_event` `member_removed` com `{ companyId, removedUserId }`.
 
 ---
 

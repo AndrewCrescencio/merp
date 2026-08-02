@@ -63,15 +63,15 @@
 
 ### AuthEvent (Audit Log)
 
-| Field      | Type        | Constraints                                                                                                                                       |
-| ---------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id         | UUID        | PK                                                                                                                                                |
-| user_id    | UUID        | NULLABLE — anonymous events (failed login) have no user                                                                                           |
-| email      | TEXT        | NOT NULL — always record attempted email                                                                                                          |
-| event_type | TEXT        | NOT NULL — one of: registration, login, failed_login, logout, session_expired, account_locked, account_unlocked, deactivation, consent_withdrawal |
-| ip_address | INET        | NULLABLE — retained 90 days per LGPD                                                                                                              |
-| metadata   | JSONB       | NULLABLE — event-specific data (error code, device info)                                                                                          |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now()                                                                                                                           |
+| Field      | Type        | Constraints                                                                                                                                                                                                          |
+| ---------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id         | UUID        | PK                                                                                                                                                                                                                   |
+| user_id    | UUID        | NULLABLE — anonymous events (failed login) have no user                                                                                                                                                              |
+| email      | TEXT        | NOT NULL — always record attempted email                                                                                                                                                                             |
+| event_type | TEXT        | NOT NULL — one of: registration, login, failed_login, logout, session_expired, account_locked, account_unlocked, deactivation, consent_withdrawal, company_deleted, company_updated, invite_accepted, member_removed |
+| ip_address | INET        | NULLABLE — retained 90 days per LGPD                                                                                                                                                                                 |
+| metadata   | JSONB       | NULLABLE — event-specific data (error code, device info)                                                                                                                                                             |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now()                                                                                                                                                                                              |
 
 **Indexes**: user_id, email, event_type, created_at (reporting queries)
 
