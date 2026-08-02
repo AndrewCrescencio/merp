@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Name is required')
   }
 
-  checkRateLimit(event, body.email)
+  await checkRateLimit(event, body.email)
 
   const user = await authRepository.register({
     email: body.email,

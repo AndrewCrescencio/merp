@@ -33,9 +33,9 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Email and password are required')
   }
 
-  checkRateLimit(event, body.email)
+  await checkRateLimit(event, body.email)
 
-  checkAccountLockout(body.email)
+  await checkAccountLockout(body.email)
 
   try {
     const user = await authRepository.signIn(
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
       event.headers,
     )
 
-    resetFailedAttempts(body.email)
+    await resetFailedAttempts(body.email)
 
     const ip = getRequestIP(event, { xForwardedFor: true })
     await authRepository.createAuthEvent({
@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
       metadata: { reason },
     })
 
-    recordFailedAttempt(body.email)
+    await recordFailedAttempt(body.email)
 
     if (reason === 'account_locked' || reason === 'account_deactivated') {
       throw error

@@ -1,5 +1,8 @@
 import type { H3Event } from 'h3'
-import { createError } from 'h3'
+import { createError, setResponseHeaders } from 'h3'
+import { eq } from 'drizzle-orm'
+import { db } from '../db'
+import { authSecurityState } from '../schema'
 import { logger } from '#shared/logger'
 
 export interface ApiError {
@@ -65,103 +68,169 @@ export async function assertCompanyRole(
   }
 }
 
-interface RateLimitEntry {
-  count: number
-  resetAt: number
-}
-
-const rateLimitStore = new Map<string, RateLimitEntry>()
-
-const WINDOW_MS = 60_000
+const RATE_WINDOW_MS = 60_000
 const MAX_REQUESTS = 5
-
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of rateLimitStore) {
-    if (entry.resetAt <= now) {
-      rateLimitStore.delete(key)
-    }
-  }
-}, 30_000)
-
-export function checkRateLimit(event: H3Event, email: string): void {
-  const now = Date.now()
-  const key = `auth:${email}`
-  const entry = rateLimitStore.get(key)
-
-  if (!entry || entry.resetAt <= now) {
-    rateLimitStore.set(key, { count: 1, resetAt: now + WINDOW_MS })
-    return
-  }
-
-  entry.count++
-
-  if (entry.count > MAX_REQUESTS) {
-    const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
-    const resetAt = entry.resetAt
-
-    setResponseHeaders(event, {
-      'Retry-After': String(retryAfter),
-      'RateLimit-Reset': String(Math.ceil(resetAt / 1000)),
-      'RateLimit-Remaining': '0',
-    })
-
-    throw createError({
-      status: 429,
-      statusText: '429',
-      message: JSON.stringify({
-        error: 'rate_limit_exceeded',
-        message: 'Too many requests. Please try again later.',
-      } satisfies ApiError),
-    })
-  }
-}
-
-interface LockoutEntry {
-  failedAttempts: number
-  lockedUntil: number | null
-}
-
-const lockoutStore = new Map<string, LockoutEntry>()
-
 const MAX_FAILED_ATTEMPTS = 10
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000
 
-export function checkAccountLockout(email: string): void {
-  const entry = lockoutStore.get(email)
+export interface RateLimitEntry {
+  count: number
+  resetAt: Date | null
+}
 
-  if (entry?.lockedUntil && entry.lockedUntil > Date.now()) {
+export interface RateLimitDecision {
+  allowed: boolean
+  retryAfter?: number
+  nextCount: number
+  nextResetAt: Date
+}
+
+export function evaluateRateLimit(entry: RateLimitEntry | null, now: Date): RateLimitDecision {
+  const nowMs = now.getTime()
+  const resetAtMs = entry?.resetAt ? entry.resetAt.getTime() : 0
+
+  if (!entry || resetAtMs <= nowMs) {
+    return { allowed: true, nextCount: 1, nextResetAt: new Date(nowMs + RATE_WINDOW_MS) }
+  }
+
+  if (entry.count < MAX_REQUESTS) {
+    return { allowed: true, nextCount: entry.count + 1, nextResetAt: entry.resetAt! }
+  }
+
+  return {
+    allowed: false,
+    retryAfter: Math.ceil((resetAtMs - nowMs) / 1000),
+    nextCount: entry.count,
+    nextResetAt: entry.resetAt!,
+  }
+}
+
+export interface LockoutDecision {
+  locked: boolean
+  nextAttempts: number
+  nextLockedUntil: Date | null
+}
+
+export function evaluateLockout(
+  failedAttempts: number,
+  lockedUntil: Date | null,
+  now: Date,
+): LockoutDecision {
+  const nowMs = now.getTime()
+
+  if (lockedUntil && lockedUntil.getTime() > nowMs) {
+    return { locked: true, nextAttempts: failedAttempts, nextLockedUntil: lockedUntil }
+  }
+
+  if (lockedUntil && lockedUntil.getTime() <= nowMs) {
+    return { locked: false, nextAttempts: 1, nextLockedUntil: null }
+  }
+
+  const nextAttempts = failedAttempts + 1
+  const nextLockedUntil =
+    nextAttempts >= MAX_FAILED_ATTEMPTS ? new Date(nowMs + LOCKOUT_DURATION_MS) : null
+
+  return { locked: false, nextAttempts, nextLockedUntil }
+}
+
+export async function checkRateLimit(event: H3Event, email: string): Promise<void> {
+  const key = `rate:${email}`
+  const now = new Date()
+
+  const decision = await db.transaction(async (tx) => {
+    await tx.insert(authSecurityState).values({ key }).onConflictDoNothing()
+
+    const [row] = await tx
+      .select({ count: authSecurityState.count, resetAt: authSecurityState.resetAt })
+      .from(authSecurityState)
+      .where(eq(authSecurityState.key, key))
+      .for('update')
+
+    const result = evaluateRateLimit(row ?? null, now)
+
+    await tx
+      .update(authSecurityState)
+      .set({ count: result.nextCount, resetAt: result.nextResetAt, updatedAt: now })
+      .where(eq(authSecurityState.key, key))
+
+    return result
+  })
+
+  if (decision.allowed) {
+    return
+  }
+
+  setResponseHeaders(event, {
+    'Retry-After': String(decision.retryAfter),
+    'RateLimit-Reset': String(Math.ceil(decision.nextResetAt.getTime() / 1000)),
+    'RateLimit-Remaining': '0',
+  })
+
+  throw createError({
+    status: 429,
+    statusText: '429',
+    message: JSON.stringify({
+      error: 'rate_limit_exceeded',
+      message: 'Too many requests. Please try again later.',
+    } satisfies ApiError),
+  })
+}
+
+export async function checkAccountLockout(email: string): Promise<void> {
+  const key = `lockout:${email}`
+
+  const [row] = await db
+    .select({ count: authSecurityState.count, lockedUntil: authSecurityState.lockedUntil })
+    .from(authSecurityState)
+    .where(eq(authSecurityState.key, key))
+    .limit(1)
+
+  if (!row) {
+    return
+  }
+
+  const decision = evaluateLockout(row.count, row.lockedUntil, new Date())
+
+  if (decision.locked) {
     sendAuthError(
       401,
       'account_locked',
       'Account locked due to too many failed attempts. Please try again later.',
     )
   }
-
-  if (entry?.lockedUntil && entry.lockedUntil <= Date.now()) {
-    lockoutStore.delete(email)
-  }
 }
 
-export function recordFailedAttempt(email: string): void {
-  const now = Date.now()
-  const entry = lockoutStore.get(email)
+export async function recordFailedAttempt(email: string): Promise<void> {
+  const key = `lockout:${email}`
+  const now = new Date()
 
-  if (!entry || (entry.lockedUntil && entry.lockedUntil <= now)) {
-    lockoutStore.set(email, { failedAttempts: 1, lockedUntil: null })
-    return
-  }
+  const decision = await db.transaction(async (tx) => {
+    await tx.insert(authSecurityState).values({ key }).onConflictDoNothing()
 
-  entry.failedAttempts++
+    const [row] = await tx
+      .select({ count: authSecurityState.count, lockedUntil: authSecurityState.lockedUntil })
+      .from(authSecurityState)
+      .where(eq(authSecurityState.key, key))
+      .for('update')
 
-  if (entry.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-    entry.lockedUntil = now + LOCKOUT_DURATION_MS
+    const result = evaluateLockout(row?.count ?? 0, row?.lockedUntil ?? null, now)
+
+    await tx
+      .update(authSecurityState)
+      .set({ count: result.nextAttempts, lockedUntil: result.nextLockedUntil, updatedAt: now })
+      .where(eq(authSecurityState.key, key))
+
+    return result
+  })
+
+  if (decision.nextLockedUntil) {
     logger.warn('Account locked due to failed attempts', { email })
   }
 }
 
-export function resetFailedAttempts(email: string): void {
-  lockoutStore.delete(email)
+export async function resetFailedAttempts(email: string): Promise<void> {
+  const key = `lockout:${email}`
+  await db.delete(authSecurityState).where(eq(authSecurityState.key, key))
 }
 
 const RLS_ERROR_CODES = new Set(['42501', 'P0001'])

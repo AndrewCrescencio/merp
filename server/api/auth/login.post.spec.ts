@@ -39,6 +39,10 @@ vi.mock('~~/server/utils/auth/helpers', () => ({
 describe('POST /api/auth/login', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCheckRateLimit.mockResolvedValue(undefined)
+    mockCheckAccountLockout.mockResolvedValue(undefined)
+    mockRecordFailedAttempt.mockResolvedValue(undefined)
+    mockResetFailedAttempts.mockResolvedValue(undefined)
     mockSendValidationError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })

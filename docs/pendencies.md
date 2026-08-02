@@ -126,12 +126,20 @@ Não é usada em lugar nenhum — o repositório importa de `./tenant-context.ts
 
 ---
 
-### 9. Rate limiter e lockout em memória
+### 9. Rate limiter e lockout em memória ✅ RESOLVIDO
 
 `checkRateLimit` e `checkAccountLockout`/`recordFailedAttempt` usam `Map` em memória.
 Não persistem restart do servidor e não funcionam com múltiplos workers/instâncias.
 
 **Solução:** Migrar para Redis ou banco de dados.
+
+**Status (2026-08-02, prompt 24):** Implementado — tabela `auth_security_state`
+(`rate:<email>` / `lockout:<email>`) com upsert via `onConflictDoUpdate` em
+transação `FOR UPDATE`; lógica pura extraída em `evaluateRateLimit` (janela 60s,
+máx. 5 por email — FR-010) e `evaluateLockout` (10 falhas → 30min); funções
+`checkRateLimit`/`checkAccountLockout`/`recordFailedAttempt`/`resetFailedAttempts`
+agora assíncronas e `await`-adas em `login.post.ts` e `register.post.ts`;
+`setInterval` de limpeza removido. Migration `0010_next_morbius.sql`.
 
 ---
 
