@@ -152,9 +152,15 @@ describe('POST /api/auth/login', () => {
   })
 
   it('returns 401 lockout error when account is locked', async () => {
-    mockCheckAccountLockout.mockImplementation(() => {
-      const err: any = new Error('Account locked')
+    mockCheckAccountLockout.mockImplementationOnce(() => {
+      const err: any = new Error(
+        JSON.stringify({
+          error: 'account_locked',
+          message: 'Account locked due to too many failed attempts. Please try again later.',
+        }),
+      )
       err.status = 401
+      err.statusCode = 401
       throw err
     })
 
@@ -162,7 +168,51 @@ describe('POST /api/auth/login', () => {
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow()
+    await expect(handler({} as any)).rejects.toMatchObject({
+      statusCode: 401,
+      message: expect.stringContaining('account_locked'),
+    })
     expect(mockSignIn).not.toHaveBeenCalled()
+  })
+
+  it('repasses account_deactivated error and records it as the failed_login reason', async () => {
+    mockReadBody.mockResolvedValue({ email: 'inactive@example.com', password: 'password123' })
+    const deactivatedError: any = new Error(
+      JSON.stringify({ error: 'account_deactivated', message: 'User has been deactivated' }),
+    )
+    deactivatedError.statusCode = 401
+    mockSignIn.mockRejectedValue(deactivatedError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toMatchObject({
+      statusCode: 401,
+      message: expect.stringContaining('account_deactivated'),
+    })
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'inactive@example.com',
+        eventType: 'failed_login',
+        metadata: { reason: 'account_deactivated' },
+      }),
+    )
+    expect(mockSendUnauthorizedError).not.toHaveBeenCalled()
+  })
+
+  it('keeps generic unauthorized for 401 errors without a specific code', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'wrongpassword' })
+    const genericError: any = new Error(JSON.stringify({ error: 'unauthorized', message: 'nope' }))
+    genericError.statusCode = 401
+    mockSignIn.mockRejectedValue(genericError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'failed_login',
+        metadata: { reason: 'invalid_credentials' },
+      }),
+    )
   })
 })

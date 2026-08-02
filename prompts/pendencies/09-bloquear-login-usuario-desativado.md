@@ -1,4 +1,4 @@
-> **ESTADO (2026-08-02):** ✅ implementado — commit `(ver 09)`.
+> **ESTADO (2026-08-02):** ✅ implementado — commit `b8e2e0b`.
 > `signIn` verifica `isActive` antes do Better Auth → 401 `account_deactivated`.
 > Teste de integração em `repository.test.ts`.
 > **Desvio:** mensagem "User has been deactivated" (EN, alinhada ao contrato

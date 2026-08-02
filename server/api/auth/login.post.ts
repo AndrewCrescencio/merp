@@ -9,6 +9,23 @@ import {
   sendValidationError,
 } from '~~/server/utils/auth/helpers'
 
+const LOGIN_ERROR_CODES = new Set(['account_locked', 'account_deactivated'])
+
+function getLoginErrorReason(error: any): string {
+  if (error?.statusCode !== 401) return 'unknown'
+  if (typeof error?.message === 'string') {
+    try {
+      const parsed = JSON.parse(error.message)
+      if (typeof parsed?.error === 'string') {
+        return LOGIN_ERROR_CODES.has(parsed.error) ? parsed.error : 'invalid_credentials'
+      }
+    } catch {
+      // message não é JSON — 401 genérico
+    }
+  }
+  return 'invalid_credentials'
+}
+
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event)
 
@@ -47,14 +64,20 @@ export default defineEventHandler(async (event) => {
     }
   } catch (error: any) {
     const ip = getRequestIP(event, { xForwardedFor: true })
+    const reason = getLoginErrorReason(error)
+
     await authRepository.createAuthEvent({
       email: body.email,
       eventType: 'failed_login',
       ipAddress: ip || null,
-      metadata: { reason: error?.statusCode === 401 ? 'invalid_credentials' : 'unknown' },
+      metadata: { reason },
     })
 
     recordFailedAttempt(body.email)
+
+    if (reason === 'account_locked' || reason === 'account_deactivated') {
+      throw error
+    }
 
     if (error?.statusCode === 401) {
       sendUnauthorizedError('Invalid email or password')

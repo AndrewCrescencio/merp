@@ -131,7 +131,11 @@ export function checkAccountLockout(email: string): void {
   const entry = lockoutStore.get(email)
 
   if (entry?.lockedUntil && entry.lockedUntil > Date.now()) {
-    sendUnauthorizedError('Account locked due to too many failed attempts. Please try again later.')
+    sendAuthError(
+      401,
+      'account_locked',
+      'Account locked due to too many failed attempts. Please try again later.',
+    )
   }
 
   if (entry?.lockedUntil && entry.lockedUntil <= Date.now()) {
