@@ -1,43 +1,18 @@
-Resolva a pendência crítica #3 de `docs/pendencies.md` — ownership check no soft delete
-de company (FR-019).
+# 11 — Ownership check no delete de company (FR-019)
 
-### Contexto
+> **SUPERSEDIDO** — este prompt foi absorvido e generalizado em
+> `prompts/11-guards-ownership-endpoints.md` (guards `getCompanyMembershipRole` +
+> `assertCompanyRole` aplicados a TODOS os endpoints tenant-scoped, não só delete).
+> Execute o prompt raiz e marque esta pendência como resolvida.
+
+## Contexto (histórico)
 
 A spec exige que apenas company owners e super_admin possam deletar, mas
-`server/api/auth/companies/delete.post.ts` só verifica `isCompanyMember()`. Qualquer
-member pode deletar.
+`server/api/auth/companies/delete.post.ts` só verificava `isCompanyMember()`. Qualquer
+member podia deletar.
 
-### Alterações
+A solução original (preservada no prompt raiz):
 
-1. Em `server/utils/auth/repository.ts` — adicione ao `IAuthRepository` e implemente:
-
-```typescript
-getCompanyMembershipRole(userId: string, companyId: string): Promise<string | null>
-```
-
-Use `withTenant(companyId, userId, ...)` (import de `./tenant-context`) para consultar
-`companyMember.role`. Retorna `null` se não for membro.
-
-2. Em `server/api/auth/companies/delete.post.ts` — substitua a verificação
-   `isCompanyMember` por `getCompanyMembershipRole`:
-
-   - `null` → `sendForbiddenError('You are not a member of this company')`
-   - role diferente de `'owner'` → `sendForbiddenError('Only company owners can delete companies')`
-   - role `'owner'` → prossegue com `softDeleteCompany`.
-
-### Testes
-
-- Atualize `server/api/auth/companies.delete.post.spec.ts`: caso member tenta deletar →
-  403; caso owner deleta → sucesso.
-- Adicione caso de integração em `server/utils/auth/repository.test.ts` para
-  `getCompanyMembershipRole` (member → `'member'`, owner → `'owner'`, não membro → `null`).
-
-### Verificação
-
-```bash
-npx vitest run server/api/auth/companies.delete.post.spec.ts server/utils/auth/repository.test.ts
-npm run lint
-npm run format:check
-```
-
-Se tudo passar, faça commit com a convenção da AGENTS.md (corpo com `Model:` e `Agent:`).
+1. `getCompanyMembershipRole(userId, companyId): Promise<string | null>` em
+   `server/utils/auth/repository.ts` (com `withTenant(companyId, userId, ...)`).
+2. Endpoint delete: role `null` → 403; role ≠ `'owner'` → 403; owner → prossegue.

@@ -1,6 +1,19 @@
-Resolva a pendência crítica #4 de `docs/pendencies.md` — tabela e API de Invites.
+# 12 — Tabela e API de Invites
 
-### Contexto
+> **RESOLVIDO em 2026-08-01** — implementado integralmente como parte da correção
+> do self-join aberto (substitui `companies.join.post.ts`):
+>
+> - Tabela `invite` em `server/utils/schema.ts` + migration `drizzle/0006_invites_rls.sql`
+>   (RLS: INSERT com `is_company_owner`, demais por tenant).
+> - Repositório: `createInvite`, `findPendingInvite`, `listCompanyInvites`,
+>   `acceptInvite` (atômico: verifica pendência + cria member + marca accepted).
+> - Endpoints: `POST /api/auth/invite` (owner), `GET /api/auth/invites` (member),
+>   `POST /api/auth/invites/accept` (email da sessão, nunca do body) + specs.
+> - Testes de integração em `repository.test.ts` (duplicado → 409, expirado → null).
+
+## Contexto (histórico)
+
+Resolva a pendência crítica #4 de `docs/pendencies.md` — tabela e API de Invites.
 
 Data model (`specs/001-auth-context/data-model.md`) define a entidade `Invite`: id,
 company_id (FK Company), email, invited_by (FK User), accepted_at (NULL), expires_at

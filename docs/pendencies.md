@@ -51,19 +51,18 @@ atual só verifica `isCompanyMember()`, ignorando o `role`. Qualquer member pode
 
 ---
 
-### 4. Tabela/API de Invites
+### 4. Tabela/API de Invites ✅ RESOLVIDO
 
 **Spec:** Data model define entidade `Invite` com campos (id, company_id, email, invited_by,
 accepted_at, expires_at, created_at) e unique constraint em (company_id, email).
 
-**Pendente:**
-
-- Schema da tabela `invite`
-- Migration SQL
-- Endpoints:
-  - `POST /api/auth/invite` — criar convite
-  - `GET /api/auth/invites` — listar convites da company
-  - `POST /api/auth/invites/accept` — aceitar convite
+**Status (2026-08-01):** Implementado — tabela `invite` + RLS em
+`drizzle/0006_invites_rls.sql`, repositório (`createInvite`, `findPendingInvite`,
+`listCompanyInvites`, `acceptInvite`) e endpoints (`POST /api/auth/invite`,
+`GET /api/auth/invites`, `POST /api/auth/invites/accept`). O self-join aberto
+(`companies.join.post.ts`) foi **removido** — entrar em empresa agora é só via
+convite (email da sessão, owner cria convite, expira em 7 dias, INSERT restrito a
+owner via `is_company_owner`).
 
 ---
 
@@ -96,7 +95,7 @@ Atualmente só `session_expired` é logado (no middleware). Os demais não são 
 
 ---
 
-### 8. Remover `withTenant` duplicado em `helpers.ts`
+### 8. Remover `withTenant` duplicado em `helpers.ts` ✅ RESOLVIDO
 
 **Arquivo:** `server/utils/auth/helpers.ts` — linhas 153-165
 
@@ -104,6 +103,9 @@ Existe uma segunda implementação de `withTenant` que cria uma nova conexão po
 Não é usada em lugar nenhum — o repositório importa de `./tenant-context.ts`.
 
 **Solução:** Remover o bloco duplicado.
+
+**Status:** Removido o bloco duplicado e os imports não usados (`postgres`, `drizzle`,
+`schema`). Aviso de import duplicado do build eliminado.
 
 ---
 
