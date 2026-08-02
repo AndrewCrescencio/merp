@@ -63,6 +63,7 @@ export interface IAuthRepository {
   setActiveCompany(sessionId: string, companyId: string | null): Promise<void>
   getActiveCompany(sessionId: string): Promise<string | null>
   createAuthEvent(input: CreateAuthEventInput): Promise<void>
+  withdrawConsent(userId: string): Promise<UserResult>
   deactivateUser(userId: string): Promise<UserResult>
   softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult>
   updateCompany(
@@ -91,6 +92,7 @@ export interface UserResult {
   email: string
   name: string | null
   isActive: boolean
+  consentWithdrawnAt: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -721,6 +723,27 @@ export class DrizzleAuthRepository implements IAuthRepository {
         .limit(1)
 
       return found?.activeCompanyId || null
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async withdrawConsent(userId: string): Promise<UserResult> {
+    try {
+      // FR-021: retirada de consentimento desativa a conta imediatamente e
+      // encerra todas as sessões em uma única transação. A fila de
+      // deleção/anonymização fica fora do escopo (pendência #12 parcial).
+      return await withTenant(null, userId, async (tx) => {
+        await tx.delete(session).where(eq(session.userId, userId))
+
+        const [updated] = await tx
+          .update(user)
+          .set({ consentWithdrawnAt: new Date(), isActive: false, updatedAt: new Date() })
+          .where(eq(user.id, userId))
+          .returning()
+
+        return updated!
+      })
     } catch (error) {
       return handleDatabaseError(error)
     }

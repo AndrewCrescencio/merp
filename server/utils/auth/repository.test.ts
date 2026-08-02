@@ -118,6 +118,55 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
     })
   })
 
+  describe('consent withdrawal (FR-021)', () => {
+    it('deactivates the user, stamps consentWithdrawnAt and ends all sessions', async () => {
+      const email = `consent-${Date.now()}@example.com`
+      const userRecord = await repo.register({
+        email,
+        password: testPassword,
+        name: 'Consent User',
+      })
+
+      const session = await repo.createSession(
+        userRecord.id,
+        `consent-token-${Date.now()}`,
+        new Date(Date.now() + 60_000),
+        false,
+      )
+
+      const result = await repo.withdrawConsent(userRecord.id)
+
+      expect(result.isActive).toBe(false)
+      expect(result.consentWithdrawnAt).toBeInstanceOf(Date)
+
+      const found = await repo.findById(userRecord.id)
+      expect(found?.isActive).toBe(false)
+      expect(found?.consentWithdrawnAt).toBeInstanceOf(Date)
+
+      const sessions = await repo.getUserSessions(userRecord.id)
+      expect(sessions).toHaveLength(0)
+      expect(await repo.validateSession(session.token)).toBeNull()
+    })
+
+    it('rejects sign-in with account_deactivated after consent withdrawal', async () => {
+      const email = `consent-signin-${Date.now()}@example.com`
+      const userRecord = await repo.register({
+        email,
+        password: testPassword,
+        name: 'Consent SignIn',
+      })
+
+      await repo.withdrawConsent(userRecord.id)
+
+      const headers = new Headers()
+
+      await expect(repo.signIn({ email, password: testPassword }, headers)).rejects.toSatisfy(
+        (error: any) =>
+          error?.statusCode === 401 && JSON.parse(error.message)?.error === 'account_deactivated',
+      )
+    })
+  })
+
   describe('RLS isolation', () => {
     it('prevents cross-tenant member visibility', async () => {
       const emailA = `tenant-a-${Date.now()}@example.com`
