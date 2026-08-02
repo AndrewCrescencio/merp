@@ -3,7 +3,7 @@ import { authRepository } from '~~/server/utils/auth/repository'
 import {
   sendValidationError,
   sendNotFoundError,
-  sendForbiddenError,
+  assertCompanyRole,
 } from '~~/server/utils/auth/helpers'
 
 export default defineEventHandler(async (event) => {
@@ -27,12 +27,15 @@ export default defineEventHandler(async (event) => {
     sendNotFoundError('Company not found')
   }
 
-  const isMember = await authRepository.isCompanyMember(user.id, body.companyId)
-  if (!isMember) {
-    sendForbiddenError('You are not a member of this company')
-  }
+  const role = await authRepository.getCompanyMembershipRole(user.id, body.companyId)
+  await assertCompanyRole(
+    role,
+    'owner',
+    'You are not a member of this company',
+    'Only company owners can delete companies',
+  )
 
-  await authRepository.softDeleteCompany(body.companyId)
+  await authRepository.softDeleteCompany(body.companyId, user.id)
 
   const ip = getRequestIP(event, { xForwardedFor: true })
   await authRepository.createAuthEvent({

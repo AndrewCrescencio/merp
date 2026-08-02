@@ -3,7 +3,7 @@ import { authRepository } from '~~/server/utils/auth/repository'
 import {
   sendValidationError,
   sendNotFoundError,
-  sendForbiddenError,
+  assertCompanyRole,
 } from '~~/server/utils/auth/helpers'
 
 export default defineEventHandler(async (event) => {
@@ -27,10 +27,8 @@ export default defineEventHandler(async (event) => {
     sendNotFoundError('Company not found')
   }
 
-  const isMember = await authRepository.isCompanyMember(user.id, query.companyId)
-  if (!isMember) {
-    sendForbiddenError('You are not a member of this company')
-  }
+  const role = await authRepository.getCompanyMembershipRole(user.id, query.companyId)
+  await assertCompanyRole(role, null, 'You are not a member of this company')
 
   const invites = await authRepository.listCompanyInvites(query.companyId)
 

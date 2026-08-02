@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockFindCompanyById = vi.fn()
-const mockIsCompanyMember = vi.fn()
+const mockGetCompanyMembershipRole = vi.fn()
 const mockSoftDeleteCompany = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockSendValidationError = vi.fn()
@@ -25,17 +25,21 @@ vi.mock('h3', () => ({
 vi.mock('~~/server/utils/auth/repository', () => ({
   authRepository: {
     findCompanyById: mockFindCompanyById,
-    isCompanyMember: mockIsCompanyMember,
+    getCompanyMembershipRole: mockGetCompanyMembershipRole,
     softDeleteCompany: mockSoftDeleteCompany,
     createAuthEvent: mockCreateAuthEvent,
   },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
-  sendValidationError: mockSendValidationError,
-  sendNotFoundError: mockSendNotFoundError,
-  sendForbiddenError: mockSendForbiddenError,
-}))
+vi.mock('~~/server/utils/auth/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('~~/server/utils/auth/helpers')>()
+  return {
+    ...actual,
+    sendValidationError: mockSendValidationError,
+    sendNotFoundError: mockSendNotFoundError,
+    sendForbiddenError: mockSendForbiddenError,
+  }
+})
 
 describe('POST /api/auth/companies/delete', () => {
   beforeEach(() => {
@@ -86,7 +90,7 @@ describe('POST /api/auth/companies/delete', () => {
   it('throws 403 when user is not a member', async () => {
     mockReadBody.mockResolvedValue({ companyId: 'company-1' })
     mockFindCompanyById.mockResolvedValue({ id: 'company-1', name: 'Test Co' })
-    mockIsCompanyMember.mockResolvedValue(false)
+    mockGetCompanyMembershipRole.mockResolvedValue(null)
 
     const handler = await import('~~/server/api/auth/companies.delete.post').then((m) => m.default)
 
@@ -96,10 +100,23 @@ describe('POST /api/auth/companies/delete', () => {
     expect(mockSoftDeleteCompany).not.toHaveBeenCalled()
   })
 
+  it('throws 403 when user is a member but not the owner', async () => {
+    mockReadBody.mockResolvedValue({ companyId: 'company-1' })
+    mockFindCompanyById.mockResolvedValue({ id: 'company-1', name: 'Test Co' })
+    mockGetCompanyMembershipRole.mockResolvedValue('member')
+
+    const handler = await import('~~/server/api/auth/companies.delete.post').then((m) => m.default)
+
+    const event = { context: { user: { id: 'user-1', email: 'user@example.com' } } } as any
+
+    await expect(handler(event)).rejects.toThrow('Only company owners can delete companies')
+    expect(mockSoftDeleteCompany).not.toHaveBeenCalled()
+  })
+
   it('soft deletes company and logs event on success', async () => {
     mockReadBody.mockResolvedValue({ companyId: 'company-1' })
     mockFindCompanyById.mockResolvedValue({ id: 'company-1', name: 'Test Co' })
-    mockIsCompanyMember.mockResolvedValue(true)
+    mockGetCompanyMembershipRole.mockResolvedValue('owner')
     mockSoftDeleteCompany.mockResolvedValue({
       id: 'company-1',
       name: 'Test Co',
@@ -116,7 +133,7 @@ describe('POST /api/auth/companies/delete', () => {
     const result = await handler(event)
 
     expect(result).toEqual({ message: 'Company deleted successfully' })
-    expect(mockSoftDeleteCompany).toHaveBeenCalledWith('company-1')
+    expect(mockSoftDeleteCompany).toHaveBeenCalledWith('company-1', 'user-1')
     expect(mockCreateAuthEvent).toHaveBeenCalledWith({
       userId: 'user-1',
       email: 'user@example.com',

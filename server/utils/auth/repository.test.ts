@@ -319,4 +319,52 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
       ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
     })
   })
+
+  describe('company delete policies (0009)', () => {
+    it('lets an owner soft-delete their company (company before members)', async () => {
+      const owner = await repo.register({
+        email: `del-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Del Owner',
+      })
+      const member = await repo.register({
+        email: `del-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Del Member',
+      })
+      const company = await repo.createCompany({ name: 'Del Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      const result = await repo.softDeleteCompany(company.id, owner.id)
+
+      expect(result).toMatchObject({ id: company.id, isDeleted: true })
+      expect(await repo.findCompanyById(company.id)).toBeNull()
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
+      expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBeNull()
+    })
+
+    it('backstop TOCTOU: a member cannot soft-delete the company (404, RLS denied)', async () => {
+      const owner = await repo.register({
+        email: `toc-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'TOC Owner',
+      })
+      const member = await repo.register({
+        email: `toc-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'TOC Member',
+      })
+      const company = await repo.createCompany({ name: 'TOC Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      await expect(repo.softDeleteCompany(company.id, member.id)).rejects.toMatchObject({
+        statusCode: 404,
+      })
+
+      expect(await repo.findCompanyById(company.id)).toMatchObject({ id: company.id })
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
+    })
+  })
 })

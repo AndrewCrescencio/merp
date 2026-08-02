@@ -219,11 +219,13 @@ CREATE POLICY cm_insert_policy ON company_member FOR INSERT
   empresa?", qualquer usuário autenticado pode operar em qualquer empresa.
 - Hoje `companies.post.ts` cria a própria empresa (ok); checagem de ownership
   **não confirmada** em `companies.delete.post.ts`.
-- **Já resolvido parcialmente:** o self-join aberto (`companies.join.post.ts`) foi
-  **removido** — entrada em empresa agora é exclusivamente via convite
-  (`invite.post.ts` owner-only, `invites.get.ts` member-only, `invites.accept.post.ts`
-  com email da sessão). Guard `assertCompanyRole` para delete/update pendente
-  (prompt 11).
+- **✅ Resolvido em 2026-08-02 (prompt 11):** o self-join aberto
+  (`companies.join.post.ts`) foi **removido** — entrada em empresa é
+  exclusivamente via convite (`invite.post.ts` owner-only, `invites.get.ts`
+  member-only, `invites.accept.post.ts` com email da sessão). Guard
+  `assertCompanyRole` implementado e aplicado em `companies.delete.post.ts`
+  (owner), `invite.post.ts` (owner) e `invites.get.ts` (qualquer membro) —
+  padrão obrigatório documentado na seção P3.
 
 **Fix:** guard centralizado chamado antes de toda operação tenant-scoped:
 
@@ -301,7 +303,42 @@ Ordem de execução: 09 → 10 → 11 → 12 → 13 → 14 → `prompts/15-verif
 
 ---
 
-## 6. Referências
+## 6. P3 — Padrão de guarda de ownership em endpoints (IDOR)
+
+> Regra obrigatória (2026-08-02, prompt 11): **todo endpoint que aceitar `companyId`
+> do cliente DEVE chamar `assertCompanyRole` antes de qualquer operação.**
+
+| Tipo de operação                  | `requiredRole`           | Exemplos                                     |
+| --------------------------------- | ------------------------ | -------------------------------------------- |
+| Delete / update / dados sensíveis | `'owner'`                | `companies.delete.post.ts`, `invite.post.ts` |
+| Leitura / switch                  | `null` (qualquer membro) | `invites.get.ts`, `companies.switch.post.ts` |
+
+Fluxo obrigatório:
+
+```ts
+const role = await authRepository.getCompanyMembershipRole(user.id, companyId)
+await assertCompanyRole(
+  role,
+  requiredRole, // 'owner' ou null (qualquer membro)
+  'You are not a member of this company',
+  wrongRoleMessage?, // ex.: 'Only company owners can delete companies'
+)
+```
+
+- `requiredRole: null` = acesso de **qualquer membro** (owner OU member) — nunca
+  usar `'member'` para check de "membro", pois bloquearia owners (regressão
+  coberta em `invites.get.spec.ts`).
+- `assertCompanyRole` está em `server/utils/auth/helpers.ts`; o guard devolve
+  **403 limpo** (resposta normal de IDOR).
+- **Backstop TOCTOU (defesa em profundidade):** as policies RLS de DELETE — e o
+  UPDATE do soft-delete — em `company`/`company_member` exigem
+  `is_company_owner` **reavaliado no momento da execução**
+  (`drizzle/0009_company_delete_owner.sql`). Um owner rebaixado entre o guard e a
+  operação é silenciosamente negado (0 rows → 404), nunca executa a operação.
+
+---
+
+## 7. Referências
 
 - `server/utils/auth/tenant-context.ts` — helper `withTenant`
 - `server/utils/auth/helpers.ts` — erros, rate-limit, lockout, `handleDatabaseError`

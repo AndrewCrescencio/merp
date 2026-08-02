@@ -51,6 +51,20 @@ export function sendForbiddenError(message: string): never {
   sendAuthError(403, 'forbidden', message)
 }
 
+export async function assertCompanyRole(
+  role: string | null | undefined,
+  requiredRole: string | null,
+  notMemberMessage: string,
+  wrongRoleMessage?: string,
+): Promise<void> {
+  if (!role) {
+    sendForbiddenError(notMemberMessage)
+  }
+  if (requiredRole && role !== requiredRole) {
+    sendForbiddenError(wrongRoleMessage ?? notMemberMessage)
+  }
+}
+
 interface RateLimitEntry {
   count: number
   resetAt: number

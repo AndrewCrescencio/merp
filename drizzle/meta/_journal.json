@@ -64,6 +64,13 @@
       "when": 1785689302446,
       "tag": "0008_policy_insert_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785689646744,
+      "tag": "0009_company_delete_owner",
+      "breakpoints": true
     }
   ]
 }

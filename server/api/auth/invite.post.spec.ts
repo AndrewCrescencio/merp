@@ -28,17 +28,18 @@ vi.mock('~~/server/utils/auth/repository', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
-  sendValidationError: (msg: string) => {
-    throw new Error(msg)
-  },
-  sendNotFoundError: (msg: string) => {
-    throw new Error(msg)
-  },
-  sendForbiddenError: (msg: string) => {
-    throw new Error(msg)
-  },
-}))
+vi.mock('~~/server/utils/auth/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('~~/server/utils/auth/helpers')>()
+  return {
+    ...actual,
+    sendValidationError: (msg: string) => {
+      throw new Error(msg)
+    },
+    sendNotFoundError: (msg: string) => {
+      throw new Error(msg)
+    },
+  }
+})
 
 const eventWithUser = (overrides: Record<string, unknown> = {}) =>
   ({ context: { user: { id: 'user-1', email: 'owner@example.com' } }, ...overrides }) as any

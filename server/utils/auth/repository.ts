@@ -54,7 +54,7 @@ export interface IAuthRepository {
   getActiveCompany(sessionId: string): Promise<string | null>
   createAuthEvent(input: CreateAuthEventInput): Promise<void>
   deactivateUser(userId: string): Promise<UserResult>
-  softDeleteCompany(companyId: string): Promise<CompanyResult>
+  softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult>
   getUserSessions(userId: string): Promise<Array<{ id: string; createdAt: Date; expiresAt: Date }>>
 }
 
@@ -599,18 +599,28 @@ export class DrizzleAuthRepository implements IAuthRepository {
     }
   }
 
-  async softDeleteCompany(companyId: string): Promise<CompanyResult> {
+  async softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult> {
     try {
-      return await withTenant(companyId, null, async (tx) => {
-        await tx.delete(companyMember).where(eq(companyMember.companyId, companyId))
+      return await withTenant(companyId, userId, async (tx) => {
+        // ATENÇÃO à ordem: update em company ANTES do delete de members —
+        // a policy company_modify_policy exige is_company_owner(id) na execução,
+        // e o owner ainda é membro neste ponto; deletar members primeiro faria
+        // o check falhar (owner removido) → 0 rows → 404 espúrio.
         const [updated] = await tx
           .update(company)
           .set({ isDeleted: true, updatedAt: new Date() })
           .where(eq(company.id, companyId))
           .returning()
+        if (!updated) {
+          sendNotFoundError('Company not found') // RLS negou ou já deletada (0 rows)
+        }
+        await tx.delete(companyMember).where(eq(companyMember.companyId, companyId))
         return updated!
       })
     } catch (error) {
+      if (error instanceof H3Error) {
+        throw error
+      }
       return handleDatabaseError(error)
     }
   }

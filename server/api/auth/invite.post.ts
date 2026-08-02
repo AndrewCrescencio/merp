@@ -3,7 +3,7 @@ import { authRepository } from '~~/server/utils/auth/repository'
 import {
   sendValidationError,
   sendNotFoundError,
-  sendForbiddenError,
+  assertCompanyRole,
 } from '~~/server/utils/auth/helpers'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -35,12 +35,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const role = await authRepository.getCompanyMembershipRole(user.id, body.companyId)
-  if (!role) {
-    sendForbiddenError('You are not a member of this company')
-  }
-  if (role !== 'owner') {
-    sendForbiddenError('Only company owners can invite members')
-  }
+  await assertCompanyRole(
+    role,
+    'owner',
+    'You are not a member of this company',
+    'Only company owners can invite members',
+  )
 
   const created = await authRepository.createInvite({
     companyId: body.companyId,
