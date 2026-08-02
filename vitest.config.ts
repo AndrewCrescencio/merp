@@ -14,6 +14,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    env: {
+      DATABASE_URL: 'postgres://merp:merp@localhost:5432/merp_test',
+    },
     include: ['server/**/*.{spec,test}.ts', 'shared/**/*.{spec,test}.ts'],
     globalSetup: ['./server/utils/test-setup.ts'],
   },
