@@ -1,7 +1,7 @@
 # 15 — Verificação final dos prompts 09–14
 
 > **ESTADO (2026-08-02):** ✅ executado (código: commits `f098081`, `7de9974`,
-> `43d6796`; este prompt = commit `(ver 15)`).
+> `43d6796`; este prompt = commit `e5039c6`).
 > Build, testes (123), lint e format passando; FORCE RLS confirmado em
 > `company`/`company_member`/`invite`; `is_company_owner` e policies confirmados
 > no banco dev; review doc atualizado com status de todos os problemas.
