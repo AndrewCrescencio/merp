@@ -1,4 +1,5 @@
-> **ESTADO (2026-08-02):** ✅ resolvido (commit `a570122`). Pendência #14 de
+> **ESTADO (2026-08-02):** ✅ resolvido (commits `97e19f3`, `0e9b78b`, `3c7c46c`,
+> `5df3bcf`). Pendência #14 de
 > `docs/pendencies.md` implementada — `shared/auth.ts` com inicialização lazy +
 > cache de promise (`getAuth()`, `isAuthAvailable()`); consumidores ajustados
 > (`repository.ts`, `middleware/auth.ts`, `logout.post.ts`); novo `GET /api/health`
