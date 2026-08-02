@@ -1,5 +1,6 @@
-> **ESTADO (2026-08-02):** ✅ executado (ver ESTADO abaixo). Pendência #7 de
-> `docs/pendencies.md` (movido de `prompts/pendencies/15`).
+> **ESTADO (2026-08-02):** ✅ executado (ver ESTADO abaixo; código no commit
+> `4bd8978`). Pendência #7 de `docs/pendencies.md`
+> (movido de `prompts/pendencies/15`).
 > **Desvios:**
 >
 > 1. **`signInEmail` não retorna o objeto `session`** — Better Auth 1.6.18
