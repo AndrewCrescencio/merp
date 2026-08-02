@@ -15,8 +15,22 @@ export default defineEventHandler(async (event) => {
     headers: event.headers,
   })
 
+  const ip = getRequestIP(event, { xForwardedFor: true })
+
+  // FR-023: session_invalidated — sessão encerrada pelo logout.
+  await authRepository.createAuthEvent({
+    userId: user?.id ?? null,
+    email: user?.email ?? 'unknown',
+    eventType: 'session_invalidated',
+    ipAddress: ip || null,
+    metadata: {
+      sessionId: session?.id ?? null,
+      userId: user?.id ?? null,
+      tenantId: (session as any)?.activeCompanyId ?? null,
+    },
+  })
+
   if (user) {
-    const ip = getRequestIP(event, { xForwardedFor: true })
     await authRepository.createAuthEvent({
       userId: user.id,
       email: user.email,

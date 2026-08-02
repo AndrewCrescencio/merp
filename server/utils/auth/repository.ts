@@ -1,6 +1,7 @@
 import { and, eq, gt, or, like, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { auth } from '#shared/auth'
+import { logger } from '#shared/logger'
 import { user, session, company, companyMember, authEvent, invite } from '../schema'
 import { createError, H3Error } from 'h3'
 import {
@@ -223,6 +224,32 @@ export class DrizzleAuthRepository implements IAuthRepository {
         },
         headers,
       })
+
+      // FR-023: session_created — fire-and-forget para não atrasar/falhar o
+      // login se o registro do evento falhar (auditoria não pode ser crítica).
+      // signInEmail retorna apenas o token da sessão (sem o objeto session),
+      // então o sessionId é resolvido via validateSession em background.
+      const sessionToken = result.token
+      void this.validateSession(sessionToken)
+        .then((validated) => {
+          if (!validated) return
+          return this.createAuthEvent({
+            userId: validated.user.id,
+            email: validated.user.email,
+            eventType: 'session_created',
+            metadata: {
+              sessionId: validated.session.id,
+              userId: validated.user.id,
+              tenantId: (validated.session as any)?.activeCompanyId ?? null,
+            },
+          })
+        })
+        .catch((error: unknown) => {
+          logger.warn('Failed to emit session_created event', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        })
+
       return {
         id: result.user.id,
         email: result.user.email,

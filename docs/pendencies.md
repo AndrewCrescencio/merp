@@ -94,12 +94,21 @@ policy `cm_delete_policy` (migration `0010`) permite self-delete de linha não-o
 
 ---
 
-### 7. Eventos de observabilidade do ciclo de vida da sessão
+### 7. Eventos de observabilidade do ciclo de vida da sessão ✅ RESOLVIDO
 
 **Spec FR-023:** Emitir eventos `session_created`, `session_validated`,
 `session_expired`, `session_invalidated` com session_id, user_id, tenant_id.
 
 Atualmente só `session_expired` é logado (no middleware). Os demais não são emitidos.
+
+**Status (2026-08-02, prompt 22):** Implementado — `session_created` em
+`signIn` (fire-and-forget; `signInEmail` retorna só o token, então o sessionId é
+resolvido via `validateSession` em background); `session_validated` no middleware
+(fire-and-forget para não adicionar latência a cada request); `session_expired`
+no middleware com `email: 'unknown'` (cookie expirado não permite resolver o
+usuário; coluna NOT NULL documentada no código); `session_invalidated` em
+`logout.post.ts` e `deactivate.post.ts`. Lista de `event_type` do data model
+estendida.
 
 ---
 

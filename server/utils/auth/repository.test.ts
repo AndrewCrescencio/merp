@@ -43,6 +43,39 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
     expect(result.id).toBeTruthy()
   })
 
+  it('emits session_created auth event after sign-in (FR-023)', async () => {
+    const headers = new Headers()
+    const result = await repo.signIn({ email: testEmail, password: testPassword }, headers)
+
+    // session_created é fire-and-forget: aguarda o insert chegar no auth_event.
+    const { db } = await import('~~/server/utils/db')
+    const { authEvent } = await import('~~/server/utils/schema')
+    const { eq } = await import('drizzle-orm')
+    const { and } = await import('drizzle-orm')
+
+    let event: any
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const [found] = await db
+        .select()
+        .from(authEvent)
+        .where(and(eq(authEvent.userId, result.id), eq(authEvent.eventType, 'session_created')))
+        .limit(1)
+      if (found) {
+        event = found
+        break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+
+    expect(event).toBeTruthy()
+    expect(event.email).toBe(testEmail)
+    expect(event.metadata).toMatchObject({
+      userId: result.id,
+      sessionId: expect.any(String),
+      tenantId: null,
+    })
+  })
+
   it('rejects invalid password with 401', async () => {
     const headers = new Headers()
 

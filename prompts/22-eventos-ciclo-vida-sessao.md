@@ -1,5 +1,14 @@
-> **ESTADO (2026-08-02):** ⏳ pendente — pendência #7 de `docs/pendencies.md`
-> (movido de `prompts/pendencies/15`).
+> **ESTADO (2026-08-02):** ✅ executado (ver ESTADO abaixo). Pendência #7 de
+> `docs/pendencies.md` (movido de `prompts/pendencies/15`).
+> **Desvios:**
+>
+> 1. **`signInEmail` não retorna o objeto `session`** — Better Auth 1.6.18
+>    retorna `{ redirect, token, url, user }` apenas. O `sessionId` do evento
+>    `session_created` é resolvido via `validateSession(result.token)` dentro
+>    do fire-and-forget (não bloqueia o login).
+> 2. **`session_expired` usa `email: 'unknown'`** — cookie expirado não permite
+>    resolver usuário/sessão; a coluna `email` é NOT NULL. Decisão comentada no
+>    código (`server/middleware/auth.ts`).
 
 Resolva a pendência #7 de `docs/pendencies.md` — eventos de observabilidade do ciclo de
 vida da sessão (FR-023).

@@ -15,6 +15,24 @@ export default defineEventHandler(async (event) => {
   await authRepository.deactivateUser(user.id)
 
   const ip = getRequestIP(event, { xForwardedFor: true })
+  const session = event.context.session as
+    | { id: string; activeCompanyId?: string | null }
+    | undefined
+
+  // FR-023: session_invalidated — deactivateUser encerrou todas as sessões do
+  // usuário; sessionId da sessão atual é registrado quando disponível.
+  await authRepository.createAuthEvent({
+    userId: user.id,
+    email: user.email,
+    eventType: 'session_invalidated',
+    ipAddress: ip || null,
+    metadata: {
+      sessionId: session?.id ?? null,
+      userId: user.id,
+      tenantId: session?.activeCompanyId ?? null,
+    },
+  })
+
   await authRepository.createAuthEvent({
     userId: user.id,
     email: user.email,

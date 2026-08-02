@@ -93,4 +93,53 @@ describe('POST /api/auth/logout', () => {
 
     expect(mockSignOut).toHaveBeenCalledWith({ headers })
   })
+
+  it('emits session_invalidated event with sessionId on logout', async () => {
+    const handler = await import('~~/server/api/auth/logout.post').then((m) => m.default)
+    mockSignOut.mockResolvedValue({})
+
+    const event = {
+      context: {
+        session: { id: 'session-123', activeCompanyId: 'company-1' },
+        user: { id: 'user-1', email: 'user@example.com' },
+      },
+      headers: new Headers(),
+    } as any
+
+    await handler(event)
+
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith({
+      userId: 'user-1',
+      email: 'user@example.com',
+      eventType: 'session_invalidated',
+      ipAddress: null,
+      metadata: {
+        sessionId: 'session-123',
+        userId: 'user-1',
+        tenantId: 'company-1',
+      },
+    })
+  })
+
+  it('emits session_invalidated with unknown user when context user is missing', async () => {
+    const handler = await import('~~/server/api/auth/logout.post').then((m) => m.default)
+    mockSignOut.mockResolvedValue({})
+
+    const event = {
+      context: {
+        session: { id: 'session-123' },
+      },
+      headers: new Headers(),
+    } as any
+
+    await handler(event)
+
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'unknown',
+        eventType: 'session_invalidated',
+        metadata: expect.objectContaining({ sessionId: 'session-123' }),
+      }),
+    )
+  })
 })

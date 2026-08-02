@@ -1,9 +1,39 @@
 import { defineEventHandler, getCookie, getRequestURL } from 'h3'
 import { auth } from '#shared/auth'
 import { logger } from '#shared/logger'
+import { authRepository } from '~~/server/utils/auth/repository'
 import { sendAuthError } from '~~/server/utils/auth/helpers'
 
 const publicRoutes = ['/api/auth/register', '/api/auth/login', '/']
+
+// FR-023: eventos de ciclo de vida da sessão. O registro do evento é
+// fire-and-forget — falha na auditoria não pode bloquear nem falhar a
+// requisição (nem adicionar latência a cada request validado).
+function emitSessionEvent(input: {
+  sessionId: string | null
+  userId: string | null
+  email: string
+  tenantId: string | null
+  eventType: 'session_validated' | 'session_expired'
+}): void {
+  void authRepository
+    .createAuthEvent({
+      userId: input.userId,
+      email: input.email,
+      eventType: input.eventType,
+      metadata: {
+        sessionId: input.sessionId,
+        userId: input.userId,
+        tenantId: input.tenantId,
+      },
+    })
+    .catch((error: unknown) => {
+      logger.warn('Failed to emit auth event', {
+        eventType: input.eventType,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
+}
 
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
@@ -24,11 +54,30 @@ export default defineEventHandler(async (event) => {
         timestamp: new Date().toISOString(),
       })
 
+      // FR-023: session_expired. O cookie de sessão expirado não permite
+      // resolver userId/sessionId (o getSession já retornou null) — email
+      // 'unknown' documenta a limitação da coluna NOT NULL.
+      emitSessionEvent({
+        sessionId: null,
+        userId: null,
+        email: 'unknown',
+        tenantId: null,
+        eventType: 'session_expired',
+      })
+
       sendAuthError(401, 'session_expired', 'Session expired. Please login again.')
     }
 
     sendAuthError(401, 'unauthorized', 'Authentication required.')
   }
+
+  emitSessionEvent({
+    sessionId: session.session.id,
+    userId: session.user.id,
+    email: session.user.email,
+    tenantId: (session.session as any)?.activeCompanyId ?? null,
+    eventType: 'session_validated',
+  })
 
   event.context.user = session.user
   event.context.session = session.session

@@ -77,6 +77,68 @@ describe('POST /api/auth/deactivate', () => {
     })
   })
 
+  it('emits session_invalidated event after deactivation', async () => {
+    mockDeactivateUser.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      name: 'Test User',
+      isActive: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    const handler = await import('~~/server/api/auth/deactivate.post').then((m) => m.default)
+
+    const event = {
+      context: {
+        user: { id: 'user-1', email: 'user@example.com' },
+        session: { id: 'session-123', activeCompanyId: 'company-1' },
+      },
+      headers: new Headers(),
+    } as any
+
+    await handler(event)
+
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith({
+      userId: 'user-1',
+      email: 'user@example.com',
+      eventType: 'session_invalidated',
+      ipAddress: null,
+      metadata: {
+        sessionId: 'session-123',
+        userId: 'user-1',
+        tenantId: 'company-1',
+      },
+    })
+  })
+
+  it('emits session_invalidated with null sessionId when context session missing', async () => {
+    mockDeactivateUser.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      name: 'Test User',
+      isActive: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    const handler = await import('~~/server/api/auth/deactivate.post').then((m) => m.default)
+
+    const event = {
+      context: { user: { id: 'user-1', email: 'user@example.com' } },
+      headers: new Headers(),
+    } as any
+
+    await handler(event)
+
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'session_invalidated',
+        metadata: expect.objectContaining({ sessionId: null }),
+      }),
+    )
+  })
+
   it('throws 401 when user is not authenticated', async () => {
     const handler = await import('~~/server/api/auth/deactivate.post').then((m) => m.default)
 
