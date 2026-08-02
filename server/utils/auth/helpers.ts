@@ -160,17 +160,40 @@ export function resetFailedAttempts(email: string): void {
   lockoutStore.delete(email)
 }
 
+const RLS_ERROR_CODES = new Set(['42501', 'P0001'])
+
+export function classifyDatabaseError(error: unknown): {
+  status: number
+  error: string
+  message: string
+} {
+  const code = getPostgresErrorCode(error)
+
+  if (code && RLS_ERROR_CODES.has(code)) {
+    return {
+      status: 403,
+      error: 'forbidden',
+      message: 'You do not have permission to access this resource',
+    }
+  }
+
+  return {
+    status: 503,
+    error: 'service_unavailable',
+    message: 'Service temporarily unavailable. Please try again later.',
+  }
+}
+
 export function handleDatabaseError(error: unknown): never {
-  logger.error('Database unreachable', {
-    error: error instanceof Error ? error.message : String(error),
+  const classification = classifyDatabaseError(error)
+
+  logger[classification.status === 403 ? 'warn' : 'error']('Database error', {
+    code: getPostgresErrorCode(error),
+    message: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
   })
 
-  sendAuthError(
-    503,
-    'service_unavailable',
-    'Service temporarily unavailable. Please try again later.',
-  )
+  sendAuthError(classification.status, classification.error, classification.message)
 }
 
 export function handleUpstreamTimeout(): never {
