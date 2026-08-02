@@ -1,5 +1,5 @@
 > **ESTADO (2026-08-02):** ✅ executado (ver ESTADO abaixo; código no commit
-> `??`). Pendência #6 de `docs/pendencies.md`
+> `7c6d5d5`). Pendência #6 de `docs/pendencies.md`
 > (movido de `prompts/pendencies/14`).
 > **Desvios (revisão de segurança antes da implementação):**
 >
