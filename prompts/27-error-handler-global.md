@@ -1,5 +1,17 @@
-> **ESTADO (2026-08-02):** ⏳ pendente — pendência #13 de `docs/pendencies.md`
-> (movido de `prompts/pendencies/20`).
+> **ESTADO (2026-08-02):** ✅ resolvido (commit `d22c567`). Pendência #13 de
+> `docs/pendencies.md` implementada — `server/error-handler.ts` com
+> `defineNitroErrorHandler` + `normalizeError` pura: contrato `{ error, message }`
+> (JSON, status < 500) repassado intacto; demais → 500 `internal_error` sem vazar
+> detalhes, `logger.error` com message/stack. `nitro.errorHandler` em
+> `nuxt.config.ts`. Desvios do prompt: (a) `nitropack` virou devDependency
+> (transitiva não resolve no pnpm strict node_modules); (b) import de
+> `nitropack/runtime` (export não existe no entry principal `nitropack`);
+> (c) path `~~/server/error-handler` — no Nuxt 4 `~` = srcDir (`app/`), `~~` = raiz.
+> Verificação: 4 specs novos (passthrough, 500 genérico sem leak, payload do
+> contrato com status ≥ 500 bloqueado, JSON inválido bloqueado), build OK e
+> smoke test em runtime (preview): 401 do contrato intacto, 500 → `internal_error`,
+> segredo só no log. 186 testes, lint e format limpos. Em dev o Nitro usa o
+> dev overlay (devErrorHandler), então o formato só vale em produção.
 
 Resolva a pendência #13 de `docs/pendencies.md` — error handler global (FR-026).
 

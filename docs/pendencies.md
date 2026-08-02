@@ -186,10 +186,24 @@ casos de integração (desativação + fim de sessões + signIn rejeitado com
 
 ---
 
-### 13. Error handler global (FR-026)
+### 13. Error handler global (FR-026) ✅ RESOLVIDO
 
 Não há plugin/error handler global do Nitro para capturar erros 500 inesperados
 e retornar o formato padrão `internal_error`. Erros podem vazar detalhes internos.
+
+**Status (2026-08-02, prompt 27):** Implementado — `server/error-handler.ts`
+com `defineNitroErrorHandler` (`nitropack/runtime`) + função pura `normalizeError`
+(erro do contrato `{ error, message }` em JSON com status < 500 é repassado
+intacto; qualquer outro vira 500 `internal_error` sem vazar detalhes; `logger.error`
+com message/stack para diagnóstico interno). Registrado em `nuxt.config.ts`
+via `nitro.errorHandler`. Desvios: (a) `nitropack` adicionado como devDependency
+(import transitivo não resolve no strict node_modules do pnpm); (b) import vem de
+`nitropack/runtime` (o export não existe no entry principal); (c) path usado é
+`~~/server/error-handler` — no Nuxt 4 `~` aponta para srcDir (`app/`), não raiz.
+Verificado em runtime com build de produção + preview (401 do contrato repassado
+intacto; 500 genérico → `internal_error` sem vazar mensagem, detalhe só no log).
+Em dev o Nitro usa o dev overlay próprio (devErrorHandler), então o formato só é
+visível em produção.
 
 ---
 
