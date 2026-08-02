@@ -1,5 +1,12 @@
-> **ESTADO (2026-08-02):** ⏳ pendente — pendência #5 de `docs/pendencies.md`
+> **ESTADO (2026-08-02):** ✅ executado (ver ESTADO abaixo; código no commit
+> `a1f3e2b` — preencher após o commit). Pendência #5 de `docs/pendencies.md`
 > (movido de `prompts/pendencies/13`).
+> **Desvio:** o prompt dizia `updateCompany(companyId, input)` com
+> `withTenant(companyId, null, ...)` — mas `company_modify_policy` (0009) exige
+> `is_company_owner(id)`, que usa `get_user_id()`; com user NULL o UPDATE seria
+> sempre negado (0 rows → 404 espúrio até para o owner). Assinatura ajustada para
+> `updateCompany(companyId, userId, input)` com `withTenant(companyId, userId)`,
+> mantendo RLS como backstop real (member → 404).
 
 Resolva a pendência #5 de `docs/pendencies.md` — endpoint de update de company.
 

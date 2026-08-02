@@ -56,6 +56,11 @@ export interface IAuthRepository {
   createAuthEvent(input: CreateAuthEventInput): Promise<void>
   deactivateUser(userId: string): Promise<UserResult>
   softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult>
+  updateCompany(
+    companyId: string,
+    userId: string,
+    input: Partial<CreateCompanyInput>,
+  ): Promise<CompanyResult>
   getUserSessions(userId: string): Promise<Array<{ id: string; createdAt: Date; expiresAt: Date }>>
 }
 
@@ -670,6 +675,43 @@ export class DrizzleAuthRepository implements IAuthRepository {
         return updated!
       })
     } catch (error) {
+      if (error instanceof H3Error) {
+        throw error
+      }
+      return handleDatabaseError(error)
+    }
+  }
+
+  async updateCompany(
+    companyId: string,
+    userId: string,
+    input: Partial<CreateCompanyInput>,
+  ): Promise<CompanyResult> {
+    try {
+      // userId é obrigatório: company_modify_policy (0009) exige
+      // is_company_owner(id), que usa get_user_id() — com user NULL o
+      // UPDATE seria sempre negado (0 rows → 404 espúrio).
+      return await withTenant(companyId, userId, async (tx) => {
+        const updates: Partial<typeof company.$inferInsert> = { updatedAt: new Date() }
+        if (input.name !== undefined) updates.name = input.name
+        if (input.cnpj !== undefined) updates.cnpj = input.cnpj || null
+        if (input.razaoSocial !== undefined) updates.razaoSocial = input.razaoSocial || null
+
+        const [updated] = await tx
+          .update(company)
+          .set(updates)
+          .where(and(eq(company.id, companyId), eq(company.isDeleted, false)))
+          .returning()
+
+        if (!updated) {
+          sendNotFoundError('Company not found') // RLS negou ou inexistente (0 rows)
+        }
+        return updated!
+      })
+    } catch (error: any) {
+      if (getPostgresErrorCode(error) === '23505') {
+        sendConflictError('CNPJ already registered')
+      }
       if (error instanceof H3Error) {
         throw error
       }

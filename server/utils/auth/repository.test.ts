@@ -459,4 +459,75 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
       expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
     })
   })
+
+  describe('updateCompany', () => {
+    it('updates name, cnpj and razaoSocial and bumps updatedAt', async () => {
+      const owner = await repo.register({
+        email: `upd-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Upd Owner',
+      })
+      const company = await repo.createCompany({ name: 'Update Co' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const uniqueCnpj = `1${String(Date.now()).padStart(13, '0')}`
+
+      const result = await repo.updateCompany(company.id, owner.id, {
+        name: 'Updated Co',
+        cnpj: uniqueCnpj,
+        razaoSocial: 'Updated Razao',
+      })
+
+      expect(result).toMatchObject({
+        id: company.id,
+        name: 'Updated Co',
+        cnpj: uniqueCnpj,
+        razaoSocial: 'Updated Razao',
+      })
+      expect(result.updatedAt.getTime()).toBeGreaterThanOrEqual(company.updatedAt.getTime())
+    })
+
+    it('rejects duplicate cnpj with 409 conflict', async () => {
+      const ownerB = await repo.register({
+        email: `upd-dup-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Upd Dup Owner',
+      })
+      const uniqueCnpj = `2${String(Date.now()).padStart(13, '0')}`
+      await repo.createCompany({ name: 'Co A', cnpj: uniqueCnpj })
+      const companyB = await repo.createCompany({ name: 'Co B' })
+      await repo.createCompanyMember(companyB.id, ownerB.id, 'owner')
+
+      await expect(
+        repo.updateCompany(companyB.id, ownerB.id, { cnpj: uniqueCnpj }),
+      ).rejects.toMatchObject({ statusCode: 409 })
+    })
+
+    it('throws 404 when company does not exist', async () => {
+      await expect(
+        repo.updateCompany('nonexistent-company', 'any-user', { name: 'X' }),
+      ).rejects.toMatchObject({ statusCode: 404 })
+    })
+
+    it('backstop TOCTOU: a member cannot update the company (404, RLS denied)', async () => {
+      const owner = await repo.register({
+        email: `upd-toc-owner-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Upd TOC Owner',
+      })
+      const member = await repo.register({
+        email: `upd-toc-member-${Date.now()}@example.com`,
+        password: 'password123',
+        name: 'Upd TOC Member',
+      })
+      const company = await repo.createCompany({ name: 'Upd TOC Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      await expect(
+        repo.updateCompany(company.id, member.id, { name: 'Hacked Name' }),
+      ).rejects.toMatchObject({ statusCode: 404 })
+
+      expect(await repo.findCompanyById(company.id)).toMatchObject({ name: 'Upd TOC Company' })
+    })
+  })
 })
