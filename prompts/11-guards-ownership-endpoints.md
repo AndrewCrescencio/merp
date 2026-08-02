@@ -1,13 +1,14 @@
 # 11 — Guards de ownership nos endpoints (P3: IDOR)
 
-> **ESTADO (2026-08-01):** parcialmente implementado.
-> ✅ `getCompanyMembershipRole` — já existe em `repository.ts` (com teste de
-> integração em `repository.test.ts`).
-> ✅ Guards nos endpoints de convite (`invite.post.ts` owner, `invites.get.ts`
-> member, `invites.accept.post.ts` email da sessão) — já implementados e testados.
-> ❌ `assertCompanyRole` em helpers — pendente.
-> ❌ Guard de owner em `companies.delete.post.ts` — pendente (ainda usa
-> `isCompanyMember`).
+> **ESTADO (2026-08-02):** ✅ implementado — commit `4327b69`.
+> ✅ `getCompanyMembershipRole` — em `repository.ts` (teste de integração em
+> `repository.test.ts`).
+> ✅ `assertCompanyRole` em `helpers.ts` (`requiredRole: null` = qualquer membro).
+> ✅ Guards: `companies.delete.post.ts` owner, `invite.post.ts` owner,
+> `invites.get.ts` qualquer membro (regressão: owner continua listando invites),
+> `invites.accept.post.ts` email da sessão.
+> ✅ Backstop TOCTOU na migration `0009` (aplicada no banco dev via psql).
+> ✅ Seção P3 criada em `docs/multi-tenancy/withtenant-rls-review.md`.
 >
 > **AMENDMENT (2026-08-01, pós-revisão):** este prompt foi ampliado para resolver
 > três ressalvas da revisão:
@@ -24,6 +25,22 @@
 >    invites).
 > 3. **Review doc não tem "seção P3"** — a seção será criada na execução (padrão
 >    obrigatório de guard documentado).
+>
+> **AMENDMENT (2026-08-02, pós-execução):** dois desvios do SQL/código proposto,
+> necessários para o próprio teste do plano passar (member → 404):
+>
+> 1. **`company_modify_policy` (UPDATE) também exige owner** — o SQL literal do
+>    plano só restringia policies de DELETE, mas `softDeleteCompany` é um
+>    **UPDATE** (soft-delete), não um DELETE. Sem o gate no UPDATE, o member
+>    completaria o update da company (o tenant context é só isso) e o teste
+>    "backstop TOCTOU: member → 404" falharia. A migration `0009` restringe
+>    UPDATE/DELETE de `company` e DELETE de `company_member` a
+>    `is_company_owner` avaliado no momento da execução.
+> 2. **`catch` de `softDeleteCompany` passa H3Error adiante** — o código do
+>    plano chamava `sendNotFoundError` (0 rows) mas o catch engolia tudo em
+>    `handleDatabaseError` → viraria 503. Adicionado
+>    `if (error instanceof H3Error) throw error` (padrão do `acceptInvite`)
+>    para o 404 chegar ao cliente.
 
 ## Contexto
 
