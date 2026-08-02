@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockGetAuth = vi.fn()
 const mockSignOut = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockSendUnauthorizedError = vi.fn()
+const mockSendAuthUnavailableError = vi.fn()
 const mockGetRequestIP = vi.fn()
 
 vi.mock('h3', () => ({
@@ -17,11 +19,12 @@ vi.mock('h3', () => ({
 }))
 
 vi.mock('#shared/auth', () => ({
-  auth: { api: { signOut: mockSignOut } },
+  getAuth: mockGetAuth,
 }))
 
 vi.mock('~~/server/utils/auth/helpers', () => ({
   sendUnauthorizedError: mockSendUnauthorizedError,
+  sendAuthUnavailableError: mockSendAuthUnavailableError,
 }))
 
 vi.mock('~~/server/utils/auth/repository', () => ({
@@ -31,8 +34,12 @@ vi.mock('~~/server/utils/auth/repository', () => ({
 describe('POST /api/auth/logout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetAuth.mockResolvedValue({ api: { signOut: mockSignOut } })
     mockSendUnauthorizedError.mockImplementation((msg: string) => {
       throw new Error(msg)
+    })
+    mockSendAuthUnavailableError.mockImplementation(() => {
+      throw new Error('Authentication service is starting. Please try again.')
     })
   })
 

@@ -1,10 +1,11 @@
 import { defineEventHandler, getCookie, getRequestURL } from 'h3'
-import { auth } from '#shared/auth'
+import { getAuth } from '#shared/auth'
+import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
 import { authRepository } from '~~/server/utils/auth/repository'
-import { sendAuthError } from '~~/server/utils/auth/helpers'
+import { sendAuthError, sendAuthUnavailableError } from '~~/server/utils/auth/helpers'
 
-const publicRoutes = ['/api/auth/register', '/api/auth/login', '/']
+const publicRoutes = ['/api/auth/register', '/api/auth/login', '/api/health', '/']
 
 // FR-023: eventos de ciclo de vida da sessão. O registro do evento é
 // fire-and-forget — falha na auditoria não pode bloquear nem falhar a
@@ -42,7 +43,17 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  const session = await auth.api.getSession({ headers: event.headers })
+  // FR-025: se a instância do Better Auth não puder ser resolvida (falha de
+  // inicialização), responda 503 auth_unavailable em vez de 401 espúrio.
+  let authInstance: AuthInstance
+  try {
+    authInstance = await getAuth()
+  } catch (error) {
+    logger.error('Better Auth instance unavailable', { error: String(error) })
+    sendAuthUnavailableError()
+  }
+
+  const session = await authInstance.api.getSession({ headers: event.headers })
 
   if (!session) {
     const sessionToken = getCookie(event, 'merp-session_token')

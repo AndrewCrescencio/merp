@@ -1,7 +1,9 @@
 import { defineEventHandler, getRequestIP } from 'h3'
-import { auth } from '#shared/auth'
+import { getAuth } from '#shared/auth'
+import type { AuthInstance } from '#shared/auth'
+import { logger } from '#shared/logger'
 import { authRepository } from '~~/server/utils/auth/repository'
-import { sendUnauthorizedError } from '~~/server/utils/auth/helpers'
+import { sendUnauthorizedError, sendAuthUnavailableError } from '~~/server/utils/auth/helpers'
 
 export default defineEventHandler(async (event) => {
   const session = event.context.session as { id: string } | undefined
@@ -11,7 +13,16 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('No active session.')
   }
 
-  await auth.api.signOut({
+  // FR-025: 503 auth_unavailable se o Better Auth não puder ser resolvido.
+  let authInstance: AuthInstance
+  try {
+    authInstance = await getAuth()
+  } catch (error) {
+    logger.error('Better Auth instance unavailable', { error: String(error) })
+    sendAuthUnavailableError()
+  }
+
+  await authInstance.api.signOut({
     headers: event.headers,
   })
 

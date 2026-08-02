@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockGetAuth = vi.fn()
 const mockGetSession = vi.fn()
 const mockGetCookie = vi.fn()
 const mockGetRequestURL = vi.fn()
 const mockSendAuthError = vi.fn()
+const mockSendAuthUnavailableError = vi.fn()
 const mockLoggerWarn = vi.fn()
+const mockLoggerError = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 
 vi.mock('h3', () => ({
@@ -20,15 +23,16 @@ vi.mock('h3', () => ({
 }))
 
 vi.mock('#shared/auth', () => ({
-  auth: { api: { getSession: mockGetSession } },
+  getAuth: mockGetAuth,
 }))
 
 vi.mock('#shared/logger', () => ({
-  logger: { warn: mockLoggerWarn },
+  logger: { warn: mockLoggerWarn, error: mockLoggerError },
 }))
 
 vi.mock('~~/server/utils/auth/helpers', () => ({
   sendAuthError: mockSendAuthError,
+  sendAuthUnavailableError: mockSendAuthUnavailableError,
 }))
 
 vi.mock('~~/server/utils/auth/repository', () => ({
@@ -39,12 +43,16 @@ describe('auth middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/me'))
+    mockGetAuth.mockResolvedValue({ api: { getSession: mockGetSession } })
     mockCreateAuthEvent.mockResolvedValue(undefined)
     mockSendAuthError.mockImplementation((status: number, error: string, message: string) => {
       const err: any = new Error(message)
       err.status = status
       err.error = error
       throw err
+    })
+    mockSendAuthUnavailableError.mockImplementation(() => {
+      throw new Error('Authentication service is starting. Please try again.')
     })
   })
 
@@ -70,6 +78,33 @@ describe('auth middleware', () => {
 
     await handler(event)
 
+    expect(mockGetSession).not.toHaveBeenCalled()
+  })
+
+  it('skips auth for health route', async () => {
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/health'))
+
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    const event = { headers: new Headers() } as any
+
+    const result = await handler(event)
+
+    expect(result).toBeUndefined()
+    expect(mockGetSession).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 auth_unavailable when auth instance cannot be resolved', async () => {
+    mockGetAuth.mockRejectedValue(new Error('auth init failed'))
+
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    const event = { headers: new Headers(), context: {} } as any
+
+    await expect(handler(event)).rejects.toThrow(
+      'Authentication service is starting. Please try again.',
+    )
+    expect(mockSendAuthUnavailableError).toHaveBeenCalled()
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 

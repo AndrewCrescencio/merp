@@ -1,6 +1,7 @@
 import { and, eq, gt, or, like, isNull } from 'drizzle-orm'
 import { db } from '../db'
-import { auth } from '#shared/auth'
+import { getAuth } from '#shared/auth'
+import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
 import { user, session, company, companyMember, authEvent, invite } from '../schema'
 import { createError, H3Error } from 'h3'
@@ -8,6 +9,7 @@ import {
   handleDatabaseError,
   handleUpstreamTimeout,
   getPostgresErrorCode,
+  sendAuthUnavailableError,
   sendConflictError,
   sendNotFoundError,
   TimeoutError,
@@ -162,12 +164,25 @@ export interface InviteResult {
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 export class DrizzleAuthRepository implements IAuthRepository {
+  // FR-025: a instância do Better Auth é resolvida de forma lazy; se a
+  // inicialização falhar (shared/auth.ts), os endpoints retornam 503
+  // auth_unavailable em vez de crashar no import.
+  private async resolveAuth(): Promise<AuthInstance> {
+    try {
+      return await getAuth()
+    } catch (error) {
+      logger.error('Failed to resolve Better Auth instance', { error: String(error) })
+      sendAuthUnavailableError()
+    }
+  }
+
   // FR-024: chamadas OAuth futuras (auth.api.signInOAuth etc.) devem usar
   // withTimeout(..., 10_000) — nenhum provider OAuth está configurado ainda.
   async register(input: RegisterInput): Promise<UserResult> {
     try {
+      const authInstance = await this.resolveAuth()
       const { user: createdUser } = await withTimeout(
-        auth.api.signUpEmail({
+        authInstance.api.signUpEmail({
           body: {
             email: input.email,
             password: input.password,
@@ -211,6 +226,9 @@ export class DrizzleAuthRepository implements IAuthRepository {
           }),
         })
       }
+      if (error instanceof H3Error) {
+        throw error
+      }
       return handleDatabaseError(error)
     }
   }
@@ -229,8 +247,9 @@ export class DrizzleAuthRepository implements IAuthRepository {
         })
       }
 
+      const authInstance = await this.resolveAuth()
       const result = await withTimeout(
-        auth.api.signInEmail({
+        authInstance.api.signInEmail({
           body: {
             email: input.email,
             password: input.password,
@@ -279,6 +298,9 @@ export class DrizzleAuthRepository implements IAuthRepository {
         return handleUpstreamTimeout()
       }
       if (error?.statusCode === 401) {
+        throw error
+      }
+      if (error instanceof H3Error) {
         throw error
       }
       return handleDatabaseError(error)
