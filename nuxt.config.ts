@@ -6,6 +6,7 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint'],
 
   nitro: {
+    errorHandler: '~~/server/error-handler',
     imports: {
       dirs: ['server/utils/auth'],
     },
