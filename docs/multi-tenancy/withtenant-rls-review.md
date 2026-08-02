@@ -142,6 +142,33 @@ ALTER TABLE company_member FORCE ROW LEVEL SECURITY;
 -- 3. Grants para a role de app (SELECT/INSERT/UPDATE/DELETE)
 ```
 
+**✅ Implementado em 2026-08-01 (prompt 09):** migration `drizzle/0007_abnormal_talkback.sql`
+aplica `FORCE ROW LEVEL SECURITY` em `company`, `company_member` e `invite`;
+`server/utils/db.ts` usa `APP_DATABASE_URL` (role de app) com fallback para
+`DATABASE_URL` (owner, dev local).
+
+### Passos de infra para produção (P1)
+
+1. Criar a role de app (não dona, não superuser), como owner:
+   ```sql
+   CREATE ROLE merp_app WITH LOGIN PASSWORD '...';
+   ```
+2. Grants (rodar como owner):
+   ```sql
+   GRANT SELECT, INSERT, UPDATE, DELETE ON company, company_member, "user", "session", account, verification TO merp_app;
+   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO merp_app;
+   ```
+3. Migrations continuam rodando com a role owner (`DATABASE_URL`); a app roda com
+   `APP_DATABASE_URL` (role `merp_app`). Sem `APP_DATABASE_URL` definido, o código
+   cai no fallback para `DATABASE_URL` (dev local apenas).
+4. Variáveis novas em `.env.example` e `docker-compose.prod.yml`:
+   `APP_DATABASE_URL` (em prod compose, fallback para vazio = owner em dev local).
+
+> **Nota de aplicação:** como `drizzle/0000_bizarre_titania.sql` nunca existiu no
+> repo, `drizzle-kit migrate` falha silenciosamente em banco vazio. Para ambientes
+> dev use `drizzle-kit push` + aplicar o SQL custom (0005/0006/0007+) via psql.
+> Consertar o 0000 é pendência separada do repo.
+
 ### 🔴 CRÍTICO 2: `cm_insert_policy` é `WITH CHECK (true)`
 
 `drizzle/0005_misty_silver_sable.sql` L31-32:
