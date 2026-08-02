@@ -1,5 +1,8 @@
-> **ESTADO (2026-08-02):** ⏳ pendente — pendência #11 de `docs/pendencies.md`
-> (movido de `prompts/pendencies/18`).
+> **ESTADO (2026-08-02):** ✅ resolvido (commit `13a3c72`). Pendência #11 de
+> `docs/pendencies.md` implementada — `withTimeout` genérico com `Promise.race` +
+> timer limpo em qualquer desfecho (`TimeoutError` distinto), `signIn`/`register`
+> com 5s e 503 `upstream_timeout` em timeout, comentário para OAuth (10s) futuro.
+> 65 testes passando, lint e format limpos.
 
 Resolva a pendência #11 de `docs/pendencies.md` — timeout enforcement (FR-024).
 

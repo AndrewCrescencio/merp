@@ -152,10 +152,19 @@ dashboard, gerenciamento de companies, etc.
 
 ---
 
-### 11. Timeout enforcement (FR-024)
+### 11. Timeout enforcement (FR-024) ✅ RESOLVIDO
 
 Timeout de 5s para chamadas Better Auth e 10s para OAuth não implementado.
 Nenhum wrapping de timeout nos métodos do repositório.
+
+**Status (2026-08-02, prompt 25):** Implementado — helper genérico
+`withTimeout(promise, ms)` em `server/utils/auth/helpers.ts` (`Promise.race` com
+timer limpo em qualquer desfecho; rejeita com `TimeoutError`). `register`
+(`signUpEmail`) e `signIn` (`signInEmail`) do repositório envolvidos com
+`withTimeout(..., 5_000)`; timeout → 503 `upstream_timeout` via
+`handleUpstreamTimeout()`. Comentário no repositório indica que chamadas OAuth
+futuras devem usar `withTimeout(..., 10_000)` (nenhum provider OAuth
+configurado ainda).
 
 ---
 
