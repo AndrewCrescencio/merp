@@ -7,6 +7,22 @@ export interface ApiError {
   message: string
 }
 
+export function getPostgresErrorCode(error: unknown): string | undefined {
+  if (error && typeof error === 'object') {
+    const candidate = error as { code?: unknown; cause?: unknown }
+    if (typeof candidate.code === 'string') {
+      return candidate.code
+    }
+    if (candidate.cause && typeof candidate.cause === 'object') {
+      const cause = candidate.cause as { code?: unknown }
+      if (typeof cause.code === 'string') {
+        return cause.code
+      }
+    }
+  }
+  return undefined
+}
+
 export function sendAuthError(status: number, error: string, message: string): never {
   throw createError({
     status,

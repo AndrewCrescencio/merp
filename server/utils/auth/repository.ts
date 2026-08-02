@@ -1,9 +1,14 @@
-import { and, eq, gt, or, like } from 'drizzle-orm'
+import { and, eq, gt, or, like, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { auth } from '#shared/auth'
-import { user, session, company, companyMember, authEvent } from '../schema'
-import { createError } from 'h3'
-import { handleDatabaseError } from './helpers'
+import { user, session, company, companyMember, authEvent, invite } from '../schema'
+import { createError, H3Error } from 'h3'
+import {
+  handleDatabaseError,
+  getPostgresErrorCode,
+  sendConflictError,
+  sendNotFoundError,
+} from './helpers'
 import { withTenant } from './tenant-context'
 
 export interface CreateAuthEventInput {
@@ -334,7 +339,7 @@ export class DrizzleAuthRepository implements IAuthRepository {
         return created!
       })
     } catch (error: any) {
-      if (error?.code === '23505') {
+      if (getPostgresErrorCode(error) === '23505') {
         throw createError({
           status: 409,
           statusText: '409',
