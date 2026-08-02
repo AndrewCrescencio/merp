@@ -1,5 +1,5 @@
 > **ESTADO (2026-08-02):** ✅ executado (ver ESTADO abaixo; código no commit
-> `a1f3e2b` — preencher após o commit). Pendência #5 de `docs/pendencies.md`
+> `c200c4c`). Pendência #5 de `docs/pendencies.md`
 > (movido de `prompts/pendencies/13`).
 > **Desvio:** o prompt dizia `updateCompany(companyId, input)` com
 > `withTenant(companyId, null, ...)` — mas `company_modify_policy` (0009) exige
