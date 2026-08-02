@@ -2,7 +2,7 @@
 
 ## Criticas
 
-### 1. Bloquear login de usuário desativado
+### 1. Bloquear login de usuário desativado ✅ RESOLVIDO
 
 **Arquivo:** `server/utils/auth/repository.ts` — método `signIn`
 
@@ -12,23 +12,14 @@
 **Solução:** Antes de chamar `auth.api.signInEmail()`, buscar o usuário por email e
 verificar `isActive`. Se false, retornar 401 com código `account_deactivated`.
 
-```typescript
-const existing = await this.findByEmail(input.email)
-if (existing && !existing.isActive) {
-  throw createError({
-    status: 401,
-    statusText: '401',
-    message: JSON.stringify({
-      error: 'account_deactivated',
-      message: 'Conta desativada.',
-    }),
-  })
-}
-```
+**Status (2026-08-02):** Implementado — `signIn` verifica `isActive` via `findByEmail`
+e lança 401 `account_deactivated` (mensagem "User has been deactivated", alinhada ao
+contrato `auth-api.md` — o rascunho da pendência usava "Conta desativada." em PT).
+Teste de integração em `repository.test.ts`.
 
 ---
 
-### 2. Error codes no login (`account_locked` / `account_deactivated`)
+### 2. Error codes no login (`account_locked` / `account_deactivated`) ✅ RESOLVIDO
 
 **Arquivo:** `server/api/auth/login.post.ts`
 
@@ -37,6 +28,10 @@ mas o handler de login retorna apenas `unauthorized` genérico.
 
 **Solução:** Mapear os erros do repositório para os códigos corretos no endpoint de login.
 O `checkAccountLockout` deve lançar `account_locked` em vez de `unauthorized`.
+
+**Status (2026-08-02):** Implementado — `checkAccountLockout` lança `account_locked`;
+o catch do login repassa `account_locked`/`account_deactivated` intactos e registra
+`metadata.reason` com o código; 401 sem código continua `unauthorized` genérico.
 
 ---
 

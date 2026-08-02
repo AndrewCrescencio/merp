@@ -59,6 +59,23 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
     ).rejects.toMatchObject({ statusCode: 401 })
   })
 
+  it('rejects sign-in for deactivated users with account_deactivated', async () => {
+    const email = `deactivated-${Date.now()}@example.com`
+    const user = await repo.register({
+      email,
+      password: testPassword,
+      name: 'Deactivated User',
+    })
+    await repo.deactivateUser(user.id)
+
+    const headers = new Headers()
+
+    await expect(repo.signIn({ email, password: testPassword }, headers)).rejects.toSatisfy(
+      (error: any) =>
+        error?.statusCode === 401 && JSON.parse(error.message)?.error === 'account_deactivated',
+    )
+  })
+
   it('finds user by email after registration', async () => {
     const found = await repo.findByEmail(testEmail)
 

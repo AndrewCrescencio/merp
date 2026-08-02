@@ -193,6 +193,18 @@ export class DrizzleAuthRepository implements IAuthRepository {
 
   async signIn(input: SignInInput, headers?: Headers): Promise<UserResult> {
     try {
+      const existing = await this.findByEmail(input.email)
+      if (existing && !existing.isActive) {
+        throw createError({
+          status: 401,
+          statusText: '401',
+          message: JSON.stringify({
+            error: 'account_deactivated',
+            message: 'User has been deactivated',
+          }),
+        })
+      }
+
       const result = await auth.api.signInEmail({
         body: {
           email: input.email,

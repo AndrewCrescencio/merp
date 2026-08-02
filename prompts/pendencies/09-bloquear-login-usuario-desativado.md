@@ -1,3 +1,9 @@
+> **ESTADO (2026-08-02):** ✅ implementado — commit `(ver 09)`.
+> `signIn` verifica `isActive` antes do Better Auth → 401 `account_deactivated`.
+> Teste de integração em `repository.test.ts`.
+> **Desvio:** mensagem "User has been deactivated" (EN, alinhada ao contrato
+> `auth-api.md`) em vez de "Conta desativada." do rascunho.
+
 Resolva a pendência crítica #1 de `docs/pendencies.md` — bloquear login de usuário desativado.
 
 ### Contexto
