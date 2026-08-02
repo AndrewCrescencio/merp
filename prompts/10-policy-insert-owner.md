@@ -16,6 +16,30 @@
 > 2. **`cm_update_policy` restrito a owner** — o `OR role = 'member'` originalmente
 >    proposto permitiria ao member mover a própria row para outro `company_id`
 >    (WITH CHECK passa, USING passou na row antiga) — entrada em empresa sem convite.
+>
+> **AMENDMENT 2 (2026-08-02, pré-execução):** o setup de testes mudou — ler antes de executar.
+>
+> 1. **`merp` é superuser no container dev** — bypassa RLS mesmo com FORCE RLS. Os
+>    testes de integração (`repository.test.ts`) agora conectam como **`merp_app`**
+>    (`APP_DATABASE_URL` = `postgres://merp_app:merp_app@localhost:5432/merp_test`),
+>    não-superuser, para o RLS valer de verdade. Não voltar para `merp`/superuser.
+> 2. **`test-setup.ts` aplica o SQL custom automaticamente** no `merp_test` após o
+>    `drizzle-kit push` (via `server/utils/apply-custom-sql.ts`, arquivos `0005+` com
+>    transform idempotente) e garante a role `merp_app` com grants. O **0008, quando
+>    gerado, é aplicado sozinho na próxima rodada do vitest** — nada de psql manual
+>    para o `merp_test`.
+> 3. **`drizzle-kit push` dropa policies** que o schema não declara (e até desliga
+>    RLS). Por isso a ordem no test-setup é: push → applyCustomSql → grants. No banco
+>    dev (`merp`), todo `push` futuro exige reaplicar o SQL custom via psql.
+> 4. **Estado atual do suite:** 5 testes falham em `repository.test.ts` (todos em
+>    `createCompany` — INSERT em `company` negado pelo FORCE RLS sem
+>    `company_insert_policy`). É **esperado** — o 0008 é o que conserta. O suite fica
+>    verde após aplicar o 0008.
+> 5. **Teste 5 da seção "Testes" está desatualizado** — "Join: usuário X entra como
+>    member (fluxo aberto)" contradiz o app atual (self-join removido; entrada é
+>    exclusiva via convite). Substituir por: usuário convidado aceita convite
+>    (`acceptInvite` → `withTenant(companyId, userId)` + INSERT role `member`) →
+>    sucesso. A policy nova cobre isso via auto-inserção (self + tenant).
 
 ## Contexto
 
@@ -148,17 +172,22 @@ No fim de `server/utils/auth/repository.test.ts` (ou novo arquivo `.test.ts`):
 3. Owner A adiciona membro em A → sucesso.
 4. Usuário B tenta inserir-se como owner em A via SQL direto (sem app-layer) →
    RLS bloqueia (erro `42501`/`P0001` ou 0 rows).
-5. Join: usuário X (não membro) entra em A como `member` → sucesso (fluxo aberto).
+5. Convidado aceita convite para A (via `acceptInvite`, role `member`) → sucesso
+   (auto-inserção self + tenant; o self-join aberto foi removido do app).
 6. UPDATE: member tenta trocar role para `owner` → bloqueado pelo RLS.
 7. UPDATE: member tenta mover a própria row para empresa B → bloqueado pelo RLS.
 
 ## Verificação
 
 ```bash
-npx drizzle-kit migrate
+# merp_test: automático (test-setup aplica 0008 na próxima rodada do vitest)
 npx vitest run server/utils/auth/repository.test.ts
 npm run lint
 npm run format:check
 ```
+
+> **Nota:** `drizzle-kit migrate` falha (0000 ausente — ver prompt 09). Para o banco
+> dev (`merp`), aplicar o SQL do 0008 via psql (como feito para 0005/0006/0007) e
+> lembrar que todo `drizzle-kit push` futuro dropa policies — reaplicar o SQL custom.
 
 Se tudo passar, faça commit com a convenção da AGENTS.md (corpo com `Model:` e `Agent:`).

@@ -147,6 +147,15 @@ aplica `FORCE ROW LEVEL SECURITY` em `company`, `company_member` e `invite`;
 `server/utils/db.ts` usa `APP_DATABASE_URL` (role de app) com fallback para
 `DATABASE_URL` (owner, dev local).
 
+**Setup de testes (2026-08-02, pré-prompt 10):** `test-setup.ts` roda
+`drizzle-kit push` → `server/utils/apply-custom-sql.ts` (aplica migrations `0005+`
+com transform idempotente: `DROP POLICY IF EXISTS` + `CREATE POLICY`, `CREATE INDEX
+IF NOT EXISTS`, remove `--> statement-breakpoint`) → grants da role `merp_app`. Os
+testes de integração conectam como `merp_app` via `APP_DATABASE_URL`
+(não-superuser) — o `merp` do container dev é superuser e **bypassaria RLS mesmo
+com FORCE**. O `drizzle-kit push` dropa policies não declaradas no schema — por
+isso o SQL custom é reaplicado a cada rodada de testes.
+
 ### Passos de infra para produção (P1)
 
 1. Criar a role de app (não dona, não superuser), como owner:

@@ -1,6 +1,7 @@
 import { execSync } from 'child_process'
 import { existsSync } from 'fs'
 import { resolve } from 'path'
+import { applyCustomSql } from './apply-custom-sql'
 
 const COMPOSE_FILE = resolve(__dirname, '../../docker-compose.yml')
 const TEST_DB_URL = 'postgres://merp:merp@localhost:5432/merp_test'
@@ -69,8 +70,27 @@ export async function setup(): Promise<void> {
   run(
     `DATABASE_URL="${TEST_DB_URL}" npx drizzle-kit push --config="${resolve(__dirname, '../../drizzle.config.ts')}"`,
   )
+  console.log('[test-setup] A aplicar SQL custom (RLS, policies, FORCE)...')
+  applyCustomSql('merp_test', COMPOSE_FILE)
+  console.log('[test-setup] A garantir role de app (merp_app) com grants...')
+  ensureAppRole()
 
   process.env.DB_AVAILABLE = 'true'
+}
+
+function ensureAppRole(): void {
+  run(
+    `docker compose -f "${COMPOSE_FILE}" exec -T postgres psql -U merp -d merp_test -v ON_ERROR_STOP=1 <<'SQL'
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merp_app') THEN
+    CREATE ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
+  END IF;
+END $$;
+GRANT USAGE ON SCHEMA public TO merp_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO merp_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO merp_app;
+SQL`,
+  )
 }
 
 export async function teardown(): Promise<void> {

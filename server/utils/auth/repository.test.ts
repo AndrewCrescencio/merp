@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 
-const INTEGRATION_DB_URL = 'postgres://merp:merp@localhost:5432/merp_test'
+const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_test'
 const testEmail = `test-${Date.now()}@example.com`
 const testPassword = 'test-password-123'
 
@@ -10,7 +10,7 @@ describe.skipIf(!dbAvailable)('DrizzleAuthRepository (integration)', () => {
   let repo: any
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = INTEGRATION_DB_URL
+    process.env.APP_DATABASE_URL = INTEGRATION_DB_URL
     const mod = await import('~~/server/utils/auth/repository')
     repo = new mod.DrizzleAuthRepository()
   })
