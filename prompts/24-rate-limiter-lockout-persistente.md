@@ -1,5 +1,9 @@
-> **ESTADO (2026-08-02):** ⏳ pendente — pendência #9 de `docs/pendencies.md`
-> (movido de `prompts/pendencies/17`).
+> **ESTADO (2026-08-02):** ✅ resolvido (commit `e905039`). Pendência #9 de
+> `docs/pendencies.md` implementada — tabela `auth_security_state`, lógica pura em
+> `evaluateRateLimit`/`evaluateLockout`, upsert transacional no Postgres, funções
+> assíncronas `await`-adas nos endpoints. Migration `0010_next_morbius.sql`
+> (editada para conter só a nova tabela — o snapshot gerado mantém o drift do
+> `invite` para diffs futuros). 174 testes passando, lint e format limpos.
 
 Resolva a pendência #9 de `docs/pendencies.md` — rate limiter e lockout persistentes.
 
