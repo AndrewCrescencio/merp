@@ -68,13 +68,68 @@ owner via `is_company_owner`).
 
 ## Melhorias
 
-### 5. Endpoint de update de company
+### 5. Endpoint de update de company ✅ RESOLVIDO
 
-**Arquivo:** `server/api/auth/companies/` — não existe
+#### Estado original (quando a pendência foi aberta)
 
-Não há endpoint para atualizar nome, CNPJ ou razaoSocial de uma company.
+- **Arquivo:** `server/api/auth/companies/` — **não existia** nenhum endpoint para
+  atualizar uma company.
+- **Problema:** Não havia forma de alterar `name`, `cnpj` ou `razaoSocial` de uma
+  company via API. A criação (`POST /api/auth/companies`) e a exclusão
+  (`companies.delete.post.ts`, FR-019) existiam, mas não a atualização — um CRUD
+  incompleto: dados cadastrais errados (CNPJ, razão social) ficavam presos para SEMPRE.
+- **Solução proposta:** Criar `server/api/auth/companies/[id].put.ts` (ou
+  `companies.update.post.ts`).
 
-**Solução:** Criar `server/api/auth/companies/[id].put.ts` (ou `companies.update.post.ts`).
+#### Estado atual (resolvido 2026-08-04, commit `c200c4c`)
+
+**Endpoint:** `POST /api/auth/companies/update` → `server/api/auth/companies.update.post.ts`
+
+Contrato e fluxo do handler:
+
+| Etapa               | Comportamento                                                                                                                                                       | Código                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Auth                | `event.context.user` obrigatório                                                                                                                                    | 401 `unauthorized` 'Authentication required.'                                                                    |
+| Body                | `{ companyId, name?, cnpj?, razaoSocial? }` — `companyId` obrigatório (string)                                                                                      | 400 `validation_error` 'companyId is required'                                                                   |
+| Validação de campos | `name` deve ser string não-vazia (trim); `cnpj`/`razaoSocial` strings opcionais (trim, `''` → `undefined`); pelo menos 1 campo presente                             | 400 `validation_error`                                                                                           |
+| Company existe?     | `findCompanyById` antes do update                                                                                                                                   | 404 `not_found` 'Company not found'                                                                              |
+| Permissão           | `getCompanyMembershipRole` → `assertCompanyRole(role, 'owner', ...)` — **apenas owner**                                                                             | 403 não-membro 'You are not a member of this company' / 403 não-owner 'Only company owners can update companies' |
+| Sucesso             | Chama `updateCompany(companyId, user.id, input)` e registra `auth_event` `company_updated` com metadata `{ companyId }` (IP via `getRequestIP` com `xForwardedFor`) | retorna a company atualizada como JSON                                                                           |
+
+**Repositório:** `updateCompany(companyId, userId, input)` — `server/utils/auth/repository.ts:816`
+
+- Assinatura no `IAuthRepository`: `updateCompany(companyId: string, userId: string, input: Partial<CreateCompanyInput>): Promise<CompanyResult>`.
+- Usa `withTenant(companyId, userId, ...)` → `company_modify_policy` (migration `0009`)
+  limita o UPDATE via `is_company_owner(id)` (avaliado na execução com `get_user_id()`),
+  servindo como **backstop RLS anti-TOCTOU**: mesmo que o handler falhe a checagem
+  de role, um member nunca atualiza (0 rows → 404).
+- Aplica apenas os campos fornecidos (`name`, `cnpj`, `razaoSocial`; `cnpj`/`razaoSocial`
+  com `|| null` para limpar), sempre faz `updatedAt: new Date()`, filtra
+  `isDeleted = false`.
+- Erros: `23505` (CNPJ duplicado) → 409 `conflict` 'CNPJ already registered'; 0 rows →
+  404 `not_found`; demais DB errors via `handleDatabaseError`.
+- **Desvio vs prompt 20** (documentado em `prompts/20-endpoint-update-company.md`):
+  `withTenant(companyId, null, ...)` retornaria sempre 404, porque
+  `company_modify_policy`/`is_company_owner` dependem de `get_user_id()` — com user
+  NULL o UPDATE seria negado para todos. A assinatura passou a exigir `userId`.
+
+**Observabilidade:** evento `company_updated` já previsto no enum de `event_type` do
+data model (`specs/001-auth-context/data-model.md:71`), agora efetivamente emitido.
+
+**Testes — todos passando:**
+
+- `server/api/auth/companies.update.post.spec.ts` — 7 casos unit: 401 sem auth; 400
+  sem `companyId`; 400 sem nenhum campo; 404 company inexistente; 403 não-membro;
+  403 member (não-owner); sucesso com trim de campos + verificação do
+  `createAuthEvent` (`company_updated` com `{ companyId }`).
+- `server/utils/auth/repository.test.ts` — 4 casos de integração (DB real + RLS):
+  update de `name`/`cnpj`/`razaoSocial` com bump de `updatedAt`; CNPJ duplicado → 409;
+  company inexistente → 404; **backstop TOCTOU** — member tenta update → 404 e nome
+  permanece intacto.
+
+**Verificação manual (2026-08-04):** `pnpm vitest run
+server/api/auth/companies.update.post.spec.ts` → 7/7 pass; `pnpm vitest run
+server/utils/auth/repository.test.ts -t updateCompany` → 4/4 pass.
 
 ---
 
