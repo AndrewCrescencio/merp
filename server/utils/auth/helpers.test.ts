@@ -33,10 +33,14 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
       await helpers.checkRateLimit(event, email)
     }
 
-    await expect(helpers.checkRateLimit(event, email)).rejects.toMatchObject({
-      statusCode: 429,
-      message: expect.stringContaining('rate_limit_exceeded'),
+    const err = await helpers.checkRateLimit(event, email).catch((e: unknown) => e)
+    expect(err).toMatchObject({ statusCode: 429 })
+    const body = JSON.parse((err as { message: string }).message)
+    expect(body).toMatchObject({
+      error: 'rate_limit_exceeded',
+      message: 'Too many requests. Try again later.',
     })
+    expect(body.retryAfter).toBeGreaterThan(0)
   })
 
   it('reopens the rate limit window once resetAt elapses', async () => {

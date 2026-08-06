@@ -176,8 +176,9 @@ export async function checkRateLimit(event: H3Event, email: string): Promise<voi
     statusText: '429',
     message: JSON.stringify({
       error: 'rate_limit_exceeded',
-      message: 'Too many requests. Please try again later.',
-    } satisfies ApiError),
+      message: 'Too many requests. Try again later.',
+      retryAfter: decision.retryAfter,
+    } satisfies ApiError & { retryAfter: number }),
   })
 }
 
