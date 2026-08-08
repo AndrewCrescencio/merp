@@ -1,6 +1,8 @@
 import { defineEventHandler, readBody, setResponseStatus, getRequestIP } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
-import { checkRateLimit, sendValidationError } from '~~/server/utils/auth/helpers'
+import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { checkRateLimit } from '~~/server/utils/shared/security'
+import { sendValidationError } from '~~/server/utils/shared/errors'
+import { createAuthEvent } from '~~/server/utils/shared/audit'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{
@@ -24,7 +26,7 @@ export default defineEventHandler(async (event) => {
 
   await checkRateLimit(event, body.email)
 
-  const user = await authRepository.register({
+  const user = await identityRepository.register({
     email: body.email,
     password: body.password,
     name: body.name.trim(),
@@ -32,7 +34,7 @@ export default defineEventHandler(async (event) => {
   })
 
   const ip = getRequestIP(event, { xForwardedFor: true })
-  await authRepository.createAuthEvent({
+  await createAuthEvent({
     userId: user.id,
     email: user.email,
     eventType: 'registration',

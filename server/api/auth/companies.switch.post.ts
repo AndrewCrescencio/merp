@@ -1,10 +1,10 @@
 import { defineEventHandler, readBody, createError } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
+import { companyRepository } from '~~/server/utils/auth/company/repository'
 import {
   sendValidationError,
   sendNotFoundError,
   sendForbiddenError,
-} from '~~/server/utils/auth/helpers'
+} from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string } | undefined
@@ -23,17 +23,17 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Company ID is required')
   }
 
-  const company = await authRepository.findCompanyById(body.companyId)
+  const company = await companyRepository.findCompanyById(body.companyId)
   if (!company) {
     sendNotFoundError('Company not found or deleted')
   }
 
-  const isMember = await authRepository.isCompanyMember(user.id, body.companyId)
+  const isMember = await companyRepository.isCompanyMember(user.id, body.companyId)
   if (!isMember) {
     sendForbiddenError('User is not a member of the specified company')
   }
 
-  await authRepository.setActiveCompany(currentSession.id, body.companyId)
+  await companyRepository.setActiveCompany(currentSession.id, body.companyId)
 
   event.context.activeCompanyId = body.companyId
 

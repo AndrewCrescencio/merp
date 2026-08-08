@@ -22,13 +22,13 @@ vi.mock('#shared/auth', () => ({
   getAuth: mockGetAuth,
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
+vi.mock('~~/server/utils/shared/errors', () => ({
   sendUnauthorizedError: mockSendUnauthorizedError,
   sendAuthUnavailableError: mockSendAuthUnavailableError,
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: { createAuthEvent: mockCreateAuthEvent },
+vi.mock('~~/server/utils/shared/audit', () => ({
+  createAuthEvent: mockCreateAuthEvent,
 }))
 
 describe('POST /api/auth/logout', () => {

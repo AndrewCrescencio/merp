@@ -1,13 +1,13 @@
 import { defineEventHandler, readBody, getRequestIP } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
+import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
   checkAccountLockout,
   checkRateLimit,
   recordFailedAttempt,
   resetFailedAttempts,
-  sendUnauthorizedError,
-  sendValidationError,
-} from '~~/server/utils/auth/helpers'
+} from '~~/server/utils/shared/security'
+import { sendUnauthorizedError, sendValidationError } from '~~/server/utils/shared/errors'
+import { createAuthEvent } from '~~/server/utils/shared/audit'
 
 const LOGIN_ERROR_CODES = new Set(['account_locked', 'account_deactivated'])
 
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
   await checkAccountLockout(body.email)
 
   try {
-    const user = await authRepository.signIn(
+    const user = await identityRepository.signIn(
       {
         email: body.email,
         password: body.password,
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     await resetFailedAttempts(body.email)
 
     const ip = getRequestIP(event, { xForwardedFor: true })
-    await authRepository.createAuthEvent({
+    await createAuthEvent({
       userId: user.id,
       email: user.email,
       eventType: 'login',
@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
     const ip = getRequestIP(event, { xForwardedFor: true })
     const reason = getLoginErrorReason(error)
 
-    await authRepository.createAuthEvent({
+    await createAuthEvent({
       email: body.email,
       eventType: 'failed_login',
       ipAddress: ip || null,

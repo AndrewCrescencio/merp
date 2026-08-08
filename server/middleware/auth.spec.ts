@@ -30,13 +30,13 @@ vi.mock('#shared/logger', () => ({
   logger: { warn: mockLoggerWarn, error: mockLoggerError },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
+vi.mock('~~/server/utils/shared/errors', () => ({
   sendAuthError: mockSendAuthError,
   sendAuthUnavailableError: mockSendAuthUnavailableError,
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: { createAuthEvent: mockCreateAuthEvent },
+vi.mock('~~/server/utils/shared/audit', () => ({
+  createAuthEvent: mockCreateAuthEvent,
 }))
 
 describe('auth middleware', () => {

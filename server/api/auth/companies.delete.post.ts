@@ -1,10 +1,11 @@
 import { defineEventHandler, readBody, createError, getRequestIP } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
+import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { createAuthEvent } from '~~/server/utils/shared/audit'
 import {
   sendValidationError,
   sendNotFoundError,
   assertCompanyRole,
-} from '~~/server/utils/auth/helpers'
+} from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -22,12 +23,12 @@ export default defineEventHandler(async (event) => {
     sendValidationError('companyId is required')
   }
 
-  const company = await authRepository.findCompanyById(body.companyId)
+  const company = await companyRepository.findCompanyById(body.companyId)
   if (!company) {
     sendNotFoundError('Company not found')
   }
 
-  const role = await authRepository.getCompanyMembershipRole(user.id, body.companyId)
+  const role = await companyRepository.getCompanyMembershipRole(user.id, body.companyId)
   await assertCompanyRole(
     role,
     'owner',
@@ -35,10 +36,10 @@ export default defineEventHandler(async (event) => {
     'Only company owners can delete companies',
   )
 
-  await authRepository.softDeleteCompany(body.companyId, user.id)
+  await companyRepository.softDeleteCompany(body.companyId, user.id)
 
   const ip = getRequestIP(event, { xForwardedFor: true })
-  await authRepository.createAuthEvent({
+  await createAuthEvent({
     userId: user.id,
     email: user.email,
     eventType: 'company_deleted',

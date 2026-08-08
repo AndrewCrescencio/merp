@@ -1,10 +1,11 @@
 import { defineEventHandler, getQuery, createError } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
+import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
   sendValidationError,
   sendNotFoundError,
   assertCompanyRole,
-} from '~~/server/utils/auth/helpers'
+} from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string } | undefined
@@ -22,15 +23,15 @@ export default defineEventHandler(async (event) => {
     sendValidationError('companyId is required')
   }
 
-  const company = await authRepository.findCompanyById(query.companyId)
+  const company = await companyRepository.findCompanyById(query.companyId)
   if (!company) {
     sendNotFoundError('Company not found')
   }
 
-  const role = await authRepository.getCompanyMembershipRole(user.id, query.companyId)
+  const role = await companyRepository.getCompanyMembershipRole(user.id, query.companyId)
   await assertCompanyRole(role, null, 'You are not a member of this company')
 
-  const invites = await authRepository.listCompanyInvites(query.companyId)
+  const invites = await inviteRepository.listCompanyInvites(query.companyId)
 
   return { invites }
 })

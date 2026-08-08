@@ -1,10 +1,12 @@
 import { defineEventHandler, readBody, createError, getRequestIP } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
+import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
   sendValidationError,
   sendNotFoundError,
   assertCompanyRole,
-} from '~~/server/utils/auth/helpers'
+} from '~~/server/utils/shared/errors'
+import { createAuthEvent } from '~~/server/utils/shared/audit'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -29,12 +31,12 @@ export default defineEventHandler(async (event) => {
     sendValidationError('A valid email is required')
   }
 
-  const company = await authRepository.findCompanyById(body.companyId)
+  const company = await companyRepository.findCompanyById(body.companyId)
   if (!company) {
     sendNotFoundError('Company not found')
   }
 
-  const role = await authRepository.getCompanyMembershipRole(user.id, body.companyId)
+  const role = await companyRepository.getCompanyMembershipRole(user.id, body.companyId)
   await assertCompanyRole(
     role,
     'owner',
@@ -42,14 +44,14 @@ export default defineEventHandler(async (event) => {
     'Only company owners can invite members',
   )
 
-  const created = await authRepository.createInvite({
+  const created = await inviteRepository.createInvite({
     companyId: body.companyId,
     email: email!,
     invitedBy: user.id,
   })
 
   const ip = getRequestIP(event, { xForwardedFor: true })
-  await authRepository.createAuthEvent({
+  await createAuthEvent({
     userId: user.id,
     email: user.email,
     eventType: 'invite_created',

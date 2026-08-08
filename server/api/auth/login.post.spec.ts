@@ -23,17 +23,24 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: { signIn: mockSignIn, createAuthEvent: mockCreateAuthEvent },
+vi.mock('~~/server/utils/auth/identity/repository', () => ({
+  identityRepository: { signIn: mockSignIn },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
+vi.mock('~~/server/utils/shared/security', () => ({
   checkRateLimit: mockCheckRateLimit,
   checkAccountLockout: mockCheckAccountLockout,
   recordFailedAttempt: mockRecordFailedAttempt,
   resetFailedAttempts: mockResetFailedAttempts,
+}))
+
+vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: mockSendValidationError,
   sendUnauthorizedError: mockSendUnauthorizedError,
+}))
+
+vi.mock('~~/server/utils/shared/audit', () => ({
+  createAuthEvent: mockCreateAuthEvent,
 }))
 
 describe('POST /api/auth/login', () => {

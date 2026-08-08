@@ -15,16 +15,21 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: {
+vi.mock('~~/server/utils/auth/company/repository', () => ({
+  companyRepository: {
     findCompanyById: mockFindCompanyById,
     getCompanyMembershipRole: mockGetCompanyMembershipRole,
+  },
+}))
+
+vi.mock('~~/server/utils/auth/invite/repository', () => ({
+  inviteRepository: {
     listCompanyInvites: mockListCompanyInvites,
   },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('~~/server/utils/auth/helpers')>()
+vi.mock('~~/server/utils/shared/errors', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('~~/server/utils/shared/errors')>()
   return {
     ...actual,
     sendValidationError: (msg: string) => {

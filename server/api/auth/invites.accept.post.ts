@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError, getRequestIP } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
-import { sendValidationError, sendNotFoundError } from '~~/server/utils/auth/helpers'
+import { inviteRepository } from '~~/server/utils/auth/invite/repository'
+import { sendValidationError, sendNotFoundError } from '~~/server/utils/shared/errors'
+import { createAuthEvent } from '~~/server/utils/shared/audit'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -18,15 +19,15 @@ export default defineEventHandler(async (event) => {
     sendValidationError('companyId is required')
   }
 
-  const invite = await authRepository.findPendingInvite(body.companyId, user.email)
+  const invite = await inviteRepository.findPendingInvite(body.companyId, user.email)
   if (!invite) {
     sendNotFoundError('Invite not found or expired')
   }
 
-  const accepted = await authRepository.acceptInvite(body.companyId, user.email, user.id)
+  const accepted = await inviteRepository.acceptInvite(body.companyId, user.email, user.id)
 
   const ip = getRequestIP(event, { xForwardedFor: true })
-  await authRepository.createAuthEvent({
+  await createAuthEvent({
     userId: user.id,
     email: user.email,
     eventType: 'invite_accepted',

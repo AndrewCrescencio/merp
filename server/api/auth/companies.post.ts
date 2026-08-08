@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
-import { sendValidationError } from '~~/server/utils/auth/helpers'
+import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { sendValidationError } from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string } | undefined
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Company name is required')
   }
 
-  const created = await authRepository.createCompanyWithOwner(
+  const created = await companyRepository.createCompanyWithOwner(
     {
       name: body.name.trim(),
       cnpj: body.cnpj?.trim() || undefined,

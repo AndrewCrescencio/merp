@@ -21,13 +21,20 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: { register: mockRegister, createAuthEvent: mockCreateAuthEvent },
+vi.mock('~~/server/utils/auth/identity/repository', () => ({
+  identityRepository: { register: mockRegister },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
+vi.mock('~~/server/utils/shared/security', () => ({
   checkRateLimit: mockCheckRateLimit,
+}))
+
+vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: mockSendValidationError,
+}))
+
+vi.mock('~~/server/utils/shared/audit', () => ({
+  createAuthEvent: mockCreateAuthEvent,
 }))
 
 vi.mock('#shared/auth', () => ({

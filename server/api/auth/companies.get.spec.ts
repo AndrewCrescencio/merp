@@ -14,13 +14,13 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: {
+vi.mock('~~/server/utils/auth/company/repository', () => ({
+  companyRepository: {
     searchCompanies: mockSearchCompanies,
   },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
+vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: (msg: string) => {
     throw new Error(msg)
   },

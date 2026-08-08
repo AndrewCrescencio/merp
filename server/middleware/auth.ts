@@ -2,8 +2,8 @@ import { defineEventHandler, getCookie, getRequestURL } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
-import { authRepository } from '~~/server/utils/auth/repository'
-import { sendAuthError, sendAuthUnavailableError } from '~~/server/utils/auth/helpers'
+import { sendAuthError, sendAuthUnavailableError } from '~~/server/utils/shared/errors'
+import { createAuthEvent } from '~~/server/utils/shared/audit'
 
 const publicRoutes = ['/api/auth/register', '/api/auth/login', '/api/health', '/']
 
@@ -17,23 +17,21 @@ function emitSessionEvent(input: {
   tenantId: string | null
   eventType: 'session_validated' | 'session_expired'
 }): void {
-  void authRepository
-    .createAuthEvent({
+  void createAuthEvent({
+    userId: input.userId,
+    email: input.email,
+    eventType: input.eventType,
+    metadata: {
+      sessionId: input.sessionId,
       userId: input.userId,
-      email: input.email,
+      tenantId: input.tenantId,
+    },
+  }).catch((error: unknown) => {
+    logger.warn('Failed to emit auth event', {
       eventType: input.eventType,
-      metadata: {
-        sessionId: input.sessionId,
-        userId: input.userId,
-        tenantId: input.tenantId,
-      },
+      error: error instanceof Error ? error.message : String(error),
     })
-    .catch((error: unknown) => {
-      logger.warn('Failed to emit auth event', {
-        eventType: input.eventType,
-        error: error instanceof Error ? error.message : String(error),
-      })
-    })
+  })
 }
 
 export default defineEventHandler(async (event) => {

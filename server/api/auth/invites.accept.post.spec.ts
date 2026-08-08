@@ -18,15 +18,18 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: {
+vi.mock('~~/server/utils/auth/invite/repository', () => ({
+  inviteRepository: {
     findPendingInvite: mockFindPendingInvite,
     acceptInvite: mockAcceptInvite,
-    createAuthEvent: mockCreateAuthEvent,
   },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
+vi.mock('~~/server/utils/shared/audit', () => ({
+  createAuthEvent: mockCreateAuthEvent,
+}))
+
+vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: (msg: string) => {
     throw new Error(msg)
   },

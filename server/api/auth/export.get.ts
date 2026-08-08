@@ -1,5 +1,6 @@
 import { defineEventHandler, createError } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
+import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { companyRepository } from '~~/server/utils/auth/company/repository'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as
@@ -19,9 +20,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const [fullUser, companies, sessions] = await Promise.all([
-    authRepository.findById(user.id),
-    authRepository.findUserCompanies(user.id),
-    authRepository.getUserSessions(user.id),
+    identityRepository.findById(user.id),
+    companyRepository.findUserCompanies(user.id),
+    identityRepository.getUserSessions(user.id),
   ])
 
   return {

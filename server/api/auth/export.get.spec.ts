@@ -14,11 +14,16 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: {
+vi.mock('~~/server/utils/auth/identity/repository', () => ({
+  identityRepository: {
     findById: mockFindById,
-    findUserCompanies: mockFindUserCompanies,
     getUserSessions: mockGetUserSessions,
+  },
+}))
+
+vi.mock('~~/server/utils/auth/company/repository', () => ({
+  companyRepository: {
+    findUserCompanies: mockFindUserCompanies,
   },
 }))
 

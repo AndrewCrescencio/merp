@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery, createError } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
-import { sendValidationError } from '~~/server/utils/auth/helpers'
+import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { sendValidationError } from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string } | undefined
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Search query is required')
   }
 
-  const companies = await authRepository.searchCompanies(query.q.trim())
+  const companies = await companyRepository.searchCompanies(query.q.trim())
 
   return { companies: companies.map((c) => ({ id: c.id, name: c.name, cnpj: c.cnpj })) }
 })

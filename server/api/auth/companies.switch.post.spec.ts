@@ -16,15 +16,15 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: {
+vi.mock('~~/server/utils/auth/company/repository', () => ({
+  companyRepository: {
     findCompanyById: mockFindCompanyById,
     isCompanyMember: mockIsCompanyMember,
     setActiveCompany: mockSetActiveCompany,
   },
 }))
 
-vi.mock('~~/server/utils/auth/helpers', () => ({
+vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: (msg: string) => {
     throw new Error(msg)
   },

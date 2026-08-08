@@ -1,11 +1,12 @@
 import { defineEventHandler, readBody, createError, getRequestIP } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
+import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { createAuthEvent } from '~~/server/utils/shared/audit'
 import {
   sendValidationError,
   sendNotFoundError,
   sendForbiddenError,
   assertCompanyRole,
-} from '~~/server/utils/auth/helpers'
+} from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -27,12 +28,12 @@ export default defineEventHandler(async (event) => {
     sendValidationError('userId must be a non-empty string')
   }
 
-  const company = await authRepository.findCompanyById(body.companyId)
+  const company = await companyRepository.findCompanyById(body.companyId)
   if (!company) {
     sendNotFoundError('Company not found')
   }
 
-  const role = await authRepository.getCompanyMembershipRole(user.id, body.companyId)
+  const role = await companyRepository.getCompanyMembershipRole(user.id, body.companyId)
 
   if (!body.userId) {
     // Leave: o member remove a si mesmo
@@ -42,10 +43,10 @@ export default defineEventHandler(async (event) => {
       sendForbiddenError('Cannot remove a company owner')
     }
 
-    await authRepository.removeCompanyMember(body.companyId, user.id, user.id)
+    await companyRepository.removeCompanyMember(body.companyId, user.id, user.id)
 
     const ip = getRequestIP(event, { xForwardedFor: true })
-    await authRepository.createAuthEvent({
+    await createAuthEvent({
       userId: user.id,
       email: user.email,
       eventType: 'member_removed',
@@ -64,7 +65,7 @@ export default defineEventHandler(async (event) => {
     'Only company owners can remove members',
   )
 
-  const targetRole = await authRepository.getCompanyMembershipRole(body.userId, body.companyId)
+  const targetRole = await companyRepository.getCompanyMembershipRole(body.userId, body.companyId)
   if (!targetRole) {
     sendNotFoundError('Company member not found')
   }
@@ -73,10 +74,10 @@ export default defineEventHandler(async (event) => {
     sendForbiddenError('Cannot remove a company owner')
   }
 
-  await authRepository.removeCompanyMember(body.companyId, user.id, body.userId)
+  await companyRepository.removeCompanyMember(body.companyId, user.id, body.userId)
 
   const ip = getRequestIP(event, { xForwardedFor: true })
-  await authRepository.createAuthEvent({
+  await createAuthEvent({
     userId: user.id,
     email: user.email,
     eventType: 'member_removed',

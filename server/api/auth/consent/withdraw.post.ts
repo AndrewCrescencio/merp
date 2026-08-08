@@ -1,5 +1,6 @@
 import { defineEventHandler, getRequestIP, createError } from 'h3'
-import { authRepository } from '~~/server/utils/auth/repository'
+import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { createAuthEvent } from '~~/server/utils/shared/audit'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -12,13 +13,13 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const result = await authRepository.withdrawConsent(user.id)
+  const result = await identityRepository.withdrawConsent(user.id)
 
   const ip = getRequestIP(event, { xForwardedFor: true })
 
   // FR-021: consent_withdrawal — desativação imediata já feita pelo repositório;
   // a fila de deleção/anonymização fica fora deste escopo.
-  await authRepository.createAuthEvent({
+  await createAuthEvent({
     userId: user.id,
     email: user.email,
     eventType: 'consent_withdrawal',

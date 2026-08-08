@@ -15,11 +15,14 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/repository', () => ({
-  authRepository: {
+vi.mock('~~/server/utils/auth/identity/repository', () => ({
+  identityRepository: {
     withdrawConsent: mockWithdrawConsent,
-    createAuthEvent: mockCreateAuthEvent,
   },
+}))
+
+vi.mock('~~/server/utils/shared/audit', () => ({
+  createAuthEvent: mockCreateAuthEvent,
 }))
 
 describe('POST /api/auth/consent/withdraw', () => {
