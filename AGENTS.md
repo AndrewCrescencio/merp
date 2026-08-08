@@ -42,7 +42,7 @@ Tests MUST be co-located beside the code they validate.
 Naming: unit tests → `.spec.ts`, integration tests (real DB) → `.test.ts`.
 
 - `server/api/auth/register.post.ts` → `server/api/auth/register.post.spec.ts`
-- `server/utils/auth/repository.ts` → `server/utils/auth/repository.test.ts`
+- `server/utils/auth/identity/repository.ts` → `server/utils/auth/identity/repository.test.ts`
 - NEVER place tests under `/specs/` — `/specs` is documentation-only.
 
 ## Commit Convention for AI-Generated Changes
