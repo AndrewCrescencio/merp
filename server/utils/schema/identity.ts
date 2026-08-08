@@ -1,14 +1,5 @@
 import { sql } from 'drizzle-orm'
-import {
-  pgTable,
-  text,
-  timestamp,
-  boolean,
-  uniqueIndex,
-  index,
-  jsonb,
-  integer,
-} from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, uniqueIndex, index, jsonb } from 'drizzle-orm/pg-core'
 
 export const user = pgTable(
   'user',
@@ -115,84 +106,5 @@ export const authEvent = pgTable(
     index('auth_event_email_idx').on(table.email),
     index('auth_event_event_type_idx').on(table.eventType),
     index('auth_event_created_at_idx').on(table.createdAt),
-  ],
-)
-
-export const company = pgTable(
-  'company',
-  {
-    id: text('id')
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    name: text('name').notNull(),
-    cnpj: text('cnpj'),
-    razaoSocial: text('razao_social'),
-    isDeleted: boolean('is_deleted').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex('company_cnpj_idx').on(table.cnpj),
-    index('company_is_deleted_idx').on(table.isDeleted),
-    index('company_name_idx').on(table.name),
-  ],
-)
-
-export const companyMember = pgTable(
-  'company_member',
-  {
-    id: text('id')
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    companyId: text('company_id')
-      .notNull()
-      .references(() => company.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    role: text('role').notNull().default('member'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex('company_member_company_user_idx').on(table.companyId, table.userId),
-    index('company_member_user_id_idx').on(table.userId),
-    index('company_member_company_id_idx').on(table.companyId),
-  ],
-)
-
-export const authSecurityState = pgTable(
-  'auth_security_state',
-  {
-    key: text('key').primaryKey(),
-    count: integer('count').notNull().default(0),
-    lockedUntil: timestamp('locked_until', { withTimezone: true }),
-    resetAt: timestamp('reset_at', { withTimezone: true }),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [index('auth_security_state_reset_at_idx').on(table.resetAt)],
-)
-
-export const invite = pgTable(
-  'invite',
-  {
-    id: text('id')
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    companyId: text('company_id')
-      .notNull()
-      .references(() => company.id, { onDelete: 'cascade' }),
-    email: text('email').notNull(),
-    invitedBy: text('invited_by')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex('invite_company_email_idx').on(table.companyId, table.email),
-    index('invite_pending_email_idx')
-      .on(table.email)
-      .where(sql`${table.acceptedAt} IS NULL`),
   ],
 )
