@@ -1,0 +1,370 @@
+import { describe, it, expect, beforeAll } from 'vitest'
+
+const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_test'
+
+const dbAvailable = process.env.DB_AVAILABLE === 'true'
+
+describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
+  let repo: any
+  let identity: any
+
+  beforeAll(async () => {
+    process.env.APP_DATABASE_URL = INTEGRATION_DB_URL
+    repo = new (await import('~~/server/utils/auth/company/repository')).CompanyRepository()
+    identity = new (await import('~~/server/utils/auth/identity/repository')).IdentityRepository()
+  })
+
+  const registerUser = (email: string, name: string) =>
+    identity.register({ email, password: 'password123', name })
+
+  describe('RLS isolation', () => {
+    it('prevents cross-tenant member visibility', async () => {
+      const emailA = `tenant-a-${Date.now()}@example.com`
+      const emailB = `tenant-b-${Date.now()}@example.com`
+
+      const userA = await registerUser(emailA, 'User A')
+      const userB = await registerUser(emailB, 'User B')
+
+      const companyA = await repo.createCompany({ name: 'Company A' })
+      const companyB = await repo.createCompany({ name: 'Company B' })
+
+      await repo.createCompanyMember(companyA.id, userA.id, 'owner')
+      await repo.createCompanyMember(companyB.id, userB.id, 'owner')
+
+      const userACompanies = await repo.findUserCompanies(userA.id)
+      expect(userACompanies).toHaveLength(1)
+      expect(userACompanies[0].id).toBe(companyA.id)
+
+      const userBCompanies = await repo.findUserCompanies(userB.id)
+      expect(userBCompanies).toHaveLength(1)
+      expect(userBCompanies[0].id).toBe(companyB.id)
+    })
+
+    it('prevents cross-tenant SELECT without tenant context (fail-closed 0 rows)', async () => {
+      const emailA = `iso-select-a-${Date.now()}@example.com`
+      const emailB = `iso-select-b-${Date.now()}@example.com`
+
+      const userA = await registerUser(emailA, 'Sel A')
+      const userB = await registerUser(emailB, 'Sel B')
+
+      const companyA = await repo.createCompany({ name: 'Sel Company A' })
+      const companyB = await repo.createCompany({ name: 'Sel Company B' })
+
+      await repo.createCompanyMember(companyA.id, userA.id, 'owner')
+      await repo.createCompanyMember(companyB.id, userB.id, 'owner')
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+
+      // cm_select_policy confia no tenant context (fornecido pelo app, não pelo
+      // atacante) — sem contexto, user A não vê nada da empresa B (fail-closed).
+      const rows = await withTenant(null, userA.id, (tx) =>
+        tx.select().from(companyMember).where(eq(companyMember.companyId, companyB.id)),
+      )
+
+      expect(rows).toHaveLength(0)
+    })
+
+    it('prevents cross-tenant UPDATE on company via raw SQL (0 rows)', async () => {
+      const emailA = `iso-update-a-${Date.now()}@example.com`
+      const emailB = `iso-update-b-${Date.now()}@example.com`
+
+      const userA = await registerUser(emailA, 'Upd A')
+      const userB = await registerUser(emailB, 'Upd B')
+
+      const companyA = await repo.createCompany({ name: 'Upd Company A' })
+      const companyB = await repo.createCompany({ name: 'Upd Company B' })
+
+      await repo.createCompanyMember(companyA.id, userA.id, 'owner')
+      await repo.createCompanyMember(companyB.id, userB.id, 'owner')
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { company } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+
+      const updated = await withTenant(companyB.id, userA.id, (tx) =>
+        tx.update(company).set({ name: 'Hacked' }).where(eq(company.id, companyB.id)).returning(),
+      )
+
+      expect(updated).toHaveLength(0)
+      expect(await repo.findCompanyById(companyB.id)).toMatchObject({ name: 'Upd Company B' })
+    })
+
+    it('allows company search without tenant context', async () => {
+      const result = await repo.searchCompanies('Company')
+      expect(result.length).toBeGreaterThanOrEqual(2)
+    })
+  })
+
+  describe('createCompanyWithOwner', () => {
+    it('creates company and owner atomically', async () => {
+      const owner = await registerUser(`atomic-owner-${Date.now()}@example.com`, 'Atomic Owner')
+
+      const company = await repo.createCompanyWithOwner({ name: 'Atomic Company' }, owner.id)
+
+      expect(company).toMatchObject({ name: 'Atomic Company', isDeleted: false })
+      expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBe('owner')
+    })
+
+    it('rolls back company creation when owner insert fails', async () => {
+      const name = `Atomic Fail ${Date.now()}`
+
+      await expect(repo.createCompanyWithOwner({ name }, 'nonexistent-user-id')).rejects.toThrow()
+
+      const results = await repo.searchCompanies('Atomic Fail')
+      expect(results.some((c: any) => c.name === name)).toBe(false)
+    })
+  })
+
+  describe('company membership roles', () => {
+    it('returns the role of a member and null for non-members', async () => {
+      const email = `role-${Date.now()}@example.com`
+      const user = await registerUser(email, 'Role User')
+      const company = await repo.createCompany({ name: 'Role Company' })
+
+      expect(await repo.getCompanyMembershipRole(user.id, company.id)).toBeNull()
+
+      await repo.createCompanyMember(company.id, user.id, 'owner')
+      expect(await repo.getCompanyMembershipRole(user.id, company.id)).toBe('owner')
+
+      const outsider = await registerUser(`outsider-${Date.now()}@example.com`, 'Outsider')
+      expect(await repo.getCompanyMembershipRole(outsider.id, company.id)).toBeNull()
+    })
+  })
+
+  describe('company_member insert/update policies (0008)', () => {
+    it('lets an owner add a member to their own company', async () => {
+      const owner = await registerUser(`add-owner-${Date.now()}@example.com`, 'Add Owner')
+      const member = await registerUser(`add-member-${Date.now()}@example.com`, 'Add Member')
+      const company = await repo.createCompany({ name: 'Add Member Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
+    })
+
+    it('blocks an outsider from inserting themselves as owner via raw SQL', async () => {
+      const owner = await registerUser(`raw-owner-${Date.now()}@example.com`, 'Raw Owner')
+      const outsider = await registerUser(`raw-outsider-${Date.now()}@example.com`, 'Raw Outsider')
+      const company = await repo.createCompany({ name: 'Raw Insert Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+
+      const { db } = await import('~~/server/utils/db')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { getPostgresErrorCode } = await import('~~/server/utils/shared/errors')
+
+      await expect(
+        db.insert(companyMember).values({
+          companyId: company.id,
+          userId: outsider.id,
+          role: 'owner',
+        }),
+      ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
+    })
+
+    it('blocks a member from promoting themselves to owner via UPDATE', async () => {
+      const owner = await registerUser(`up-owner-${Date.now()}@example.com`, 'Up Owner')
+      const member = await registerUser(`up-member-${Date.now()}@example.com`, 'Up Member')
+      const company = await repo.createCompany({ name: 'Up Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+      const { getPostgresErrorCode } = await import('~~/server/utils/shared/errors')
+
+      await expect(
+        withTenant(company.id, member.id, (tx) =>
+          tx
+            .update(companyMember)
+            .set({ role: 'owner' })
+            .where(eq(companyMember.userId, member.id)),
+        ),
+      ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
+    })
+
+    it('blocks a member from moving their own row to another company via UPDATE', async () => {
+      const ownerA = await registerUser(`move-owner-a-${Date.now()}@example.com`, 'Move Owner A')
+      const ownerB = await registerUser(`move-owner-b-${Date.now()}@example.com`, 'Move Owner B')
+      const member = await registerUser(`move-member-${Date.now()}@example.com`, 'Move Member')
+      const companyA = await repo.createCompany({ name: 'Move Company A' })
+      const companyB = await repo.createCompany({ name: 'Move Company B' })
+      await repo.createCompanyMember(companyA.id, ownerA.id, 'owner')
+      await repo.createCompanyMember(companyB.id, ownerB.id, 'owner')
+      await repo.createCompanyMember(companyA.id, member.id, 'member')
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+      const { getPostgresErrorCode } = await import('~~/server/utils/shared/errors')
+
+      await expect(
+        withTenant(companyA.id, member.id, (tx) =>
+          tx
+            .update(companyMember)
+            .set({ companyId: companyB.id })
+            .where(eq(companyMember.userId, member.id)),
+        ),
+      ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
+    })
+  })
+
+  describe('company delete policies (0009)', () => {
+    it('lets an owner soft-delete their company (company before members)', async () => {
+      const owner = await registerUser(`del-owner-${Date.now()}@example.com`, 'Del Owner')
+      const member = await registerUser(`del-member-${Date.now()}@example.com`, 'Del Member')
+      const company = await repo.createCompany({ name: 'Del Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      const result = await repo.softDeleteCompany(company.id, owner.id)
+
+      expect(result).toMatchObject({ id: company.id, isDeleted: true })
+      expect(await repo.findCompanyById(company.id)).toBeNull()
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
+      expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBeNull()
+    })
+
+    it('backstop TOCTOU: a member cannot soft-delete the company (404, RLS denied)', async () => {
+      const owner = await registerUser(`toc-owner-${Date.now()}@example.com`, 'TOC Owner')
+      const member = await registerUser(`toc-member-${Date.now()}@example.com`, 'TOC Member')
+      const company = await repo.createCompany({ name: 'TOC Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      await expect(repo.softDeleteCompany(company.id, member.id)).rejects.toMatchObject({
+        statusCode: 404,
+      })
+
+      expect(await repo.findCompanyById(company.id)).toMatchObject({ id: company.id })
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
+    })
+  })
+
+  describe('updateCompany', () => {
+    it('updates name, cnpj and razaoSocial and bumps updatedAt', async () => {
+      const owner = await registerUser(`upd-owner-${Date.now()}@example.com`, 'Upd Owner')
+      const company = await repo.createCompany({ name: 'Update Co' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const uniqueCnpj = `1${String(Date.now()).padStart(13, '0')}`
+
+      const result = await repo.updateCompany(company.id, owner.id, {
+        name: 'Updated Co',
+        cnpj: uniqueCnpj,
+        razaoSocial: 'Updated Razao',
+      })
+
+      expect(result).toMatchObject({
+        id: company.id,
+        name: 'Updated Co',
+        cnpj: uniqueCnpj,
+        razaoSocial: 'Updated Razao',
+      })
+      expect(result.updatedAt.getTime()).toBeGreaterThanOrEqual(company.updatedAt.getTime())
+    })
+
+    it('rejects duplicate cnpj with 409 conflict', async () => {
+      const ownerB = await registerUser(`upd-dup-owner-${Date.now()}@example.com`, 'Upd Dup Owner')
+      const uniqueCnpj = `2${String(Date.now()).padStart(13, '0')}`
+      await repo.createCompany({ name: 'Co A', cnpj: uniqueCnpj })
+      const companyB = await repo.createCompany({ name: 'Co B' })
+      await repo.createCompanyMember(companyB.id, ownerB.id, 'owner')
+
+      await expect(
+        repo.updateCompany(companyB.id, ownerB.id, { cnpj: uniqueCnpj }),
+      ).rejects.toMatchObject({ statusCode: 409 })
+    })
+
+    it('throws 404 when company does not exist', async () => {
+      await expect(
+        repo.updateCompany('nonexistent-company', 'any-user', { name: 'X' }),
+      ).rejects.toMatchObject({ statusCode: 404 })
+    })
+
+    it('backstop TOCTOU: a member cannot update the company (404, RLS denied)', async () => {
+      const owner = await registerUser(`upd-toc-owner-${Date.now()}@example.com`, 'Upd TOC Owner')
+      const member = await registerUser(
+        `upd-toc-member-${Date.now()}@example.com`,
+        'Upd TOC Member',
+      )
+      const company = await repo.createCompany({ name: 'Upd TOC Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      await expect(
+        repo.updateCompany(company.id, member.id, { name: 'Hacked Name' }),
+      ).rejects.toMatchObject({ statusCode: 404 })
+
+      expect(await repo.findCompanyById(company.id)).toMatchObject({ name: 'Upd TOC Company' })
+    })
+  })
+
+  describe('removeCompanyMember (0010)', () => {
+    it('lets an owner remove a member; the member is no longer a member', async () => {
+      const owner = await registerUser(`rm-owner-${Date.now()}@example.com`, 'RM Owner')
+      const member = await registerUser(`rm-member-${Date.now()}@example.com`, 'RM Member')
+      const company = await repo.createCompany({ name: 'RM Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      await repo.removeCompanyMember(company.id, owner.id, member.id)
+
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
+      expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBe('owner')
+    })
+
+    it('lets a member leave the company themselves', async () => {
+      const owner = await registerUser(`lv-owner-${Date.now()}@example.com`, 'LV Owner')
+      const member = await registerUser(`lv-member-${Date.now()}@example.com`, 'LV Member')
+      const company = await repo.createCompany({ name: 'LV Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      await repo.removeCompanyMember(company.id, member.id, member.id)
+
+      expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
+      expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBe('owner')
+    })
+
+    it('backstop RLS: a member cannot remove another member (404, RLS denied)', async () => {
+      const owner = await registerUser(`blk-owner-${Date.now()}@example.com`, 'Blk Owner')
+      const memberA = await registerUser(`blk-member-a-${Date.now()}@example.com`, 'Blk Member A')
+      const memberB = await registerUser(`blk-member-b-${Date.now()}@example.com`, 'Blk Member B')
+      const company = await repo.createCompany({ name: 'Blk Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, memberA.id, 'member')
+      await repo.createCompanyMember(company.id, memberB.id, 'member')
+
+      await expect(
+        repo.removeCompanyMember(company.id, memberA.id, memberB.id),
+      ).rejects.toMatchObject({ statusCode: 404 })
+
+      expect(await repo.getCompanyMembershipRole(memberA.id, company.id)).toBe('member')
+      expect(await repo.getCompanyMembershipRole(memberB.id, company.id)).toBe('member')
+    })
+
+    it('clears activeCompanyId on sessions of the removed user', async () => {
+      const owner = await registerUser(`clr-owner-${Date.now()}@example.com`, 'Clr Owner')
+      const member = await registerUser(`clr-member-${Date.now()}@example.com`, 'Clr Member')
+      const company = await repo.createCompany({ name: 'Clr Company' })
+      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      await repo.createCompanyMember(company.id, member.id, 'member')
+
+      const session = await identity.createSession(
+        member.id,
+        `clr-token-${Date.now()}`,
+        new Date(Date.now() + 60_000),
+        false,
+      )
+      await repo.setActiveCompany(session.id, company.id)
+      expect(await repo.getActiveCompany(session.id)).toBe(company.id)
+
+      await repo.removeCompanyMember(company.id, owner.id, member.id)
+
+      expect(await repo.getActiveCompany(session.id)).toBeNull()
+    })
+  })
+})
