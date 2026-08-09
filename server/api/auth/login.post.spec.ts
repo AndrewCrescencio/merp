@@ -10,10 +10,12 @@ const mockSendValidationError = vi.fn()
 const mockSendUnauthorizedError = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
+const mockAppendResponseHeaders = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
+  appendResponseHeaders: mockAppendResponseHeaders,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -71,7 +73,12 @@ describe('POST /api/auth/login', () => {
 
   it('calls checkRateLimit with email', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
-    mockSignIn.mockResolvedValue({ id: 'uuid', email: 'user@example.com', name: null })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
     const event = {} as any
@@ -83,7 +90,12 @@ describe('POST /api/auth/login', () => {
 
   it('calls checkAccountLockout before authentication', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
-    mockSignIn.mockResolvedValue({ id: 'uuid', email: 'user@example.com', name: null })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
@@ -94,7 +106,12 @@ describe('POST /api/auth/login', () => {
 
   it('returns user data on successful login', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
-    mockSignIn.mockResolvedValue({ id: 'uuid-123', email: 'user@example.com', name: 'Test User' })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid-123',
+      email: 'user@example.com',
+      name: 'Test User',
+      setCookie: [],
+    })
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
@@ -109,7 +126,12 @@ describe('POST /api/auth/login', () => {
 
   it('resets failed attempts on successful login', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
-    mockSignIn.mockResolvedValue({ id: 'uuid', email: 'user@example.com', name: null })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
@@ -136,7 +158,12 @@ describe('POST /api/auth/login', () => {
       password: 'password123',
       rememberMe: true,
     })
-    mockSignIn.mockResolvedValue({ id: 'uuid', email: 'user@example.com', name: null })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
     const headers = new Headers({ cookie: 'merp-session_token=abc' })
@@ -152,7 +179,12 @@ describe('POST /api/auth/login', () => {
 
   it('defaults rememberMe to false', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
-    mockSignIn.mockResolvedValue({ id: 'uuid', email: 'user@example.com', name: null })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
@@ -235,6 +267,67 @@ describe('POST /api/auth/login', () => {
       }),
     )
     expect(mockSendUnauthorizedError).not.toHaveBeenCalled()
+  })
+
+  it('forwards the session Set-Cookie from the repository to the client', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: ['merp-session_token=abc; Path=/; HttpOnly; SameSite=Lax'],
+    })
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+    const event = { headers: new Headers() } as any
+
+    await handler(event)
+
+    expect(mockAppendResponseHeaders).toHaveBeenCalledWith(event, {
+      'set-cookie': ['merp-session_token=abc; Path=/; HttpOnly; SameSite=Lax'],
+    })
+  })
+
+  it('does not forward headers when the repository returns no cookie', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await handler({ headers: new Headers() } as any)
+
+    expect(mockAppendResponseHeaders).not.toHaveBeenCalled()
+  })
+
+  it('does not record a failed attempt for account_deactivated', async () => {
+    mockReadBody.mockResolvedValue({ email: 'inactive@example.com', password: 'password123' })
+    const deactivatedError: any = new Error(
+      JSON.stringify({ error: 'account_deactivated', message: 'User has been deactivated' }),
+    )
+    deactivatedError.statusCode = 401
+    mockSignIn.mockRejectedValue(deactivatedError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 401 })
+    expect(mockRecordFailedAttempt).not.toHaveBeenCalled()
+  })
+
+  it('does not record a failed attempt on infrastructure errors (503/500)', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
+    const upstreamError: any = new Error('upstream timeout')
+    upstreamError.statusCode = 503
+    mockSignIn.mockRejectedValue(upstreamError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 503 })
+    expect(mockRecordFailedAttempt).not.toHaveBeenCalled()
   })
 
   it('keeps generic unauthorized for 401 errors without a specific code', async () => {

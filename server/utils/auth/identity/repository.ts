@@ -52,6 +52,13 @@ export interface SessionWithUser {
   user: UserResult
 }
 
+// signInEmail grava o cookie de sessão nos response headers do retorno
+// (setSessionCookie). Sem returnHeaders + forwarding, o cookie nunca chega
+// ao navegador e nenhuma sessão é estabelecida após o login.
+export interface SignInResult extends UserResult {
+  setCookie: string[]
+}
+
 export interface UpdateUserInput {
   name: string
   isActive: boolean
@@ -62,7 +69,7 @@ export interface UpdateUserInput {
 
 export interface IIdentityRepository {
   register(input: RegisterInput): Promise<UserResult>
-  signIn(input: SignInInput, headers?: Headers): Promise<UserResult>
+  signIn(input: SignInInput, headers?: Headers): Promise<SignInResult>
   findByEmail(email: string): Promise<UserResult | null>
   findById(id: string): Promise<UserResult | null>
   createSession(
@@ -134,7 +141,8 @@ export class IdentityRepository implements IIdentityRepository {
       if (error instanceof TimeoutError) {
         return handleUpstreamTimeout()
       }
-      if (error?.statusCode === 409 || error?.message?.includes?.('already')) {
+      // better-auth: email duplicado → APIError UNPROCESSABLE_ENTITY (422).
+      if (error?.statusCode === 422) {
         throw createError({
           status: 409,
           statusText: '409',
@@ -174,6 +182,7 @@ export class IdentityRepository implements IIdentityRepository {
             rememberMe: input.rememberMe ?? false,
           },
           headers,
+          returnHeaders: true,
         }),
         5_000,
       )
@@ -182,7 +191,7 @@ export class IdentityRepository implements IIdentityRepository {
       // login se o registro do evento falhar (auditoria não pode ser crítica).
       // signInEmail retorna apenas o token da sessão (sem o objeto session),
       // então o sessionId é resolvido via validateSession em background.
-      const sessionToken = result.token
+      const sessionToken = result.response.token
       void this.validateSession(sessionToken)
         .then((validated) => {
           if (!validated) return
@@ -204,12 +213,13 @@ export class IdentityRepository implements IIdentityRepository {
         })
 
       return {
-        id: result.user.id,
-        email: result.user.email,
-        name: result.user.name,
+        id: result.response.user.id,
+        email: result.response.user.email,
+        name: result.response.user.name,
         isActive: true,
-        createdAt: result.user.createdAt,
-        updatedAt: result.user.updatedAt,
+        createdAt: result.response.user.createdAt,
+        updatedAt: result.response.user.updatedAt,
+        setCookie: result.headers?.getSetCookie?.() ?? [],
       }
     } catch (error: any) {
       if (error instanceof TimeoutError) {

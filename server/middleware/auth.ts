@@ -1,4 +1,4 @@
-import { defineEventHandler, getCookie, getRequestURL } from 'h3'
+import { defineEventHandler, getCookie, getRequestURL, appendResponseHeaders } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
@@ -51,7 +51,20 @@ export default defineEventHandler(async (event) => {
     sendAuthUnavailableError()
   }
 
-  const session = await authInstance.api.getSession({ headers: event.headers })
+  // getSession responde com Set-Cookie em dois casos: sessão expirada
+  // (deleteSessionCookie expira o cookie no navegador) e refresh de sessão.
+  // Sem forwarding, o cookie morto fica no cliente para sempre.
+  const sessionResult = await authInstance.api.getSession({
+    headers: event.headers,
+    returnHeaders: true,
+  })
+
+  const setCookies = sessionResult.headers?.getSetCookie?.() ?? []
+  if (setCookies.length > 0) {
+    appendResponseHeaders(event, { 'set-cookie': setCookies })
+  }
+
+  const session = sessionResult.response
 
   if (!session) {
     const sessionToken = getCookie(event, 'merp-session_token')

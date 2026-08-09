@@ -15,39 +15,38 @@ const MAX_FAILED_ATTEMPTS = 10
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000
 
 export interface RateLimitEntry {
-  count: number
-  resetAt: Date | null
+  window: string[] | null
 }
 
 export interface RateLimitDecision {
   allowed: boolean
   retryAfter?: number
-  nextCount: number
-  nextResetAt: Date
+  nextWindow: string[]
 }
 
+// FR-010: janela deslizante — contam apenas requests dentro de
+// RATE_WINDOW_MS; sem o salto de janela do fixed-window (burst no fim +
+// início de janelas adjacentes).
 export function evaluateRateLimit(
   entry: RateLimitEntry | null,
   now: Date,
   maxRequests: number = MAX_REQUESTS_PER_EMAIL,
 ): RateLimitDecision {
   const nowMs = now.getTime()
-  const resetAtMs = entry?.resetAt ? entry.resetAt.getTime() : 0
+  const windowStartMs = nowMs - RATE_WINDOW_MS
 
-  if (!entry || resetAtMs <= nowMs) {
-    return { allowed: true, nextCount: 1, nextResetAt: new Date(nowMs + RATE_WINDOW_MS) }
+  const recent = (entry?.window ?? []).filter((hit) => Date.parse(hit) > windowStartMs)
+
+  if (recent.length >= maxRequests) {
+    const oldest = recent[0]
+    return {
+      allowed: false,
+      retryAfter: Math.ceil((Date.parse(oldest) + RATE_WINDOW_MS - nowMs) / 1000),
+      nextWindow: recent,
+    }
   }
 
-  if (entry.count < maxRequests) {
-    return { allowed: true, nextCount: entry.count + 1, nextResetAt: entry.resetAt! }
-  }
-
-  return {
-    allowed: false,
-    retryAfter: Math.ceil((resetAtMs - nowMs) / 1000),
-    nextCount: entry.count,
-    nextResetAt: entry.resetAt!,
-  }
+  return { allowed: true, nextWindow: [...recent, now.toISOString()] }
 }
 
 export interface LockoutDecision {
@@ -85,7 +84,7 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
     await tx.insert(authSecurityState).values({ key }).onConflictDoNothing()
 
     const [row] = await tx
-      .select({ count: authSecurityState.count, resetAt: authSecurityState.resetAt })
+      .select({ window: authSecurityState.window })
       .from(authSecurityState)
       .where(eq(authSecurityState.key, key))
       .for('update')
@@ -94,7 +93,7 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
 
     await tx
       .update(authSecurityState)
-      .set({ count: result.nextCount, resetAt: result.nextResetAt, updatedAt: now })
+      .set({ window: result.nextWindow, updatedAt: now })
       .where(eq(authSecurityState.key, key))
 
     return result
@@ -106,7 +105,9 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
 
   setResponseHeaders(event, {
     'Retry-After': String(decision.retryAfter),
-    'RateLimit-Reset': String(Math.ceil(decision.nextResetAt.getTime() / 1000)),
+    'RateLimit-Reset': String(
+      Math.ceil((Date.parse(decision.nextWindow[0]) + RATE_WINDOW_MS) / 1000),
+    ),
     'RateLimit-Remaining': '0',
   })
 

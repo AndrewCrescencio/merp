@@ -281,3 +281,49 @@ adicionado às rotas públicas) e `server/api/auth/logout.post.ts`. Health check
 `isAuthAvailable()`, `db` via `db.execute(sql\`SELECT 1\`)`em try/catch. Testes:
 spec`server/api/health.get.spec.ts`(4 casos) + spec do middleware (503`auth_unavailable`, `/api/health`público) e do logout atualizadas para o mock`getAuth`. Verificado em runtime: `GET /api/health`→ 200 com`auth: ready`e`db: ok`(com`DATABASE_URL`alcançável do host). Nota:`server/api/auth/register.post.spec.ts`mantém um mock morto de`#shared/auth` (registro não importa mais o módulo) —
 inofensivo.
+
+---
+
+### 15. Cookie de sessão nunca era definido no login (Set-Cookie descartado) ✅ RESOLVIDO
+
+**Arquivo:** `server/utils/auth/identity/repository.ts`, `server/api/auth/login.post.ts`, `server/api/auth/logout.post.ts`, `server/middleware/auth.ts`
+
+CRÍTICO: `auth.api.signInEmail()` grava o cookie de sessão nos **response headers do
+retorno** (`setSessionCookie` → `ctx.context.responseHeaders`), mas a chamada sem
+`returnHeaders: true` descartava os headers — o cookie `merp-session_token` nunca
+chegava ao navegador. Resultado: login "funcionava" (200 + user), mas nenhuma sessão
+era estabelecida; todo request autenticado subsequente retornava 401. O mesmo valia
+para o `signOut` (cookie de expiração nunca limpo) e para o `getSession` do middleware
+(cookie de sessão expirada nunca expirado no cliente). Os testes unitários não pegavam
+isso porque mockam o repositório.
+
+**Status (2026-08-09, prompt de revisão de segurança):** Implementado —
+`signInEmail`/`signOut`/`getSession` chamados com `returnHeaders: true`; o repositório
+retorna `setCookie: string[]` (via `headers.getSetCookie()`) e os handlers reencaminham
+com `appendResponseHeaders`. Testes novos: login forwards o Set-Cookie, logout forwards
+a expiração, middleware forwards o cookie expirado.
+
+---
+
+### 16. Rate limit fixed-window + lockout contando falhas de infraestrutura ✅ RESOLVIDO
+
+**Arquivos:** `server/utils/shared/security.ts`, `server/utils/schema/security.ts`,
+`drizzle/0011_sliding_window_rate_limit.sql`, `server/api/auth/login.post.ts`,
+`shared/auth.ts`
+
+Dois desvios de segurança: (a) o rate limit era fixed-window (`count`/`resetAt`), não a
+janela deslizante da FR-010 — um atacante podia fazer 5 requisições no fim de uma janela
+
+- 5 no início da próxima (10 em sucessão rápida); (b) o lockout (`recordFailedAttempt`)
+  incrementava para **qualquer** erro no login, inclusive 503/500 transitórios e
+  `account_deactivated` — uma falha de infraestrutura bloqueava a conta por 30 min.
+
+**Status (2026-08-09, prompt de revisão de segurança):** Implementado — (a) coluna
+`window` (jsonb) com timestamps ISO por hit; a contagem só considera hits nos últimos
+60s; `Retry-After`/`RateLimit-Reset` refletem quando o hit mais antigo sai da janela.
+Migração `0011` (idempotente, reaplicável pelo `apply-custom-sql`). (b) `recordFailedAttempt`
+só é chamado para `invalid_credentials`. Juntamente: TTL de sessão corrigido para a FR-010
+(rememberMe=7d via `expiresIn`, sem rememberMe=24h nativo do better-auth) com
+`disableSessionRefresh: true` — o refresh automático promoveria sessões de 24h para 7d;
+e detecção de email duplicado no register via statusCode 422 (antes, sniffing de
+`message.includes('already')`).

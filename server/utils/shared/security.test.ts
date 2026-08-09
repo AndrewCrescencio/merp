@@ -49,7 +49,7 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     expect(body.retryAfter).toBeGreaterThan(0)
   })
 
-  it('reopens the rate limit window once resetAt elapses', async () => {
+  it('reopens the rate limit window once 60s elapse (sliding window)', async () => {
     const email = `rate-reset-${Date.now()}@example.com`
     const event = mockEvent()
 
@@ -58,9 +58,17 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     }
     await expect(helpers.checkRateLimit(event, email)).rejects.toMatchObject({ statusCode: 429 })
 
+    // Simula 60s decorridos: os hits saem da janela de 60s.
+    const [row] = await db
+      .select({ window: authSecurityState.window })
+      .from(authSecurityState)
+      .where(eq(authSecurityState.key, `rate:${email}`))
+    const shifted = (row.window as string[]).map((hit) =>
+      new Date(Date.parse(hit) - 60_000).toISOString(),
+    )
     await db
       .update(authSecurityState)
-      .set({ resetAt: new Date(Date.now() - 60_000) })
+      .set({ window: shifted })
       .where(eq(authSecurityState.key, `rate:${email}`))
 
     await expect(helpers.checkRateLimit(event, email)).resolves.toBeUndefined()

@@ -9,6 +9,7 @@ const mockSendAuthUnavailableError = vi.fn()
 const mockLoggerWarn = vi.fn()
 const mockLoggerError = vi.fn()
 const mockCreateAuthEvent = vi.fn()
+const mockAppendResponseHeaders = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -20,6 +21,7 @@ vi.mock('h3', () => ({
   },
   getCookie: (...args: any[]) => mockGetCookie(...args),
   getRequestURL: (...args: any[]) => mockGetRequestURL(...args),
+  appendResponseHeaders: mockAppendResponseHeaders,
 }))
 
 vi.mock('#shared/auth', () => ({
@@ -111,7 +113,7 @@ describe('auth middleware', () => {
   it('sets user and session context on valid session', async () => {
     const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
     const session = { id: 'session-1', userId: 'user-1', activeCompanyId: 'company-1' }
-    mockGetSession.mockResolvedValue({ user, session })
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
     mockCreateAuthEvent.mockResolvedValue(undefined)
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
@@ -127,7 +129,7 @@ describe('auth middleware', () => {
   it('emits session_validated event on valid session', async () => {
     const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
     const session = { id: 'session-1', userId: 'user-1', activeCompanyId: 'company-1' }
-    mockGetSession.mockResolvedValue({ user, session })
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
     mockCreateAuthEvent.mockResolvedValue(undefined)
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
@@ -151,7 +153,7 @@ describe('auth middleware', () => {
   it('emits session_validated with null tenantId when no active company', async () => {
     const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
     const session = { id: 'session-1', userId: 'user-1' }
-    mockGetSession.mockResolvedValue({ user, session })
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
     mockCreateAuthEvent.mockResolvedValue(undefined)
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
@@ -173,7 +175,7 @@ describe('auth middleware', () => {
   })
 
   it('returns unauthorized when no session and no cookie', async () => {
-    mockGetSession.mockResolvedValue(null)
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: null })
     mockGetCookie.mockReturnValue(undefined)
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
@@ -184,7 +186,7 @@ describe('auth middleware', () => {
   })
 
   it('returns session_expired when session cookie exists but session expired', async () => {
-    mockGetSession.mockResolvedValue(null)
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: null })
     mockGetCookie.mockReturnValue('expired-token-value')
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
@@ -195,7 +197,7 @@ describe('auth middleware', () => {
   })
 
   it('logs session_expired event when session is expired', async () => {
-    mockGetSession.mockResolvedValue(null)
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: null })
     mockGetCookie.mockReturnValue('expired-token-value')
     mockCreateAuthEvent.mockResolvedValue(undefined)
 
@@ -214,7 +216,7 @@ describe('auth middleware', () => {
   })
 
   it('emits session_expired auth event when session cookie exists but expired', async () => {
-    mockGetSession.mockResolvedValue(null)
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: null })
     mockGetCookie.mockReturnValue('expired-token-value')
     mockCreateAuthEvent.mockResolvedValue(undefined)
 
@@ -235,8 +237,24 @@ describe('auth middleware', () => {
     })
   })
 
+  it('forwards Set-Cookie from getSession (expired session cleanup)', async () => {
+    const headers = new Headers()
+    headers.append('set-cookie', 'merp-session_token=; Max-Age=0; Path=/')
+    mockGetSession.mockResolvedValue({ headers, response: null })
+    mockGetCookie.mockReturnValue(undefined)
+
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    const event = { headers: new Headers(), context: {} } as any
+
+    await expect(handler(event)).rejects.toThrow()
+    expect(mockAppendResponseHeaders).toHaveBeenCalledWith(event, {
+      'set-cookie': ['merp-session_token=; Max-Age=0; Path=/'],
+    })
+  })
+
   it('does not emit session_expired event for unauthorized (no cookie)', async () => {
-    mockGetSession.mockResolvedValue(null)
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: null })
     mockGetCookie.mockReturnValue(undefined)
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
@@ -248,7 +266,7 @@ describe('auth middleware', () => {
   })
 
   it('does not log for unauthorized (no cookie)', async () => {
-    mockGetSession.mockResolvedValue(null)
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: null })
     mockGetCookie.mockReturnValue(undefined)
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)

@@ -30,10 +30,12 @@ function createAuth() {
       enabled: true,
       autoSignIn: false,
     },
+    // FR-010: TTL fixo — rememberMe=7d (expiresIn), sem rememberMe=24h
+    // (better-auth usa 24h quando dontRememberMe). disableSessionRefresh
+    // evita que o refresh promova sessões de 24h para 7d no primeiro request.
     session: {
-      expiresIn: 60 * 60 * 24,
-      updateAge: 60 * 60 * 24,
-      freshAge: 60 * 5,
+      expiresIn: 60 * 60 * 24 * 7,
+      disableSessionRefresh: true,
     },
     advanced: {
       cookiePrefix: 'merp',

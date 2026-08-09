@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody } from 'h3'
+import { defineEventHandler, readBody, appendResponseHeaders } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
   checkAccountLockout,
@@ -70,6 +70,10 @@ export default defineEventHandler(async (event) => {
 
     await resetFailedAttempts(body.email)
 
+    if (user.setCookie.length > 0) {
+      appendResponseHeaders(event, { 'set-cookie': user.setCookie })
+    }
+
     const ip = getClientIp(event)
     await createAuthEvent({
       userId: user.id,
@@ -94,7 +98,12 @@ export default defineEventHandler(async (event) => {
       metadata: { reason },
     })
 
-    await recordFailedAttempt(body.email)
+    // Lockout conta apenas tentativas de credencial inválida: falhas de
+    // infraestrutura (503/500) ou conta desativada não devem bloquear o
+    // usuário por 30 min.
+    if (reason === 'invalid_credentials') {
+      await recordFailedAttempt(body.email)
+    }
 
     if (reason === 'account_deactivated') {
       throw error

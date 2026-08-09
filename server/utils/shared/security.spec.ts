@@ -3,57 +3,65 @@ import { evaluateLockout, evaluateRateLimit } from './security'
 
 describe('evaluateRateLimit', () => {
   const now = new Date('2026-08-02T12:00:00.000Z')
+  const t = (sec: number) => new Date(now.getTime() + sec * 1000).toISOString()
 
-  it('allows the first request and opens a 60s window', () => {
+  it('allows the first request and opens the window', () => {
     const result = evaluateRateLimit(null, now)
 
     expect(result).toEqual({
       allowed: true,
-      nextCount: 1,
-      nextResetAt: new Date('2026-08-02T12:01:00.000Z'),
+      nextWindow: [now.toISOString()],
     })
   })
 
-  it('allows requests while count is below the 5-request cap', () => {
-    const entry = { count: 4, resetAt: new Date('2026-08-02T12:01:00.000Z') }
+  it('allows requests while fewer than 5 hits in the last 60s', () => {
+    const entry = { window: [t(-30), t(-20), t(-10), t(-5)] }
 
     const result = evaluateRateLimit(entry, now)
 
     expect(result.allowed).toBe(true)
-    expect(result.nextCount).toBe(5)
-    expect(result.nextResetAt).toBe(entry.resetAt)
+    expect(result.nextWindow).toEqual([...entry.window, now.toISOString()])
   })
 
-  it('blocks the 6th request in the same window with retryAfter (FR-010)', () => {
-    const entry = { count: 5, resetAt: new Date('2026-08-02T12:01:00.000Z') }
+  it('blocks the 6th request within 60s with retryAfter (FR-010)', () => {
+    const entry = { window: [t(-50), t(-40), t(-30), t(-20), t(-10)] }
 
     const result = evaluateRateLimit(entry, now)
 
     expect(result.allowed).toBe(false)
-    expect(result.retryAfter).toBe(60)
-    expect(result.nextCount).toBe(5)
+    // o hit mais antigo sai da janela em 10s
+    expect(result.retryAfter).toBe(10)
   })
 
-  it('opens a fresh window after resetAt elapses', () => {
-    const entry = { count: 5, resetAt: new Date('2026-08-02T11:59:00.000Z') }
+  it('sliding window: drops hits older than 60s before counting', () => {
+    // 5 hits, mas o mais antigo já saiu da janela de 60s
+    const entry = { window: [t(-61), t(-40), t(-30), t(-20), t(-10)] }
 
     const result = evaluateRateLimit(entry, now)
 
     expect(result.allowed).toBe(true)
-    expect(result.nextCount).toBe(1)
-    expect(result.nextResetAt.getTime()).toBe(now.getTime() + 60_000)
+    expect(result.nextWindow).toEqual([t(-40), t(-30), t(-20), t(-10), now.toISOString()])
+  })
+
+  it('no burst across adjacent fixed windows: 5 hits at 59s ago still block', () => {
+    const entry = { window: [t(-59), t(-40), t(-30), t(-20), t(-10)] }
+
+    const result = evaluateRateLimit(entry, now)
+
+    expect(result.allowed).toBe(false)
+    expect(result.retryAfter).toBe(1)
   })
 
   it('applies a different cap when maxRequests is provided (per-IP)', () => {
-    const entry = { count: 19, resetAt: new Date('2026-08-02T12:01:00.000Z') }
-
-    const allowed = evaluateRateLimit(entry, now, 20)
+    const allowed = evaluateRateLimit({ window: [t(-5), t(-4)] }, now, 20)
     expect(allowed.allowed).toBe(true)
-    expect(allowed.nextCount).toBe(20)
 
-    const blocked = evaluateRateLimit({ count: 20, resetAt: entry.resetAt }, now, 20)
+    const blocked = evaluateRateLimit(
+      { window: [t(-59), t(-50), t(-40), t(-30), t(-20), t(-10)] },
+      now,
+      5,
+    )
     expect(blocked.allowed).toBe(false)
-    expect(blocked.retryAfter).toBe(60)
   })
 })
 

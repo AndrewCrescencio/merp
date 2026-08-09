@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'h3'
+import { defineEventHandler, appendResponseHeaders } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
@@ -23,9 +23,17 @@ export default defineEventHandler(async (event) => {
     sendAuthUnavailableError()
   }
 
-  await authInstance.api.signOut({
+  // signOut expira o cookie de sessão nos response headers do retorno —
+  // sem forwarding o cookie morto fica no navegador.
+  const result = await authInstance.api.signOut({
     headers: event.headers,
+    returnHeaders: true,
   })
+
+  const setCookies = result.headers?.getSetCookie?.() ?? []
+  if (setCookies.length > 0) {
+    appendResponseHeaders(event, { 'set-cookie': setCookies })
+  }
 
   const ip = getClientIp(event)
 
