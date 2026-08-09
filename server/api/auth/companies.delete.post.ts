@@ -1,6 +1,7 @@
-import { defineEventHandler, readBody, createError, getRequestIP } from 'h3'
+import { defineEventHandler, readBody, createError } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { getClientIp } from '~~/server/utils/shared/ip'
 import {
   sendValidationError,
   sendNotFoundError,
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
 
   await companyRepository.softDeleteCompany(body.companyId, user.id)
 
-  const ip = getRequestIP(event, { xForwardedFor: true })
+  const ip = getClientIp(event)
   await createAuthEvent({
     userId: user.id,
     email: user.email,

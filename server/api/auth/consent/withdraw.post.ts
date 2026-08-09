@@ -1,6 +1,7 @@
-import { defineEventHandler, getRequestIP, createError } from 'h3'
+import { defineEventHandler, createError } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { getClientIp } from '~~/server/utils/shared/ip'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   const result = await identityRepository.withdrawConsent(user.id)
 
-  const ip = getRequestIP(event, { xForwardedFor: true })
+  const ip = getClientIp(event)
 
   // FR-021: consent_withdrawal — desativação imediata já feita pelo repositório;
   // a fila de deleção/anonymização fica fora deste escopo.

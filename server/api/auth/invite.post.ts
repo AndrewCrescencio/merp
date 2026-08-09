@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, createError, getRequestIP } from 'h3'
+import { defineEventHandler, readBody, createError } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
@@ -7,6 +7,7 @@ import {
   assertCompanyRole,
 } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { getClientIp } from '~~/server/utils/shared/ip'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -50,7 +51,7 @@ export default defineEventHandler(async (event) => {
     invitedBy: user.id,
   })
 
-  const ip = getRequestIP(event, { xForwardedFor: true })
+  const ip = getClientIp(event)
   await createAuthEvent({
     userId: user.id,
     email: user.email,

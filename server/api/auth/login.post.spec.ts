@@ -9,18 +9,20 @@ const mockResetFailedAttempts = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockSendUnauthorizedError = vi.fn()
 const mockReadBody = vi.fn()
-const mockGetRequestIP = vi.fn()
+const mockGetClientIp = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
-  getRequestIP: mockGetRequestIP,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
     ;(err as any).statusCode = opts.status
     throw err
   },
+}))
+vi.mock('~~/server/utils/shared/ip', () => ({
+  getClientIp: mockGetClientIp,
 }))
 
 vi.mock('~~/server/utils/auth/identity/repository', () => ({
@@ -162,7 +164,7 @@ describe('POST /api/auth/login', () => {
     )
   })
 
-  it('returns 401 lockout error when account is locked', async () => {
+  it('returns generic 401 when account is locked (anti-enumeration)', async () => {
     mockCheckAccountLockout.mockImplementationOnce(() => {
       const err: any = new Error(
         JSON.stringify({
@@ -174,16 +176,41 @@ describe('POST /api/auth/login', () => {
       err.statusCode = 401
       throw err
     })
+    mockGetClientIp.mockReturnValue('203.0.113.9')
 
     mockReadBody.mockResolvedValue({ email: 'locked@example.com', password: 'password123' })
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toMatchObject({
-      statusCode: 401,
-      message: expect.stringContaining('account_locked'),
-    })
+    await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
     expect(mockSignIn).not.toHaveBeenCalled()
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'locked@example.com',
+        eventType: 'failed_login',
+        ipAddress: '203.0.113.9',
+        metadata: { reason: 'account_locked' },
+      }),
+    )
+  })
+
+  it('does not reveal account_locked from the repository, keeps it internal', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'wrongpassword' })
+    const lockedError: any = new Error(
+      JSON.stringify({ error: 'account_locked', message: 'Account locked' }),
+    )
+    lockedError.statusCode = 401
+    mockSignIn.mockRejectedValue(lockedError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'failed_login',
+        metadata: { reason: 'invalid_credentials' },
+      }),
+    )
   })
 
   it('repasses account_deactivated error and records it as the failed_login reason', async () => {

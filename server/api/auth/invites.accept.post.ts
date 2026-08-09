@@ -1,7 +1,8 @@
-import { defineEventHandler, readBody, createError, getRequestIP } from 'h3'
+import { defineEventHandler, readBody, createError } from 'h3'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import { sendValidationError, sendNotFoundError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { getClientIp } from '~~/server/utils/shared/ip'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -26,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
   const accepted = await inviteRepository.acceptInvite(body.companyId, user.email, user.id)
 
-  const ip = getRequestIP(event, { xForwardedFor: true })
+  const ip = getClientIp(event)
   await createAuthEvent({
     userId: user.id,
     email: user.email,

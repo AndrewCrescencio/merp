@@ -6,19 +6,21 @@ const mockCheckRateLimit = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockSetResponseStatus = vi.fn()
 const mockReadBody = vi.fn()
-const mockGetRequestIP = vi.fn()
+const mockGetClientIp = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
   setResponseStatus: mockSetResponseStatus,
-  getRequestIP: mockGetRequestIP,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
     ;(err as any).statusCode = opts.status
     throw err
   },
+}))
+vi.mock('~~/server/utils/shared/ip', () => ({
+  getClientIp: mockGetClientIp,
 }))
 
 vi.mock('~~/server/utils/auth/identity/repository', () => ({

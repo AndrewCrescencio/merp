@@ -8,18 +8,20 @@ const mockSendValidationError = vi.fn()
 const mockSendNotFoundError = vi.fn()
 const mockSendForbiddenError = vi.fn()
 const mockReadBody = vi.fn()
-const mockGetRequestIP = vi.fn()
+const mockGetClientIp = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
-  getRequestIP: mockGetRequestIP,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
     ;(err as any).statusCode = opts.status
     throw err
   },
+}))
+vi.mock('~~/server/utils/shared/ip', () => ({
+  getClientIp: mockGetClientIp,
 }))
 
 vi.mock('~~/server/utils/auth/company/repository', () => ({
@@ -56,7 +58,7 @@ describe('POST /api/auth/companies/members/delete', () => {
     mockSendForbiddenError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })
-    mockGetRequestIP.mockReturnValue('1.2.3.4')
+    mockGetClientIp.mockReturnValue('1.2.3.4')
   })
 
   it('throws 401 when user is not authenticated', async () => {

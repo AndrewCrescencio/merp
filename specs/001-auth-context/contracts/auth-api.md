@@ -77,10 +77,9 @@ Authenticate with email and password. Creates a session (FR-005).
 | Status | Error Code | Condition |
 |--------|------------|-----------|
 | 400 | validation_error | Missing email or password |
-| 401 | unauthorized | Invalid credentials (generic — no distinction between wrong password and non-existent user per CHK007) |
-| 401 | account_locked | Account locked due to 10 failed attempts |
+| 401 | unauthorized | Invalid credentials (generic — no distinction between wrong password, non-existent user, or locked account per CHK007) |
 | 401 | account_deactivated | User has been deactivated |
-| 429 | rate_limit_exceeded | Rate limit per email exceeded (5 req/min sliding window, FR-010) |
+| 429 | rate_limit_exceeded | Rate limit per email exceeded (5 req/min sliding window, FR-010) or per IP (20 req/min) |
 | 503 | service_unavailable | Database unreachable |
 
 **Rate Limit Headers** (on 429): `Retry-After`, `RateLimit-Reset`, `RateLimit-Remaining`

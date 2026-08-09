@@ -23,7 +23,13 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     eq = (await import('drizzle-orm')).eq
   })
 
-  const mockEvent = () => ({ node: { res: { setHeader: () => {} } } })
+  const mockEvent = (ip?: string) => ({
+    context: {},
+    node: {
+      req: { socket: { remoteAddress: ip ?? undefined } },
+      res: { setHeader: () => {} },
+    },
+  })
 
   it('allows 5 requests per email, then blocks the 6th with 429 (FR-010)', async () => {
     const email = `rate-${Date.now()}@example.com`
@@ -58,6 +64,32 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
       .where(eq(authSecurityState.key, `rate:${email}`))
 
     await expect(helpers.checkRateLimit(event, email)).resolves.toBeUndefined()
+  })
+
+  it('blocks the 21st request from the same IP across different emails', async () => {
+    const ip = `203.0.113.${(Date.now() % 250) + 1}`
+    const event = mockEvent(ip)
+
+    for (let i = 0; i < 20; i++) {
+      await helpers.checkRateLimit(event, `ip-rate-${i}-${Date.now()}@example.com`)
+    }
+
+    const err = await helpers
+      .checkRateLimit(event, `ip-rate-over-${Date.now()}@example.com`)
+      .catch((e: unknown) => e)
+    expect(err).toMatchObject({ statusCode: 429 })
+    const body = JSON.parse((err as { message: string }).message)
+    expect(body).toMatchObject({ error: 'rate_limit_exceeded' })
+  })
+
+  it('does not rate limit by IP when the request has no socket address', async () => {
+    const event = mockEvent()
+
+    for (let i = 0; i < 6; i++) {
+      await expect(
+        helpers.checkRateLimit(event, `no-socket-${i}-${Date.now()}@example.com`),
+      ).resolves.toBeUndefined()
+    }
   })
 
   it('locks the account after 10 consecutive failed attempts', async () => {

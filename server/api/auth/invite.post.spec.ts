@@ -5,18 +5,20 @@ const mockGetCompanyMembershipRole = vi.fn()
 const mockCreateInvite = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockReadBody = vi.fn()
-const mockGetRequestIP = vi.fn()
+const mockGetClientIp = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
-  getRequestIP: mockGetRequestIP,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
     ;(err as any).statusCode = opts.status
     throw err
   },
+}))
+vi.mock('~~/server/utils/shared/ip', () => ({
+  getClientIp: mockGetClientIp,
 }))
 
 vi.mock('~~/server/utils/auth/company/repository', () => ({
@@ -55,7 +57,7 @@ const eventWithUser = (overrides: Record<string, unknown> = {}) =>
 describe('POST /api/auth/invite', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetRequestIP.mockReturnValue('127.0.0.1')
+    mockGetClientIp.mockReturnValue('127.0.0.1')
   })
 
   it('requires authentication', async () => {

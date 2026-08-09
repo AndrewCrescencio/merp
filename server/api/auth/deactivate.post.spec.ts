@@ -2,17 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockDeactivateUser = vi.fn()
 const mockCreateAuthEvent = vi.fn()
-const mockGetRequestIP = vi.fn()
+const mockGetClientIp = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
-  getRequestIP: mockGetRequestIP,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
     ;(err as any).statusCode = opts.status
     throw err
   },
+}))
+vi.mock('~~/server/utils/shared/ip', () => ({
+  getClientIp: mockGetClientIp,
 }))
 
 vi.mock('~~/server/utils/auth/identity/repository', () => ({

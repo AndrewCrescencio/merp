@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, getRequestIP } from 'h3'
+import { defineEventHandler, readBody } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
   checkAccountLockout,
@@ -8,8 +8,13 @@ import {
 } from '~~/server/utils/shared/security'
 import { sendUnauthorizedError, sendValidationError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { getClientIp } from '~~/server/utils/shared/ip'
 
-const LOGIN_ERROR_CODES = new Set(['account_locked', 'account_deactivated'])
+// account_deactivated é repassado ao cliente (o dono da conta desativou-a via
+// consentimento LGPD e precisa de feedback claro). account_locked NÃO é
+// revelado: retornar o mesmo 401 genérico de credenciais inválidas impede a
+// enumeração de contas (o código só é registrado na auditoria interna).
+const REPASSED_LOGIN_ERROR_CODES = new Set(['account_deactivated'])
 
 function getLoginErrorReason(error: any): string {
   if (error?.statusCode !== 401) return 'unknown'
@@ -17,7 +22,7 @@ function getLoginErrorReason(error: any): string {
     try {
       const parsed = JSON.parse(error.message)
       if (typeof parsed?.error === 'string') {
-        return LOGIN_ERROR_CODES.has(parsed.error) ? parsed.error : 'invalid_credentials'
+        return REPASSED_LOGIN_ERROR_CODES.has(parsed.error) ? parsed.error : 'invalid_credentials'
       }
     } catch {
       // message não é JSON — 401 genérico
@@ -35,7 +40,23 @@ export default defineEventHandler(async (event) => {
 
   await checkRateLimit(event, body.email)
 
-  await checkAccountLockout(body.email)
+  try {
+    await checkAccountLockout(body.email)
+  } catch (error) {
+    // A conta está bloqueada, mas o cliente recebe o mesmo 401 genérico de
+    // credenciais inválidas (anti-enumeração). O motivo fica na auditoria.
+    if (getLoginErrorReason(error) === 'invalid_credentials') {
+      const ip = getClientIp(event)
+      await createAuthEvent({
+        email: body.email,
+        eventType: 'failed_login',
+        ipAddress: ip,
+        metadata: { reason: 'account_locked' },
+      })
+      sendUnauthorizedError('Invalid email or password')
+    }
+    throw error
+  }
 
   try {
     const user = await identityRepository.signIn(
@@ -49,12 +70,12 @@ export default defineEventHandler(async (event) => {
 
     await resetFailedAttempts(body.email)
 
-    const ip = getRequestIP(event, { xForwardedFor: true })
+    const ip = getClientIp(event)
     await createAuthEvent({
       userId: user.id,
       email: user.email,
       eventType: 'login',
-      ipAddress: ip || null,
+      ipAddress: ip,
     })
 
     return {
@@ -63,19 +84,19 @@ export default defineEventHandler(async (event) => {
       name: user.name,
     }
   } catch (error: any) {
-    const ip = getRequestIP(event, { xForwardedFor: true })
+    const ip = getClientIp(event)
     const reason = getLoginErrorReason(error)
 
     await createAuthEvent({
       email: body.email,
       eventType: 'failed_login',
-      ipAddress: ip || null,
+      ipAddress: ip,
       metadata: { reason },
     })
 
     await recordFailedAttempt(body.email)
 
-    if (reason === 'account_locked' || reason === 'account_deactivated') {
+    if (reason === 'account_deactivated') {
       throw error
     }
 

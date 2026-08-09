@@ -1,8 +1,9 @@
-import { defineEventHandler, readBody, setResponseStatus, getRequestIP } from 'h3'
+import { defineEventHandler, readBody, setResponseStatus } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import { checkRateLimit } from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { getClientIp } from '~~/server/utils/shared/ip'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
     consentTermsVersion: body.consentTermsVersion,
   })
 
-  const ip = getRequestIP(event, { xForwardedFor: true })
+  const ip = getClientIp(event)
   await createAuthEvent({
     userId: user.id,
     email: user.email,

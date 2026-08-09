@@ -1,6 +1,7 @@
-import { defineEventHandler, getRequestIP, createError } from 'h3'
+import { defineEventHandler, createError } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { getClientIp } from '~~/server/utils/shared/ip'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   await identityRepository.deactivateUser(user.id)
 
-  const ip = getRequestIP(event, { xForwardedFor: true })
+  const ip = getClientIp(event)
   const session = event.context.session as
     | { id: string; activeCompanyId?: string | null }
     | undefined

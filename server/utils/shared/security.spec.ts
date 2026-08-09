@@ -43,6 +43,18 @@ describe('evaluateRateLimit', () => {
     expect(result.nextCount).toBe(1)
     expect(result.nextResetAt.getTime()).toBe(now.getTime() + 60_000)
   })
+
+  it('applies a different cap when maxRequests is provided (per-IP)', () => {
+    const entry = { count: 19, resetAt: new Date('2026-08-02T12:01:00.000Z') }
+
+    const allowed = evaluateRateLimit(entry, now, 20)
+    expect(allowed.allowed).toBe(true)
+    expect(allowed.nextCount).toBe(20)
+
+    const blocked = evaluateRateLimit({ count: 20, resetAt: entry.resetAt }, now, 20)
+    expect(blocked.allowed).toBe(false)
+    expect(blocked.retryAfter).toBe(60)
+  })
 })
 
 describe('evaluateLockout', () => {

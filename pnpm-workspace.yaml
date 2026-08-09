@@ -2,3 +2,17 @@ allowBuilds:
   '@parcel/watcher': true
   esbuild: true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@nuxt/eslint-config@1.17.0'
+  - '@nuxt/eslint-plugin@1.17.0'
+  - '@nuxt/eslint@1.17.0'
+
+overrides:
+  brace-expansion@2: ^2.1.4
+  brace-expansion@5: ^5.0.9
+  js-yaml: ^4.3.1
+  postcss: ^8.5.23
+  shell-quote: ^1.8.5
+  svgo: ^4.0.2
+  tar: ^7.5.22
+  valibot: ^1.4.2

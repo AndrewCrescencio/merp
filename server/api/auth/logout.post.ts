@@ -1,9 +1,10 @@
-import { defineEventHandler, getRequestIP } from 'h3'
+import { defineEventHandler } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
 import { sendUnauthorizedError, sendAuthUnavailableError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { getClientIp } from '~~/server/utils/shared/ip'
 
 export default defineEventHandler(async (event) => {
   const session = event.context.session as { id: string } | undefined
@@ -26,7 +27,7 @@ export default defineEventHandler(async (event) => {
     headers: event.headers,
   })
 
-  const ip = getRequestIP(event, { xForwardedFor: true })
+  const ip = getClientIp(event)
 
   // FR-023: session_invalidated — sessão encerrada pelo logout.
   await createAuthEvent({

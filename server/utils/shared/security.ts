@@ -6,9 +6,11 @@ import { authSecurityState } from '../schema'
 import { logger } from '#shared/logger'
 import { sendAuthError } from './errors'
 import type { ApiError } from './errors'
+import { getClientIp } from './ip'
 
 const RATE_WINDOW_MS = 60_000
-const MAX_REQUESTS = 5
+const MAX_REQUESTS_PER_EMAIL = 5
+const MAX_REQUESTS_PER_IP = 20
 const MAX_FAILED_ATTEMPTS = 10
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000
 
@@ -24,7 +26,11 @@ export interface RateLimitDecision {
   nextResetAt: Date
 }
 
-export function evaluateRateLimit(entry: RateLimitEntry | null, now: Date): RateLimitDecision {
+export function evaluateRateLimit(
+  entry: RateLimitEntry | null,
+  now: Date,
+  maxRequests: number = MAX_REQUESTS_PER_EMAIL,
+): RateLimitDecision {
   const nowMs = now.getTime()
   const resetAtMs = entry?.resetAt ? entry.resetAt.getTime() : 0
 
@@ -32,7 +38,7 @@ export function evaluateRateLimit(entry: RateLimitEntry | null, now: Date): Rate
     return { allowed: true, nextCount: 1, nextResetAt: new Date(nowMs + RATE_WINDOW_MS) }
   }
 
-  if (entry.count < MAX_REQUESTS) {
+  if (entry.count < maxRequests) {
     return { allowed: true, nextCount: entry.count + 1, nextResetAt: entry.resetAt! }
   }
 
@@ -72,8 +78,7 @@ export function evaluateLockout(
   return { locked: false, nextAttempts, nextLockedUntil }
 }
 
-export async function checkRateLimit(event: H3Event, email: string): Promise<void> {
-  const key = `rate:${email}`
+async function checkRateLimitKey(event: H3Event, key: string, maxRequests: number): Promise<void> {
   const now = new Date()
 
   const decision = await db.transaction(async (tx) => {
@@ -85,7 +90,7 @@ export async function checkRateLimit(event: H3Event, email: string): Promise<voi
       .where(eq(authSecurityState.key, key))
       .for('update')
 
-    const result = evaluateRateLimit(row ?? null, now)
+    const result = evaluateRateLimit(row ?? null, now, maxRequests)
 
     await tx
       .update(authSecurityState)
@@ -116,20 +121,40 @@ export async function checkRateLimit(event: H3Event, email: string): Promise<voi
   })
 }
 
-export async function checkAccountLockout(email: string): Promise<void> {
-  const key = `lockout:${email}`
+// FR-010 + hardening: sliding window per email (5/min) AND per IP (20/min),
+// so brute force rotating emails from one IP is also throttled.
+export async function checkRateLimit(event: H3Event, email: string): Promise<void> {
+  await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
 
-  const [row] = await db
-    .select({ count: authSecurityState.count, lockedUntil: authSecurityState.lockedUntil })
-    .from(authSecurityState)
-    .where(eq(authSecurityState.key, key))
-    .limit(1)
-
-  if (!row) {
-    return
+  let ip: string | null = null
+  try {
+    ip = getClientIp(event)
+  } catch {
+    // Sem socket (ex.: eventos de teste) — sem limite por IP, apenas por email.
+    ip = null
   }
 
-  const decision = evaluateLockout(row.count, row.lockedUntil, new Date())
+  if (ip) {
+    await checkRateLimitKey(event, `rate:ip:${ip}`, MAX_REQUESTS_PER_IP)
+  }
+}
+
+export async function checkAccountLockout(email: string): Promise<void> {
+  const key = `lockout:${email}`
+  const now = new Date()
+
+  // FOR UPDATE + transação: evita TOCTOU entre duas requisições concorrentes
+  // que poderiam ambas ler a contagem antes do lockout ser atingido.
+  const decision = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ count: authSecurityState.count, lockedUntil: authSecurityState.lockedUntil })
+      .from(authSecurityState)
+      .where(eq(authSecurityState.key, key))
+      .for('update')
+      .limit(1)
+
+    return evaluateLockout(row?.count ?? 0, row?.lockedUntil ?? null, now)
+  })
 
   if (decision.locked) {
     sendAuthError(
