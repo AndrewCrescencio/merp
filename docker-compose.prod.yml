@@ -11,6 +11,9 @@ services:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET?Variable not set}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
       - NODE_ENV=production
+      # Confia em X-Forwarded-For APENAS porque o nginx sobrescreve o header
+      # (infra/nginx/nginx.conf) e o app não é exposto fora da rede interna.
+      - TRUST_PROXY=true
     depends_on:
       postgres:
         condition: service_healthy
