@@ -27,7 +27,8 @@ vi.mock('~~/server/utils/auth/identity/repository', () => ({
   identityRepository: { register: mockRegister },
 }))
 
-vi.mock('~~/server/utils/shared/security', () => ({
+vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
+  ...(await importOriginal()),
   checkRateLimit: mockCheckRateLimit,
 }))
 
@@ -115,6 +116,30 @@ describe('POST /api/auth/register', () => {
     await handler(event)
 
     expect(mockCheckRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
+  })
+
+  it('normalizes mixed-case email before rate limit and registration', async () => {
+    mockReadBody.mockResolvedValue({
+      email: '  User@Example.COM  ',
+      password: 'password123',
+      name: 'Test User',
+    })
+    mockRegister.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: 'Test User',
+      createdAt: new Date(),
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+    const event = {} as any
+
+    await handler(event)
+
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
+    expect(mockRegister).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'user@example.com' }),
+    )
   })
 
   it('returns 201 with user data on successful registration', async () => {

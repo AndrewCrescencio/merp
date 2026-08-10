@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { evaluateLockout, evaluateRateLimit } from './security'
+import { evaluateLockout, evaluateRateLimit, normalizeEmail } from './security'
+
+describe('normalizeEmail', () => {
+  it('trims whitespace and lowercases', () => {
+    expect(normalizeEmail('  Foo@Bar.com  ')).toBe('foo@bar.com')
+  })
+
+  it('keeps already normalized emails unchanged', () => {
+    expect(normalizeEmail('foo@bar.com')).toBe('foo@bar.com')
+  })
+})
 
 describe('evaluateRateLimit', () => {
   const now = new Date('2026-08-02T12:00:00.000Z')

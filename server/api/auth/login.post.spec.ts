@@ -31,7 +31,8 @@ vi.mock('~~/server/utils/auth/identity/repository', () => ({
   identityRepository: { signIn: mockSignIn },
 }))
 
-vi.mock('~~/server/utils/shared/security', () => ({
+vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
+  ...(await importOriginal()),
   checkRateLimit: mockCheckRateLimit,
   checkAccountLockout: mockCheckAccountLockout,
   recordFailedAttempt: mockRecordFailedAttempt,
@@ -86,6 +87,41 @@ describe('POST /api/auth/login', () => {
     await handler(event)
 
     expect(mockCheckRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
+  })
+
+  it('normalizes mixed-case email across rate limit, lockout, signIn and reset', async () => {
+    mockReadBody.mockResolvedValue({ email: '  User@Example.COM  ', password: 'password123' })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+    const event = { headers: new Headers() } as any
+
+    await handler(event)
+
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
+    expect(mockCheckAccountLockout).toHaveBeenCalledWith('user@example.com')
+    expect(mockResetFailedAttempts).toHaveBeenCalledWith('user@example.com')
+    expect(mockSignIn).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'user@example.com' }),
+      event.headers,
+    )
+  })
+
+  it('records failed attempt with normalized email', async () => {
+    mockReadBody.mockResolvedValue({ email: 'User@Example.COM', password: 'wrongpassword' })
+    const authError = new Error('Invalid credentials')
+    ;(authError as any).statusCode = 401
+    mockSignIn.mockRejectedValue(authError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
+    expect(mockRecordFailedAttempt).toHaveBeenCalledWith('user@example.com')
   })
 
   it('calls checkAccountLockout before authentication', async () => {

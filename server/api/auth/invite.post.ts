@@ -8,6 +8,7 @@ import {
 } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
+import { normalizeEmail } from '~~/server/utils/shared/security'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('companyId is required')
   }
 
-  const email = body.email?.trim().toLowerCase()
+  const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email)) {
     sendValidationError('A valid email is required')
   }

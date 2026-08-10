@@ -8,6 +8,10 @@ import { sendAuthError } from './errors'
 import type { ApiError } from './errors'
 import { getClientIp } from './ip'
 
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
 const RATE_WINDOW_MS = 60_000
 const MAX_REQUESTS_PER_EMAIL = 5
 const MAX_REQUESTS_PER_IP = 20

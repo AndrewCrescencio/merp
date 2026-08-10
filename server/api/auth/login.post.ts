@@ -3,6 +3,7 @@ import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
   checkAccountLockout,
   checkRateLimit,
+  normalizeEmail,
   recordFailedAttempt,
   resetFailedAttempts,
 } from '~~/server/utils/shared/security'
@@ -34,21 +35,22 @@ function getLoginErrorReason(error: any): string {
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event)
 
-  if (!body?.email || !body?.password) {
+  const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
+  if (!email || !body?.password) {
     sendValidationError('Email and password are required')
   }
 
-  await checkRateLimit(event, body.email)
+  await checkRateLimit(event, email)
 
   try {
-    await checkAccountLockout(body.email)
+    await checkAccountLockout(email)
   } catch (error) {
     // A conta está bloqueada, mas o cliente recebe o mesmo 401 genérico de
     // credenciais inválidas (anti-enumeração). O motivo fica na auditoria.
     if (getLoginErrorReason(error) === 'invalid_credentials') {
       const ip = getClientIp(event)
       await createAuthEvent({
-        email: body.email,
+        email,
         eventType: 'failed_login',
         ipAddress: ip,
         metadata: { reason: 'account_locked' },
@@ -61,14 +63,14 @@ export default defineEventHandler(async (event) => {
   try {
     const user = await identityRepository.signIn(
       {
-        email: body.email,
+        email,
         password: body.password,
         rememberMe: body.rememberMe === true,
       },
       event.headers,
     )
 
-    await resetFailedAttempts(body.email)
+    await resetFailedAttempts(email)
 
     if (user.setCookie.length > 0) {
       appendResponseHeaders(event, { 'set-cookie': user.setCookie })
@@ -92,7 +94,7 @@ export default defineEventHandler(async (event) => {
     const reason = getLoginErrorReason(error)
 
     await createAuthEvent({
-      email: body.email,
+      email,
       eventType: 'failed_login',
       ipAddress: ip,
       metadata: { reason },
@@ -102,7 +104,7 @@ export default defineEventHandler(async (event) => {
     // infraestrutura (503/500) ou conta desativada não devem bloquear o
     // usuário por 30 min.
     if (reason === 'invalid_credentials') {
-      await recordFailedAttempt(body.email)
+      await recordFailedAttempt(email)
     }
 
     if (reason === 'account_deactivated') {

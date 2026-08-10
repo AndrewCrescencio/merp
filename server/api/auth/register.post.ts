@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, setResponseStatus } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { checkRateLimit } from '~~/server/utils/shared/security'
+import { checkRateLimit, normalizeEmail } from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
@@ -13,7 +13,9 @@ export default defineEventHandler(async (event) => {
     consentTermsVersion?: string
   }>(event)
 
-  if (!body?.email || typeof body.email !== 'string' || !body.email.includes('@')) {
+  const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
+
+  if (!email || !email.includes('@')) {
     sendValidationError('Valid email is required')
   }
 
@@ -25,10 +27,10 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Name is required')
   }
 
-  await checkRateLimit(event, body.email)
+  await checkRateLimit(event, email)
 
   const user = await identityRepository.register({
-    email: body.email,
+    email,
     password: body.password,
     name: body.name.trim(),
     consentTermsVersion: body.consentTermsVersion,
