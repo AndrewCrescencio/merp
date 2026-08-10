@@ -2,7 +2,8 @@ import { defineEventHandler, readBody, appendResponseHeaders } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
   checkAccountLockout,
-  checkRateLimit,
+  checkEmailRateLimit,
+  checkIpRateLimit,
   normalizeEmail,
   recordFailedAttempt,
   resetFailedAttempts,
@@ -33,6 +34,8 @@ function getLoginErrorReason(error: any): string {
 }
 
 export default defineEventHandler(async (event) => {
+  await checkIpRateLimit(event)
+
   const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event)
 
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
@@ -40,7 +43,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Email and password are required')
   }
 
-  await checkRateLimit(event, email)
+  await checkEmailRateLimit(event, email)
 
   try {
     await checkAccountLockout(email)

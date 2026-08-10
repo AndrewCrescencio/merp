@@ -6,7 +6,8 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
   let helpers: {
-    checkRateLimit: (event: unknown, email: string) => Promise<void>
+    checkIpRateLimit: (event: unknown) => Promise<void>
+    checkEmailRateLimit: (event: unknown, email: string) => Promise<void>
     checkAccountLockout: (email: string) => Promise<void>
     recordFailedAttempt: (email: string) => Promise<void>
     resetFailedAttempts: (email: string) => Promise<void>
@@ -36,10 +37,10 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     const event = mockEvent()
 
     for (let i = 0; i < 5; i++) {
-      await helpers.checkRateLimit(event, email)
+      await helpers.checkEmailRateLimit(event, email)
     }
 
-    const err = await helpers.checkRateLimit(event, email).catch((e: unknown) => e)
+    const err = await helpers.checkEmailRateLimit(event, email).catch((e: unknown) => e)
     expect(err).toMatchObject({ statusCode: 429 })
     const body = JSON.parse((err as { message: string }).message)
     expect(body).toMatchObject({
@@ -54,9 +55,11 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     const event = mockEvent()
 
     for (let i = 0; i < 5; i++) {
-      await helpers.checkRateLimit(event, email)
+      await helpers.checkEmailRateLimit(event, email)
     }
-    await expect(helpers.checkRateLimit(event, email)).rejects.toMatchObject({ statusCode: 429 })
+    await expect(helpers.checkEmailRateLimit(event, email)).rejects.toMatchObject({
+      statusCode: 429,
+    })
 
     // Simula 60s decorridos: os hits saem da janela de 60s.
     const [row] = await db
@@ -71,20 +74,18 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
       .set({ window: shifted })
       .where(eq(authSecurityState.key, `rate:${email}`))
 
-    await expect(helpers.checkRateLimit(event, email)).resolves.toBeUndefined()
+    await expect(helpers.checkEmailRateLimit(event, email)).resolves.toBeUndefined()
   })
 
-  it('blocks the 21st request from the same IP across different emails', async () => {
+  it('blocks the 21st request from the same IP', async () => {
     const ip = `203.0.113.${(Date.now() % 250) + 1}`
     const event = mockEvent(ip)
 
     for (let i = 0; i < 20; i++) {
-      await helpers.checkRateLimit(event, `ip-rate-${i}-${Date.now()}@example.com`)
+      await helpers.checkIpRateLimit(event)
     }
 
-    const err = await helpers
-      .checkRateLimit(event, `ip-rate-over-${Date.now()}@example.com`)
-      .catch((e: unknown) => e)
+    const err = await helpers.checkIpRateLimit(event).catch((e: unknown) => e)
     expect(err).toMatchObject({ statusCode: 429 })
     const body = JSON.parse((err as { message: string }).message)
     expect(body).toMatchObject({ error: 'rate_limit_exceeded' })
@@ -94,9 +95,7 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     const event = mockEvent()
 
     for (let i = 0; i < 6; i++) {
-      await expect(
-        helpers.checkRateLimit(event, `no-socket-${i}-${Date.now()}@example.com`),
-      ).resolves.toBeUndefined()
+      await expect(helpers.checkIpRateLimit(event)).resolves.toBeUndefined()
     }
   })
 

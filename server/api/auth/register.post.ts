@@ -1,11 +1,17 @@
 import { defineEventHandler, readBody, setResponseStatus } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { checkRateLimit, normalizeEmail } from '~~/server/utils/shared/security'
+import {
+  checkEmailRateLimit,
+  checkIpRateLimit,
+  normalizeEmail,
+} from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
 
 export default defineEventHandler(async (event) => {
+  await checkIpRateLimit(event)
+
   const body = await readBody<{
     email?: string
     password?: string
@@ -27,7 +33,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Name is required')
   }
 
-  await checkRateLimit(event, email)
+  await checkEmailRateLimit(event, email)
 
   const user = await identityRepository.register({
     email,

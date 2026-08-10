@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockSignIn = vi.fn()
 const mockCreateAuthEvent = vi.fn()
-const mockCheckRateLimit = vi.fn()
+const mockCheckIpRateLimit = vi.fn()
+const mockCheckEmailRateLimit = vi.fn()
 const mockCheckAccountLockout = vi.fn()
 const mockRecordFailedAttempt = vi.fn()
 const mockResetFailedAttempts = vi.fn()
@@ -33,7 +34,8 @@ vi.mock('~~/server/utils/auth/identity/repository', () => ({
 
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   ...(await importOriginal()),
-  checkRateLimit: mockCheckRateLimit,
+  checkIpRateLimit: mockCheckIpRateLimit,
+  checkEmailRateLimit: mockCheckEmailRateLimit,
   checkAccountLockout: mockCheckAccountLockout,
   recordFailedAttempt: mockRecordFailedAttempt,
   resetFailedAttempts: mockResetFailedAttempts,
@@ -51,7 +53,8 @@ vi.mock('~~/server/utils/shared/audit', () => ({
 describe('POST /api/auth/login', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCheckRateLimit.mockResolvedValue(undefined)
+    mockCheckIpRateLimit.mockResolvedValue(undefined)
+    mockCheckEmailRateLimit.mockResolvedValue(undefined)
     mockCheckAccountLockout.mockResolvedValue(undefined)
     mockRecordFailedAttempt.mockResolvedValue(undefined)
     mockResetFailedAttempts.mockResolvedValue(undefined)
@@ -72,7 +75,7 @@ describe('POST /api/auth/login', () => {
     expect(mockSignIn).not.toHaveBeenCalled()
   })
 
-  it('calls checkRateLimit with email', async () => {
+  it('checks IP rate limit before reading the body', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
       id: 'uuid',
@@ -86,7 +89,43 @@ describe('POST /api/auth/login', () => {
 
     await handler(event)
 
-    expect(mockCheckRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
+    expect(mockCheckIpRateLimit).toHaveBeenCalledWith(event)
+  })
+
+  it('returns 429 from IP rate limit without reading the body', async () => {
+    const ipError: any = new Error(
+      JSON.stringify({
+        error: 'rate_limit_exceeded',
+        message: 'Too many requests. Try again later.',
+        retryAfter: 30,
+      }),
+    )
+    ipError.status = 429
+    ipError.statusCode = 429
+    mockCheckIpRateLimit.mockRejectedValue(ipError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 429 })
+    expect(mockReadBody).not.toHaveBeenCalled()
+    expect(mockSignIn).not.toHaveBeenCalled()
+  })
+
+  it('calls checkEmailRateLimit with email', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+    const event = {} as any
+
+    await handler(event)
+
+    expect(mockCheckEmailRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
   })
 
   it('normalizes mixed-case email across rate limit, lockout, signIn and reset', async () => {
@@ -103,7 +142,7 @@ describe('POST /api/auth/login', () => {
 
     await handler(event)
 
-    expect(mockCheckRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
+    expect(mockCheckEmailRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
     expect(mockCheckAccountLockout).toHaveBeenCalledWith('user@example.com')
     expect(mockResetFailedAttempts).toHaveBeenCalledWith('user@example.com')
     expect(mockSignIn).toHaveBeenCalledWith(

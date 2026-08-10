@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockRegister = vi.fn()
 const mockCreateAuthEvent = vi.fn()
-const mockCheckRateLimit = vi.fn()
+const mockCheckIpRateLimit = vi.fn()
+const mockCheckEmailRateLimit = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockSetResponseStatus = vi.fn()
 const mockReadBody = vi.fn()
@@ -29,7 +30,8 @@ vi.mock('~~/server/utils/auth/identity/repository', () => ({
 
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   ...(await importOriginal()),
-  checkRateLimit: mockCheckRateLimit,
+  checkIpRateLimit: mockCheckIpRateLimit,
+  checkEmailRateLimit: mockCheckEmailRateLimit,
 }))
 
 vi.mock('~~/server/utils/shared/errors', () => ({
@@ -47,6 +49,8 @@ vi.mock('#shared/auth', () => ({
 describe('POST /api/auth/register', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCheckIpRateLimit.mockResolvedValue(undefined)
+    mockCheckEmailRateLimit.mockResolvedValue(undefined)
     mockSendValidationError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })
@@ -97,7 +101,7 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
-  it('calls checkRateLimit with email', async () => {
+  it('checks IP rate limit before reading the body', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'password123',
@@ -115,7 +119,47 @@ describe('POST /api/auth/register', () => {
 
     await handler(event)
 
-    expect(mockCheckRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
+    expect(mockCheckIpRateLimit).toHaveBeenCalledWith(event)
+  })
+
+  it('returns 429 from IP rate limit without reading the body', async () => {
+    const ipError: any = new Error(
+      JSON.stringify({
+        error: 'rate_limit_exceeded',
+        message: 'Too many requests. Try again later.',
+        retryAfter: 30,
+      }),
+    )
+    ipError.status = 429
+    ipError.statusCode = 429
+    mockCheckIpRateLimit.mockRejectedValue(ipError)
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 429 })
+    expect(mockReadBody).not.toHaveBeenCalled()
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
+  it('calls checkEmailRateLimit with email', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+    })
+    mockRegister.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: 'Test User',
+      createdAt: new Date(),
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+    const event = {} as any
+
+    await handler(event)
+
+    expect(mockCheckEmailRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
   })
 
   it('normalizes mixed-case email before rate limit and registration', async () => {
@@ -136,7 +180,7 @@ describe('POST /api/auth/register', () => {
 
     await handler(event)
 
-    expect(mockCheckRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
+    expect(mockCheckEmailRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
     expect(mockRegister).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'user@example.com' }),
     )

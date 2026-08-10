@@ -126,22 +126,26 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
   })
 }
 
-// FR-010 + hardening: sliding window per email (5/min) AND per IP (20/min),
-// so brute force rotating emails from one IP is also throttled.
-export async function checkRateLimit(event: H3Event, email: string): Promise<void> {
-  await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
-
+// FR-010 + hardening: sliding window per IP (20/min). Roda ANTES do
+// readBody nas rotas públicas: bloqueia corpos grandes sem parseá-los.
+export async function checkIpRateLimit(event: H3Event): Promise<void> {
   let ip: string | null = null
   try {
     ip = getClientIp(event)
   } catch {
-    // Sem socket (ex.: eventos de teste) — sem limite por IP, apenas por email.
+    // Sem socket (ex.: eventos de teste) — sem limite por IP.
     ip = null
   }
 
   if (ip) {
     await checkRateLimitKey(event, `rate:ip:${ip}`, MAX_REQUESTS_PER_IP)
   }
+}
+
+// FR-010: sliding window per email (5/min), so brute force rotating emails
+// from one IP is also throttled (em conjunto com checkIpRateLimit).
+export async function checkEmailRateLimit(event: H3Event, email: string): Promise<void> {
+  await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
 }
 
 export async function checkAccountLockout(email: string): Promise<void> {
