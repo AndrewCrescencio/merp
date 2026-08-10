@@ -14,7 +14,7 @@ export default defineNuxtConfig({
       tasks: true,
     },
     scheduledTasks: {
-      '0 0 * * *': ['purge-sessions'],
+      '0 0 * * *': ['purge-sessions', 'purge-security-state'],
     },
   },
 
