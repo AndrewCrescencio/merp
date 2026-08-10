@@ -43,9 +43,10 @@ Register a new user account.
 | Status | Error Code | Condition |
 |--------|------------|-----------|
 | 400 | validation_error | Invalid email format / password too short |
-| 409 | conflict | Email already registered (FR-003) |
 | 429 | rate_limit_exceeded | Rate limit per email exceeded |
 | 503 | service_unavailable | Database unreachable |
+
+**Note (AUD-03)**: if the email is already registered, the endpoint returns the same generic `201 Created` response (id/name/createdAt derived from the request input) — no `409 conflict`, no observable difference between new and existing emails (anti-enumeration). No duplicate account is created and the existing account is never modified.
 
 ---
 

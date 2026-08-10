@@ -1,5 +1,5 @@
 import { defineEventHandler, readBody, setResponseStatus } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { identityRepository, generateUserId } from '~~/server/utils/auth/identity/repository'
 import {
   checkEmailRateLimit,
   checkIpRateLimit,
@@ -42,19 +42,24 @@ export default defineEventHandler(async (event) => {
     consentTermsVersion: body.consentTermsVersion,
   })
 
-  const ip = getClientIp(event)
-  await createAuthEvent({
-    userId: user.id,
-    email: user.email,
-    eventType: 'registration',
-    ipAddress: ip || null,
-  })
+  if (user) {
+    const ip = getClientIp(event)
+    await createAuthEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: 'registration',
+      ipAddress: ip || null,
+    })
+  }
 
+  // AUD-03: resposta genérica idêntica para email novo e já registrado —
+  // mesmo status, corpo derivado do input e timing igualado pelo
+  // better-auth (hash de senha em ambos os caminhos).
   setResponseStatus(event, 201)
   return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    createdAt: user.createdAt,
+    id: user?.id ?? generateUserId(),
+    email: user?.email ?? email,
+    name: user?.name ?? body.name.trim(),
+    createdAt: user?.createdAt ?? new Date(),
   }
 })

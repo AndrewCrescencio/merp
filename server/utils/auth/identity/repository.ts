@@ -1,4 +1,5 @@
 import { and, eq, gt } from 'drizzle-orm'
+import { randomBytes } from 'node:crypto'
 import { db } from '../../db'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
@@ -26,6 +27,19 @@ export interface SignInInput {
   email: string
   password: string
   rememberMe?: boolean
+}
+
+const USER_ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+// AUD-03: id sintético no mesmo formato do better-auth (32 chars
+// alfanuméricos) para o caminho de "email já registrado".
+export function generateUserId(): string {
+  const bytes = randomBytes(32)
+  let id = ''
+  for (let i = 0; i < bytes.length; i++) {
+    id += USER_ID_ALPHABET[bytes[i] % USER_ID_ALPHABET.length]
+  }
+  return id
 }
 
 export interface UserResult {
@@ -68,7 +82,7 @@ export interface UpdateUserInput {
 }
 
 export interface IIdentityRepository {
-  register(input: RegisterInput): Promise<UserResult>
+  register(input: RegisterInput): Promise<UserResult | null>
   signIn(input: SignInInput, headers?: Headers): Promise<SignInResult>
   findByEmail(email: string): Promise<UserResult | null>
   findById(id: string): Promise<UserResult | null>
@@ -103,7 +117,7 @@ export class IdentityRepository implements IIdentityRepository {
 
   // FR-024: chamadas OAuth futuras (auth.api.signInOAuth etc.) devem usar
   // withTimeout(..., 10_000) — nenhum provider OAuth está configurado ainda.
-  async register(input: RegisterInput): Promise<UserResult> {
+  async register(input: RegisterInput): Promise<UserResult | null> {
     try {
       const authInstance = await this.resolveAuth()
       const { user: createdUser } = await withTimeout(
@@ -117,6 +131,16 @@ export class IdentityRepository implements IIdentityRepository {
         }),
         5_000,
       )
+
+      // AUD-03 (anti-enumeração): com autoSignIn=false, o better-auth
+      // responde com um usuário sintético (nunca persistido) para email já
+      // registrado — hasheando a senha no caminho para igualar o timing.
+      // O pós-check detecta o sintético por id inexistente e devolve null;
+      // o endpoint responde 201 genérico, sem expor existência de conta.
+      const existing = await this.findByEmail(input.email)
+      if (existing && existing.id !== createdUser.id) {
+        return null
+      }
 
       if (input.consentTermsVersion) {
         await db
@@ -141,16 +165,11 @@ export class IdentityRepository implements IIdentityRepository {
       if (error instanceof TimeoutError) {
         return handleUpstreamTimeout()
       }
-      // better-auth: email duplicado → APIError UNPROCESSABLE_ENTITY (422).
+      // AUD-03: se a config futura desligar a resposta genérica do
+      // better-auth (ex.: requireEmailVerification no fluxo de verificação),
+      // email duplicado volta a virar 422 — devolve null, nunca 409.
       if (error?.statusCode === 422) {
-        throw createError({
-          status: 409,
-          statusText: '409',
-          message: JSON.stringify({
-            error: 'conflict',
-            message: 'Email already registered',
-          }),
-        })
+        return null
       }
       if (error instanceof H3Error) {
         throw error

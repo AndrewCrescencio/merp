@@ -42,14 +42,11 @@
 
 - **Categoria:** enumeração
 - **Severidade:** média — exploração trivial (uma requisição), impacto de disclosure de existência de conta; agravado pelo contexto LGPD e pela interação com AUD-05.
-- **Localização:** `server/api/auth/register.post.ts:52` (409 `conflict`, "Email already registered")
+- **Localização:** `server/utils/auth/identity/repository.ts` (`register`, catch do 422 e pós-check do usuário sintético); `server/api/auth/register.post.ts`
 - **Descrição:** O registro devolve 409 explícito quando o email já existe. O login foi desenhado com anti-enumeração cuidadosa (401 genérico), mas o registro vaza existência de contas com uma chamada anônima.
 - **Impacto / exploração:** Atacante enumera a base de usuários do sistema (validação de listas de emails). Combinado com AUD-05, também permite bloquear permanentemente o dono real de um email.
-- **Status:** pendente
-- **Perguntas em aberto:**
-  - Algum cliente/contrato depende do código `conflict` de 409 no registro (e.g., frontend exibindo "Email já registrado")?
-  - O comportamento observável precisa distinguir "email já usado" para o usuário legítimo, ou a mensagem genérica é aceitável?
-  - A enumeração de emails é um risco relevante para este produto (base de clientes pública, contexto LGPD)?
+- **Status:** resolvido (commit `fix(auth): generic 201 on duplicate email registration (AUD-03)` — ver `git log --grep="AUD-03"`) — o mapeamento 422→409 foi removido; o registro retorna 201 genérico idêntico (status, corpo derivado do input, timing igualado pelo hash do better-auth) para email novo e já registrado.
+- **Ressalva de timing (medida em 2026-08-10, localhost):** o custo dominante (hash de senha) é igualado pelo better-auth em ambos os caminhos; o resíduo é um único INSERT+fsync de COMMIT no caminho novo — medido em 4 runs com ~12 amostras cada: deltas de mediana de 6.1ms, 5.9ms, 3.9ms e 6.2ms, com ruído run-a-run de ±5ms (uma rodada do signUpEmail puro chegou a medir -0.8ms). Duas tentativas de equalização sem efeito colateral foram testadas e rejeitadas: (1) INSERT `ON CONFLICT DO NOTHING` no índice único — sem efeito (a tentativa não paga WAL); (2) `pg_logical_emit_message` — resultado ambíguo (residual 3.4ms num run ruidoso) e introduz dependência de API PG obscura no caminho crítico de auth (falha → 503, quebrando a própria garantia). Conclusão: o resíduo está no piso do ruído de medição, abaixo do jitter de RTT em qualquer deploy real, e na mesma classe do AUD-07 (severidade baixa); equalização total exigiria escrita persistente com efeito colateral (linhas-lixo) — rejeitada por ser menos segura que o próprio resíduo. Investigações durante a correção revelaram que, com `autoSignIn=false` (shared/auth.ts:31), o better-auth já respondia com usuário sintético para duplicados — o 409 era código morto mas voltaria a vazar existência se a config mudasse (ex.: `requireEmailVerification`); agora o caminho duplicado é tratado de forma config-independente (422 → `null`) e não gera evento `registration` fantasma em `auth_event` com userId falso. Sem conta duplicada criada nem conta existente sobrescrita (verificado por teste de integração).
 
 ---
 

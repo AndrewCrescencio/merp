@@ -31,6 +31,25 @@ describe.skipIf(!dbAvailable)('IdentityRepository (integration)', () => {
     expect(result.createdAt).toBeInstanceOf(Date)
   })
 
+  it('AUD-03: duplicate email registration resolves without 409 and without creating a second account', async () => {
+    const email = `dup-${Date.now()}@example.com`
+    const first = await repo.register({ email, password: testPassword, name: 'First User' })
+
+    const second = await repo.register({
+      email,
+      password: testPassword,
+      name: 'Second User',
+      consentTermsVersion: 'v1',
+    })
+
+    expect(second).toBeNull()
+    const found = await repo.findByEmail(email)
+    expect(found?.id).toBe(first.id)
+    expect(found?.name).toBe('First User')
+    expect(found?.consentTermsVersion).toBeNull()
+    expect(found?.consentTermsAcceptedAt).toBeNull()
+  })
+
   it('signs in with registered credentials', async () => {
     const headers = new Headers()
     const result = await repo.signIn({ email: testEmail, password: testPassword }, headers)

@@ -26,6 +26,7 @@ vi.mock('~~/server/utils/shared/ip', () => ({
 
 vi.mock('~~/server/utils/auth/identity/repository', () => ({
   identityRepository: { register: mockRegister },
+  generateUserId: () => 'synthetic-user-id-123',
 }))
 
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
@@ -211,6 +212,28 @@ describe('POST /api/auth/register', () => {
       createdAt,
     })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(expect.anything(), 201)
+    expect(mockCreateAuthEvent).toHaveBeenCalled()
+  })
+
+  it('AUD-03: returns identical 201 response when email already registered', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+    })
+    mockRegister.mockResolvedValue(null)
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+    const result = await handler({} as any)
+
+    expect(result).toEqual({
+      id: expect.any(String),
+      email: 'user@example.com',
+      name: 'Test User',
+      createdAt: expect.any(Date),
+    })
+    expect(mockSetResponseStatus).toHaveBeenCalledWith(expect.anything(), 201)
+    expect(mockCreateAuthEvent).not.toHaveBeenCalled()
   })
 
   it('registers with name', async () => {
