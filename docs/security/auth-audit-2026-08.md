@@ -1,0 +1,143 @@
+# Auditoria de Segurança — Bounded Context de Auth
+
+**Data:** 2026-08-10
+**Escopo:** `server/` (API, middleware, utils), `shared/`, `drizzle/` (RLS)
+**Objetivo:** Documentar falhas de segurança remanescentes para insumo de planos/prompts/tasks futuros. Nenhuma correção foi aplicada.
+
+---
+
+## Problemas catalogados
+
+### AUD-01 — Aceite de convite sem token secreto
+
+- **Categoria:** autorização
+- **Severidade:** média — classe de maior impacto (privilege escalation entre tenants), mas exploração exige um bug no app; a RLS não funciona como backstop neste fluxo.
+- **Localização:** `server/api/auth/invites.accept.post.ts:23`; `drizzle/0008_policy_insert_owner.sql:13-19` (`cm_insert_policy`)
+- **Descrição:** O convite é aceito por `(companyId + email da sessão)`, sem token secreto. O único gate é a checagem no app (`findPendingInvite`), que busca invite pendente para o email autenticado. A policy `cm_insert_policy` aceita `user_id = get_user_id()` — e o chamador define `app.user_id` para si mesmo via `withTenant` — então não há reavaliação de autorização no banco.
+- **Impacto / exploração:** Se qualquer refactor futuro remover ou enfraquecer o check de `findPendingInvite`, um usuário autenticado pode inserir a si mesmo como `member` em qualquer empresa (basta conhecer o `companyId`, que é exposto na busca pública). O RLS que aparenta ser backstop não cobre este caminho.
+- **Status:** pendente
+- **Perguntas em aberto:**
+  - O fluxo atual (aceite por email + companyId, sem link) é uma escolha de UX deliberada ou interim?
+  - Como o convidado descobre o `companyId` hoje para aceitar?
+  - Um token secreto no convite quebraria algum contrato de API existente (`invites.get`, `invites.accept`)?
+
+---
+
+### AUD-02 — Lockout DoS por email
+
+- **Categoria:** DoS
+- **Severidade:** média — explorável hoje, sem nenhum bug, por qualquer atacante que conheça o email da vítima.
+- **Localização:** `server/utils/shared/security.ts:151` (`checkAccountLockout`), `:18` (`MAX_FAILED_ATTEMPTS`), `:141` (`MAX_REQUESTS_PER_IP`)
+- **Descrição:** A chave `lockout:<email>` é baseada apenas no email. O lockout é disparado após 10 falhas sem vínculo com o IP de origem. O rate limit por IP (20/min) é contornado com rotação de IPs.
+- **Impacto / exploração:** Atacante com um IP rotativo faz 10 tentativas erradas para o email da vítima → conta bloqueada por 30min; repetindo, o bloqueio se torna permanente (logout forçado, login impossível). Não há alerta ou limite de lockouts repetidos.
+- **Status:** mitigado parcialmente — o IP rate limit reduz o throughput, mas não impede rotação de IP.
+- **Perguntas em aberto:**
+  - O lockout deve ser keyed por (email + IP) ou (email + fingerprint de dispositivo)?
+  - O limiar de 10 falhas é negociavel ou é requisito de contrato (FR-010)?
+  - Existe monitoramento/alerting para lockouts repetidos do mesmo email?
+
+---
+
+### AUD-03 — Enumeração de contas no registro
+
+- **Categoria:** enumeração
+- **Severidade:** média — exploração trivial (uma requisição), impacto de disclosure de existência de conta; agravado pelo contexto LGPD e pela interação com AUD-05.
+- **Localização:** `server/api/auth/register.post.ts:52` (409 `conflict`, "Email already registered")
+- **Descrição:** O registro devolve 409 explícito quando o email já existe. O login foi desenhado com anti-enumeração cuidadosa (401 genérico), mas o registro vaza existência de contas com uma chamada anônima.
+- **Impacto / exploração:** Atacante enumera a base de usuários do sistema (validação de listas de emails). Combinado com AUD-05, também permite bloquear permanentemente o dono real de um email.
+- **Status:** pendente
+- **Perguntas em aberto:**
+  - Algum cliente/contrato depende do código `conflict` de 409 no registro (e.g., frontend exibindo "Email já registrado")?
+  - O comportamento observável precisa distinguir "email já usado" para o usuário legítimo, ou a mensagem genérica é aceitável?
+  - A enumeração de emails é um risco relevante para este produto (base de clientes pública, contexto LGPD)?
+
+---
+
+### AUD-04 — Ausência de verificação de email e de fluxo de recuperação de senha
+
+- **Categoria:** produto-LGPD
+- **Severidade:** média — bloqueio permanente do dono real do email; exposição legal/operacional no contexto LGPD.
+- **Localização:** `server/api/auth/register.post.ts` (fluxo completo); `server/utils/auth/identity/repository.ts:106` (`register`); inexistência de endpoint de reset/verificação em `server/api/auth/`
+- **Descrição:** O registro cria conta sem verificar posse do email (`email_verified=false`), o login não exige verificação, e não existe fluxo de "esqueci minha senha" nem de reativação de conta desativada.
+- **Impacto / exploração:** Atacante pré-registra o email de um terceiro → o dono real recebe 409 para sempre (sem reset de senha, sem reativação). Usuários que perdem a senha ficam sem recuperação. Em contexto LGPD, o titular fica sem canal de acesso aos próprios dados.
+- **Status:** pendente
+- **Perguntas em aberto:**
+  - Verificação de email é requisito desta feature ou de um contexto futuro (onboarding)?
+  - Quem decide a política: produto ou compliance? Existe definição formal de quando o bloqueio pré-registro é aceitável?
+  - Como a pendência #12 (fila de deleção/anonymização) se relaciona com contas pré-registradas?
+
+---
+
+### AUD-05 — Configuração de infraestrutura (SSL, IP spoofing, fallbacks de env)
+
+- **Categoria:** infraestrutura
+- **Severidade:** média — risco depende do ambiente de deploy; se o deploy não estiver blindado, os três itens são exploráveis.
+- **Localização:** `server/utils/db.ts:6` (sem `sslmode=require`); `server/utils/shared/ip.ts:6` (`TRUST_PROXY`); `shared/auth.ts:7` e `nuxt.config.ts:24` (fallback `localhost`)
+- **Descrição:**
+  1. `postgres(connectionString)` sem `sslmode=require` — tráfego de banco em claro se a URL de produção não travar SSL.
+  2. `TRUST_PROXY=true` sem um proxy real reescrevendo `X-Forwarded-For` → o cliente falsifica o IP: burla o rate limit por IP (AUD-02 fica trivial) e polui auditoria de eventos com IPs falsos.
+  3. `CORS_ORIGIN` e `BETTER_AUTH_URL` com fallback silencioso para `localhost` quando a env falta — produção pode operar com origem/URL erradas sem nenhum erro.
+- **Impacto / exploração:** Leitura de dados no tráfego DB (se sem TLS), bypass de rate limiting e auditoria inválida (se TRUST_PROXY mal configurado), CORS/origin incorretos em prod (se env ausente).
+- **Status:** mitigado parcialmente — `TRUST_PROXY` default `false`; os outros dois itens são dependentes de deploy.
+- **Perguntas em aberto:**
+  - O deploy de produção termina TLS onde (proxy/load balancer vs. conexão direta ao Postgres remoto)?
+  - O fallback para `localhost` é observável em produção hoje (há monitoramento de env)?
+  - Devemos falhar (fail-closed) na inicialização quando env obrigatória estiver ausente em produção?
+
+---
+
+### AUD-06 — Vazamento de `account_deactivated` no login
+
+- **Categoria:** enumeração
+- **Severidade:** baixa — vaza apenas a existência de contas desativadas; comportamento deliberado e documentado no código.
+- **Localização:** `server/api/auth/login.post.ts:19` (`REPASSED_LOGIN_ERROR_CODES`), `:113-115` (rethrow de `account_deactivated`)
+- **Descrição:** O login repassa o código `account_deactivated` ao cliente, enquanto demais falhas retornam 401 genérico "Invalid email or password". A distinção permite confirmar que um email existe e foi desativado.
+- **Impacto / exploração:** Enumeração direcionada (qual email pertence a conta desativada). Requer que o atacante adivinhe emails; utilidade marginal.
+- **Status:** mitigado parcialmente — decisão de produto documentada (feedback claro ao dono da conta); `account_locked` já é mascarado.
+- **Perguntas em aberto:**
+  - O requisito de feedback para conta desativada é imutável, ou o mascaramento pode ser estendido com um canal alternativo (e.g., email de reativação)?
+  - Existe fluxo de reativação planejado que torne o código observável útil?
+
+---
+
+### AUD-07 — Side-channel de timing no `findByEmail` antes do `signInEmail`
+
+- **Categoria:** enumeração
+- **Severidade:** baixa — diferença de timing pequena e difícil de medir de forma confiável pela rede.
+- **Localização:** `server/utils/auth/identity/repository.ts:164`
+- **Descrição:** O `signIn` executa `findByEmail` (query no banco + check de `isActive`) antes de chamar `authInstance.api.signInEmail`. Contas existentes (ativas ou desativadas) têm um caminho de execução mais longo que emails inexistentes, criando diferença mensurável de latência.
+- **Impacto / exploração:** Enumeração de contas existentes via medição de tempo, complementar a AUD-03/AUD-06. Requer amostragem estatística; baixo risco prático.
+- **Status:** pendente
+- **Perguntas em aberto:**
+  - A diferença de timing é mensurável de forma confiável através da infraestrutura de rede alvo (latência/proxy)?
+  - O custo de uma consulta dummy uniformizadora é aceitável em comparação ao benefício?
+
+---
+
+## Contexto — O que já está resolvido (não são problemas)
+
+| Item                                                                 | Referência                                                                    |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| RLS com FORCE + backstop TOCTOU (owner reavaliado na execução)       | `drizzle/0007_abnormal_talkback.sql`, `drizzle/0009_company_delete_owner.sql` |
+| Escape de LIKE wildcards na busca de empresas                        | `server/utils/auth/company/repository.ts:13` (`escapeLikePattern`)            |
+| Erro 500 genérico sem vazamento de detalhes internos                 | `server/error-handler.ts:46`                                                  |
+| Rate limit por IP antes do `readBody` (corpos grandes sem parse)     | `server/api/auth/login.post.ts:37`, `server/api/auth/register.post.ts:13`     |
+| `FOR UPDATE` + transação no rate limit e lockout (anti-TOCTOU)       | `server/utils/shared/security.ts:87,157`                                      |
+| CSRF mitigado (sameSite=lax, mutações só POST, CORS de origem única) | `shared/auth.ts:46`, `nuxt.config.ts:21-31`                                   |
+| Purge de `auth_security_state` (crescimento sem limite)              | `server/tasks/purge-security-state.ts`, `nuxt.config.ts:17`                   |
+| Anti-enumeração no login: `account_locked` mascarado, 401 genérico   | `server/api/auth/login.post.ts:53-62`                                         |
+| IP spoofing mitigado por default (`TRUST_PROXY=false`)               | `server/utils/shared/ip.ts:6`                                                 |
+
+---
+
+## Priorização sugerida (severidade x facilidade de exploração)
+
+Ordem de prioridade para planejamento de correção, combinando impacto e custo de exploração:
+
+1. **AUD-03 (enumeração no register)** — exploração trivial (1 requisição), baixo esforço de correção, melhora imediata do perfil LGPD.
+2. **AUD-02 (lockout DoS)** — explorável hoje sem bugs; correção exige decisão de chaveamento (email×IP) e possivelmente alteração de contrato (FR-010).
+3. **AUD-05 (infra: sslmode, TRUST_PROXY, fallbacks de env)** — correção de configuração de baixo esforço, mas depende do conhecimento do ambiente de deploy.
+4. **AUD-01 (token no convite)** — maior impacto potencial (autorização entre tenants), porém exige bug no app para exploração; correção provavelmente altera o fluxo de aceite (contrato/UX).
+5. **AUD-04 (verificação de email / reset de senha)** — alto impacto de produto/LGPD, mas é decisão de escopo (feature nova), não hotfix.
+6. **AUD-06 (account_deactivated)** — impacto marginal; depende de decisão de produto sobre mascaramento.
+7. **AUD-07 (timing side-channel)** — impacto marginal e exploração difícil; correção de menor prioridade.
