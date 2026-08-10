@@ -12,9 +12,9 @@
     - .specify/templates/spec-template.md: ✅ updated (no changes needed - generic)
     - .specify/templates/tasks-template.md: ✅ updated (no changes needed - generic)
     - .specify/templates/checklist-template.md: ✅ updated (no changes needed - generic)
-  Follow-up TODOs:
-    - Update specs/001-auth-context/spec.md (add Infrastructure Dependencies section)
-    - Update specs/001-auth-context/tasks.md (mark tenant-data tasks with withTenant TODO)
+  Follow-up TODOs (both completed 2026-08-09):
+    - ✅ Update specs/001-auth-context/spec.md (add Infrastructure Dependencies section) — done, spec.md:403
+    - ✅ Update specs/001-auth-context/tasks.md (mark tenant-data tasks with withTenant TODO) — done, task T034
 -->
 
 # Merp Constitution
