@@ -10,6 +10,10 @@ import {
 } from '../../shared/errors'
 import { withTenant } from '../tenant-context'
 
+export function escapeLikePattern(query: string): string {
+  return query.replace(/[\\%_]/g, (c) => `\\${c}`)
+}
+
 export interface CreateCompanyInput {
   name: string
   cnpj?: string
@@ -159,7 +163,7 @@ export class CompanyRepository implements ICompanyRepository {
 
   async searchCompanies(query: string): Promise<CompanyResult[]> {
     try {
-      const pattern = `%${query}%`
+      const pattern = `%${escapeLikePattern(query)}%`
       return await db
         .select()
         .from(company)
