@@ -108,10 +108,22 @@
 - **Localização:** `server/api/auth/login.post.ts:19` (`REPASSED_LOGIN_ERROR_CODES`), `:113-115` (rethrow de `account_deactivated`)
 - **Descrição:** O login repassa o código `account_deactivated` ao cliente, enquanto demais falhas retornam 401 genérico "Invalid email or password". A distinção permite confirmar que um email existe e foi desativado.
 - **Impacto / exploração:** Enumeração direcionada (qual email pertence a conta desativada). Requer que o atacante adivinhe emails; utilidade marginal.
-- **Status:** mitigado parcialmente — decisão de produto documentada (feedback claro ao dono da conta); `account_locked` já é mascarado.
+- **Status:** resolvido (commit `fix(auth): mask account_deactivated and notify owner by email (AUD-06)` — ver `git log --grep="AUD-06"`)
 - **Perguntas em aberto:**
   - O requisito de feedback para conta desativada é imutável, ou o mascaramento pode ser estendido com um canal alternativo (e.g., email de reativação)?
   - Existe fluxo de reativação planejado que torne o código observável útil?
+
+**Resolução (2026-08-11):**
+
+- **Decisão:** opção (b) aprovada — a resposta HTTP do login para conta desativada passou a ser o mesmo 401 genérico das demais falhas (fecha o vazamento; alinhado ao padrão OWASP "account disabled" como mensagem de erro incorreta e ao comportamento default do AWS Cognito), e o feedback explícito ao dono migrou para um email automático (canal privado), via Resend.
+- **Correção aplicada:**
+  - `server/api/auth/login.post.ts` — branch `account_deactivated` não repassa mais o erro: dispara `sendDeactivationNotice(email)` **fire-and-forget** (`void`, sem await — preserva o timing equalizado do AUD-07; um await no Resend adicionaria ~100-500ms ao caminho desativado, reintroduzindo o oráculo de timing) e devolve `sendUnauthorizedError('Invalid email or password')`. Premissa documentada no código: fire-and-forget depende do processo Node persistir após a resposta — não é seguro em presets serverless/edge (deploy atual: processo persistente na Hetzner).
+  - Renomeado `REPASSED_LOGIN_ERROR_CODES` → `LOCKOUT_EXEMPT_ERROR_CODES`: o Set não marca mais codes "seguros de expor ao cliente", apenas os isentos de lockout por-email (uso em `:109`); o `reason` `account_deactivated` continua na auditoria interna (`failed_login`) e continua sem contar para lockout.
+  - `server/utils/shared/email.ts` (novo) — `sendDeactivationNotice(email)`: POST `https://api.resend.com/emails` com `fetch` nativo (sem SDK), timeout 5s via `AbortController`, best-effort (sem key → warn + skip; qualquer erro → log, nunca lança; sem fila/retry).
+  - `specs/001-auth-context/contracts/auth-api.md` — linha `401 account_deactivated` removida; 401 genérico documentado com nota do email automático.
+  - `.env.example` — `RESEND_API_KEY`/`RESEND_FROM` documentados (ausência → email pulado com warn, login inalterado).
+- **Risco residual declarado (não corrigido nesta rodada):** o branch `account_deactivated` é isento de lockout por-email (`:109`), então um atacante que conheça o email de uma conta desativada pode gerar disparos repetidos do email de aviso, limitado apenas pelo rate limit por IP existente (20/min, contornável por rotação de IP). Decisão: não foi implementado rate limit no envio do email agora — gap conhecido, revisitado junto com o AUD-02 (chaveamento do lockout).
+- **Testes:** unit `server/utils/shared/email.spec.ts` (payload/headers corretos, skip sem key, erro do Resend não lança) + `server/api/auth/login.post.spec.ts` (401 genérico no caminho desativado, `sendDeactivationNotice` chamado com o email, reason `account_deactivated` na auditoria, sem failed attempt). Suíte completa: 229 testes, lint limpo.
 
 ---
 
