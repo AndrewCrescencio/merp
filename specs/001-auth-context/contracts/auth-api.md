@@ -78,8 +78,7 @@ Authenticate with email and password. Creates a session (FR-005).
 | Status | Error Code | Condition |
 |--------|------------|-----------|
 | 400 | validation_error | Missing email or password |
-| 401 | unauthorized | Invalid credentials (generic — no distinction between wrong password, non-existent user, or locked account per CHK007) |
-| 401 | account_deactivated | User has been deactivated |
+| 401 | unauthorized | Invalid credentials (generic — no distinction between wrong password, non-existent user, locked, or deactivated account per CHK007; a deactivation notice email is sent to the account owner instead, AUD-06) |
 | 429 | rate_limit_exceeded | Rate limit per email exceeded (5 req/min sliding window, FR-010) or per IP (20 req/min) |
 | 503 | service_unavailable | Database unreachable |
 

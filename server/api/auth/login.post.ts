@@ -10,13 +10,15 @@ import {
 } from '~~/server/utils/shared/security'
 import { sendUnauthorizedError, sendValidationError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { sendDeactivationNotice } from '~~/server/utils/shared/email'
 import { getClientIp } from '~~/server/utils/shared/ip'
 
-// account_deactivated é repassado ao cliente (o dono da conta desativou-a via
-// consentimento LGPD e precisa de feedback claro). account_locked NÃO é
-// revelado: retornar o mesmo 401 genérico de credenciais inválidas impede a
-// enumeração de contas (o código só é registrado na auditoria interna).
-const REPASSED_LOGIN_ERROR_CODES = new Set(['account_deactivated'])
+// LOCKOUT_EXEMPT_ERROR_CODES marca os codes que NÃO contam para lockout
+// (conta desativada não bloqueia o dono por 30min). Nada aqui é repassado
+// ao cliente: toda falha de login retorna o mesmo 401 genérico de credenciais
+// inválidas para impedir enumeração de contas (AUD-06); o motivo específico
+// fica apenas na auditoria interna.
+const LOCKOUT_EXEMPT_ERROR_CODES = new Set(['account_deactivated'])
 
 function getLoginErrorReason(error: any): string {
   if (error?.statusCode !== 401) return 'unknown'
@@ -24,7 +26,7 @@ function getLoginErrorReason(error: any): string {
     try {
       const parsed = JSON.parse(error.message)
       if (typeof parsed?.error === 'string') {
-        return REPASSED_LOGIN_ERROR_CODES.has(parsed.error) ? parsed.error : 'invalid_credentials'
+        return LOCKOUT_EXEMPT_ERROR_CODES.has(parsed.error) ? parsed.error : 'invalid_credentials'
       }
     } catch {
       // message não é JSON — 401 genérico
@@ -111,7 +113,14 @@ export default defineEventHandler(async (event) => {
     }
 
     if (reason === 'account_deactivated') {
-      throw error
+      // Fire-and-forget: não aguardamos o envio para preservar o timing
+      // equalizado do AUD-07 (um await no Resend adicionaria ~100-500ms ao
+      // caminho desativado, reintroduzindo o oráculo de timing). Premissa: o
+      // processo Node persiste vivo o suficiente para concluir o fetch
+      // pendente após a resposta ser enviada — NÃO é seguro em presets
+      // serverless/edge.
+      void sendDeactivationNotice(email)
+      sendUnauthorizedError('Invalid email or password')
     }
 
     if (error?.statusCode === 401) {

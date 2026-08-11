@@ -12,6 +12,7 @@ const mockSendUnauthorizedError = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
 const mockAppendResponseHeaders = vi.fn()
+const mockSendDeactivationNotice = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -48,6 +49,10 @@ vi.mock('~~/server/utils/shared/errors', () => ({
 
 vi.mock('~~/server/utils/shared/audit', () => ({
   createAuthEvent: mockCreateAuthEvent,
+}))
+
+vi.mock('~~/server/utils/shared/email', () => ({
+  sendDeactivationNotice: mockSendDeactivationNotice,
 }))
 
 describe('POST /api/auth/login', () => {
@@ -320,7 +325,7 @@ describe('POST /api/auth/login', () => {
     )
   })
 
-  it('repasses account_deactivated error and records it as the failed_login reason', async () => {
+  it('masks account_deactivated, records it as the reason, and sends a deactivation notice email', async () => {
     mockReadBody.mockResolvedValue({ email: 'inactive@example.com', password: 'password123' })
     const deactivatedError: any = new Error(
       JSON.stringify({ error: 'account_deactivated', message: 'User has been deactivated' }),
@@ -330,10 +335,9 @@ describe('POST /api/auth/login', () => {
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toMatchObject({
-      statusCode: 401,
-      message: expect.stringContaining('account_deactivated'),
-    })
+    await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
+    expect(mockSendUnauthorizedError).toHaveBeenCalled()
+    expect(mockSendDeactivationNotice).toHaveBeenCalledWith('inactive@example.com')
     expect(mockCreateAuthEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'inactive@example.com',
@@ -341,7 +345,6 @@ describe('POST /api/auth/login', () => {
         metadata: { reason: 'account_deactivated' },
       }),
     )
-    expect(mockSendUnauthorizedError).not.toHaveBeenCalled()
   })
 
   it('forwards the session Set-Cookie from the repository to the client', async () => {
@@ -389,7 +392,7 @@ describe('POST /api/auth/login', () => {
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 401 })
+    await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
     expect(mockRecordFailedAttempt).not.toHaveBeenCalled()
   })
 
