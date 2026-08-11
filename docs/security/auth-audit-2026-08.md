@@ -115,17 +115,28 @@
 
 ---
 
-### AUD-07 — Side-channel de timing no `findByEmail` antes do `signInEmail`
+### AUD-07 — Side-channel de timing no `signIn` para contas desativadas
 
 - **Categoria:** enumeração
 - **Severidade:** baixa — diferença de timing pequena e difícil de medir de forma confiável pela rede.
-- **Localização:** `server/utils/auth/identity/repository.ts:164`
-- **Descrição:** O `signIn` executa `findByEmail` (query no banco + check de `isActive`) antes de chamar `authInstance.api.signInEmail`. Contas existentes (ativas ou desativadas) têm um caminho de execução mais longo que emails inexistentes, criando diferença mensurável de latência.
+- **Localização:** `server/utils/auth/identity/repository.ts` (`signIn`)
+- **Descrição:** O `signIn` executa `findByEmail` (query no banco + check de `isActive`) antes de chamar `authInstance.api.signInEmail`. A investigação revelou que a assimetria real era a oposta à hipótese original: conta **desativada** lançava `account_deactivated` antes de `resolveAuth()` + `signInEmail`, sem nunca pagar a query `findUserByEmail` do better-auth nem o scrypt (~50-150ms) — um oráculo de enumeração ~15x mais rápido que os demais caminhos.
 - **Impacto / exploração:** Enumeração de contas existentes via medição de tempo, complementar a AUD-03/AUD-06. Requer amostragem estatística; baixo risco prático.
-- **Status:** pendente
-- **Perguntas em aberto:**
-  - A diferença de timing é mensurável de forma confiável através da infraestrutura de rede alvo (latência/proxy)?
-  - O custo de uma consulta dummy uniformizadora é aceitável em comparação ao benefício?
+- **Status:** resolvido (commit `fix(auth): equalize sign-in timing for deactivated accounts (AUD-07)` — ver `git log --grep="AUD-07"`)
+
+**Resolução (2026-08-10):**
+
+- **Descobertas da investigação:**
+  - O pré-check `findByEmail` roda incondicionalmente para qualquer email (`repository.ts:169`) — o check `isActive` é JS puro, sem query extra. Não existe "branch com query extra vs. sem query" entre email existente e inexistente.
+  - A assimetria estrutural dominante: conta desativada nunca passava pelo better-auth — não pagava `findUserByEmail` nem o scrypt. O hasher padrão do better-auth é scrypt (`@better-auth/utils/password`, N=16384/r=16/p=1, pure JS) com `hash` ≈ `verify` em custo (uma invocação de scrypt cada). Medido em localhost: desativado ≈ 5ms vs. email inexistente ≈ 65ms — diferença de ~13x, o oráculo mais forte dos três.
+  - Email ativo vs. inexistente: resíduo de ~1-5ms (INSERT de sessão no caminho de sucesso) — mesma classe do resíduo aceito no AUD-03 (6ms, no piso do ruído).
+- **Correção aplicada:**
+  - `server/utils/auth/identity/repository.ts` (`signIn`) — no branch `isActive === false`, o caminho agora paga o custo equivalente antes de lançar: chama `authInstance.api.signInEmail` com uma senha-pad determinística e impossível de acertar (`__aud07_timing_pad__`), via `withTimeout(…, 5_000)`, engole o 401 esperado (e qualquer erro/timeout do pad) e lança o `account_deactivated` de sempre. O verify de scrypt é determinístico — a chamada nunca cria sessão. Guarda de invariante: se o pad resolver (mudança futura de comportamento do better-auth), a sessão vazada é revogada (`terminateSession`) com warn antes do throw — a branch desativada **nunca** retorna sucesso nem vaza sessão.
+  - Resultado: os três caminhos de falha pagam exatamente 2 queries + 1 scrypt; o resíduo restante é o INSERT de sessão do caminho de sucesso (~1-5ms).
+  - Nuance documentada: com o better-auth indisponível, o caminho desativado também responde 503 `auth_unavailable` (antes: 401 mesmo com o BA fora) — falha de infraestrutura uniforme em todos os caminhos.
+- **Sem mudança funcional:** cliente continua recebendo 401 `account_deactivated`; lockout/rate-limit intactos (o endpoint só conta `invalid_credentials` para lockout, e o pad produz `account_deactivated` — verificado por `login.post.spec.ts:382`); nenhuma sessão criada (verificado por teste de integração).
+- **Testes:** unit `server/utils/auth/identity/repository.spec.ts` (pad chamado com senha ≠ da fornecida; guarda revoga sessão se o pad resolver; caminho de email inexistente recebe a senha real) + integração `server/utils/auth/identity/repository.test.ts` (nenhuma sessão criada após tentativa em conta desativada; os testes existentes de `account_deactivated` agora exercitam o pad).
+- **Residual de timing (medido em localhost, 2026-08-10, 8 amostras por caminho):** medianas de 69.3ms (desativado), 65.2ms (email inexistente) e 65.6ms (ativo, senha errada) — delta de ~4ms, abaixo do jitter de RTT em qualquer deploy real e na mesma classe do resíduo aceito no AUD-03. O custo dominante (scrypt) agora é pago em todos os caminhos.
 
 ---
 

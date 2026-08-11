@@ -128,6 +128,30 @@ describe.skipIf(!dbAvailable)('IdentityRepository (integration)', () => {
     )
   })
 
+  it('AUD-07: sign-in attempt on a deactivated account creates no session', async () => {
+    const email = `aud07-${Date.now()}@example.com`
+    const userRecord = await repo.register({
+      email,
+      password: testPassword,
+      name: 'Aud07 User',
+    })
+    await repo.deactivateUser(userRecord.id)
+
+    const headers = new Headers()
+
+    await expect(repo.signIn({ email, password: testPassword }, headers)).rejects.toSatisfy(
+      (error: any) =>
+        error?.statusCode === 401 && JSON.parse(error.message)?.error === 'account_deactivated',
+    )
+
+    const { db } = await import('~~/server/utils/db')
+    const { session } = await import('~~/server/utils/schema')
+    const { eq } = await import('drizzle-orm')
+
+    const rows = await db.select().from(session).where(eq(session.userId, userRecord.id))
+    expect(rows).toHaveLength(0)
+  })
+
   it('finds user by email after registration', async () => {
     const found = await repo.findByEmail(testEmail)
 

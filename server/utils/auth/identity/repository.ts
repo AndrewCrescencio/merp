@@ -102,6 +102,11 @@ export interface IIdentityRepository {
   getUserSessions(userId: string): Promise<Array<{ id: string; createdAt: Date; expiresAt: Date }>>
 }
 
+// AUD-07: senha-pad do caminho de conta desativada — constante impossível de
+// acertar (o verify de scrypt é determinístico), usada para igualar o custo
+// de timing do signIn sem jamais criar sessão.
+const TIMING_PAD_PASSWORD = '__aud07_timing_pad__'
+
 export class IdentityRepository implements IIdentityRepository {
   // FR-025: a instância do Better Auth é resolvida de forma lazy; se a
   // inicialização falhar (shared/auth.ts), os endpoints retornam 503
@@ -182,6 +187,44 @@ export class IdentityRepository implements IIdentityRepository {
     try {
       const existing = await this.findByEmail(input.email)
       if (existing && !existing.isActive) {
+        // AUD-07 (anti-enumeração por timing): conta desativada não passava
+        // pelo better-auth — não pagava a query findUserByEmail nem o scrypt
+        // (~50-150ms), sendo ~15x mais rápida que os outros caminhos. O pad
+        // abaixo replica o custo do caminho de email inexistente (query +
+        // verify de scrypt) com a mesma maquinaria do better-auth, antes de
+        // lançar o account_deactivated de sempre. A senha-pad é impossível
+        // de acertar, então a chamada nunca cria sessão; se mesmo assim
+        // resolver (mudança futura de comportamento do better-auth), a
+        // sessão vazada é revogada antes do throw — esta branch nunca
+        // retorna sucesso.
+        const authInstance = await this.resolveAuth()
+        await withTimeout(
+          authInstance.api.signInEmail({
+            body: {
+              email: input.email,
+              password: TIMING_PAD_PASSWORD,
+              rememberMe: false,
+            },
+            headers,
+            returnHeaders: true,
+          }),
+          5_000,
+        )
+          .then(async (result: any) => {
+            logger.warn('AUD-07: timing pad resolved unexpectedly, revoking session', {
+              email: input.email,
+            })
+            const sessionToken = result?.response?.token
+            if (sessionToken) {
+              await this.terminateSession(sessionToken)
+            }
+          })
+          .catch(() => {
+            // Erro esperado (401 de credenciais inválidas) ou timeout do pad
+            // (5s): ambos são engolidos — o account_deactivated abaixo é a
+            // única resposta possível desta branch.
+          })
+
         throw createError({
           status: 401,
           statusText: '401',
