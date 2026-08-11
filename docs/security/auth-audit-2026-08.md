@@ -150,6 +150,14 @@
 - **Testes:** unit `server/utils/auth/identity/repository.spec.ts` (pad chamado com senha ≠ da fornecida; guarda revoga sessão se o pad resolver; caminho de email inexistente recebe a senha real) + integração `server/utils/auth/identity/repository.test.ts` (nenhuma sessão criada após tentativa em conta desativada; os testes existentes de `account_deactivated` agora exercitam o pad).
 - **Residual de timing (medido em localhost, 2026-08-10, 8 amostras por caminho):** medianas de 69.3ms (desativado), 65.2ms (email inexistente) e 65.6ms (ativo, senha errada) — delta de ~4ms, abaixo do jitter de RTT em qualquer deploy real e na mesma classe do resíduo aceito no AUD-03. O custo dominante (scrypt) agora é pago em todos os caminhos.
 
+**Verificação (2026-08-11, sem alteração de código):**
+
+- **Premissa do problema original re-avaliada contra o estado atual:** a hipótese de que `signInEmail` seria pulado para email inexistente ou conta desativada é falsa no código atual — o branch de desativado roda `signInEmail` com a senha-pad (0ff9052) e o email inexistente nunca é desviado do `signInEmail`.
+- **Gap "existe vs não existe" (escopo original do AUD-07): fechado nativamente pelo Better Auth** — `signInEmail` (`better-auth@1.6.26`, `dist/api/routes/sign-in.mjs`) executa `password.hash(password)` — um hash scrypt dummy completo, mesmos parâmetros do verify (N=16384, r=16, p=1, `@better-auth/utils/password@0.4.2`) — antes do 401 quando `findUserByEmail` retorna null (e idem para `credentialAccount`/password ausentes). É o mesmo padrão de correção do CVE-2024-39329 (Django) e do AUD-03: o custo dominante (hash de senha) é pago mesmo sem usuário real pra comparar. Implementar um verify dummy próprio seria redundante.
+- **Gap "ativa vs desativada/inexistente" (relacionado, não coberto por item da auditoria): fechado** — o pad do commit `0ff9052` faz o caminho desativado pagar o mesmo scrypt do caminho ativo (1 verify) e do inexistente (1 hash dummy). Medido: 69.3 / 65.2 / 65.6ms. **Sem risco residual declarado.**
+- **Resíduo restante (aceito):** apenas o caminho de sucesso paga o INSERT de sessão (~1-5ms) — documentado acima, no piso do ruído.
+- **Testes:** suíte completa verde (229 testes, 31 arquivos) — nenhum teste novo necessário por ausência de mudança de código.
+
 ---
 
 ## Contexto — O que já está resolvido (não são problemas)
