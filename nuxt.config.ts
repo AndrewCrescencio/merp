@@ -1,4 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+// AUD-05: o header CORS é baked no build pelo Nitro — sem a env, produção
+// compilaria com fallback localhost silencioso. Falha explícita no build.
+if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
+  throw new Error('Falha de build: CORS_ORIGIN é obrigatória em produção (sem fallback localhost).')
+}
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },

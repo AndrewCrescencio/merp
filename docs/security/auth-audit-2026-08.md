@@ -93,7 +93,20 @@
   2. `TRUST_PROXY=true` sem um proxy real reescrevendo `X-Forwarded-For` → o cliente falsifica o IP: burla o rate limit por IP (AUD-02 fica trivial) e polui auditoria de eventos com IPs falsos.
   3. `CORS_ORIGIN` e `BETTER_AUTH_URL` com fallback silencioso para `localhost` quando a env falta — produção pode operar com origem/URL erradas sem nenhum erro.
 - **Impacto / exploração:** Leitura de dados no tráfego DB (se sem TLS), bypass de rate limiting e auditoria inválida (se TRUST_PROXY mal configurado), CORS/origin incorretos em prod (se env ausente).
-- **Status:** mitigado parcialmente — `TRUST_PROXY` default `false`; os outros dois itens são dependentes de deploy.
+- **Status:** resolvido
+
+**Resolução (2026-08-11):**
+
+- **Decisões:** as três brechas foram fechadas em modo fail-closed, sem alterar o comportamento de dev/CI (`NODE_ENV` ≠ `production` continua intocado). Para o item 2, a validação de "proxy confiável" não é observável no boot (é propriedade de runtime), então o fechamento é dupla camada: exigir os CIDRs do proxy no boot (config) + verificar o peer imediato por request (runtime).
+- **Correção aplicada:**
+  - `server/utils/db.ts` — `withRequiredSsl()`: em produção, força `sslmode=require` na connection string quando ausente ou fraca (`disable`/`no`/`allow`/`prefer`); respeita `require`/`verify-ca`/`verify-full` explícitos na URL do deploy. O postgres-js mapeia `sslmode` → opção `ssl`; default sem o parâmetro era `ssl: false` (plaintext total em prod, o furo real). Dev local (postgres docker sem TLS) inalterado. Nota documentada: `sslmode=require` criptografa sem pinning de CA — deploy que exija verificação deve fixar `sslmode=verify-full` na própria `DATABASE_URL`.
+  - `server/utils/shared/ip.ts` — `TRUST_PROXY` passou a exigir `TRUSTED_PROXY_CIDRS` (lista de CIDRs, ex.: `10.0.0.0/8`): `X-Forwarded-For` só é honrado se TRUST_PROXY=true **e** o peer imediato (`socket.remoteAddress`) estiver nos CIDRs, via `net.BlockList` (stdlib). CIDR malformado → throw na carga do módulo (visível até em dev); peer IPv4-mapped (`::ffff:`) normalizado antes do match. Sem CIDRs → header sempre ignorado (fail-closed).
+  - `server/plugins/validate-env.ts` (novo) — plugin nitro que roda no boot do servidor: com `NODE_ENV=production`, throw (processo não sobe, fail-fast) se `CORS_ORIGIN`, `BETTER_AUTH_URL` ausentes, ou `TRUST_PROXY=true` sem `TRUSTED_PROXY_CIDRS`.
+  - `nuxt.config.ts` — throw no build se `NODE_ENV=production` e `CORS_ORIGIN` ausente: o header CORS é baked no build pelo Nitro, então o plugin de runtime não conseguiria pegar esse caso sozinho.
+  - `.env.example` — `TRUSTED_PROXY_CIDRS` documentada (obrigatória quando `TRUST_PROXY=true`).
+- **Garantias verificadas (testes):** `server/utils/shared/ip.spec.ts` (default não confia; confia só com flag + peer no CIDR; fail-closed para peer fora da lista e para flag sem CIDRs; normalização IPv4-mapped; IP único sem prefixo; valores ≠ `true` ignorados; CIDR malformado lança), `server/utils/db.spec.ts` (prod força/upgrade/respecta sslmode; fora de prod URL intocada), `server/plugins/validate-env.spec.ts` (nada fora de prod; lista de ausentes em prod; TRUST_PROXY=true com/sem CIDRs; malformado lança).
+- **Risco residual declarado:** `sslmode=require` não valida certificado (equivalente ao libpq `require`); e os CIDRs não podem provar que _há_ um proxy reescrevendo o header — um atacante com acesso à rede das origens confiadas conseguiria forjar o header. Ambos resolvem com deploy blindado (CA pinning via `verify-full` e regra de firewall para os CIDRs).
+- **Dependências de deploy:** produção precisa setar `CORS_ORIGIN`, `BETTER_AUTH_URL`, e — se atrás de proxy — `TRUST_PROXY=true` + `TRUSTED_PROXY_CIDRS`; o Postgres de prod precisa aceitar TLS (senão o boot de conexão falha, intencional).
 - **Perguntas em aberto:**
   - O deploy de produção termina TLS onde (proxy/load balancer vs. conexão direta ao Postgres remoto)?
   - O fallback para `localhost` é observável em produção hoje (há monitoramento de env)?
