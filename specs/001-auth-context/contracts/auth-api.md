@@ -242,6 +242,121 @@ Switch the active company context for the current session.
 
 ---
 
+## POST /api/auth/invite
+
+Create an invite. Requires the caller to be an **owner** of the company.
+
+**Auth**: Required (session cookie)
+
+**Request Body**:
+
+```json
+{
+  "companyId": "uuid",
+  "email": "user@example.com"
+}
+```
+
+**Success Response**: `201 Created`
+
+```json
+{
+  "id": "uuid",
+  "companyId": "uuid",
+  "email": "user@example.com",
+  "expiresAt": "2026-08-19T00:00:00Z",
+  "token": "single-use-secret-token"
+}
+```
+
+**Note (AUD-01)**: the `token` is returned **exactly once** — it is never
+exposed again (`GET /invites` returns metadata only, without token). The token
+expires after 7 days and is consumed on first successful accept.
+
+**Error Responses**:
+| Status | Error Code | Condition |
+|--------|------------|-----------|
+| 400 | validation_error | `companyId` or `email` missing/invalid |
+| 403 | forbidden | Caller is not a member or not an owner of the company |
+| 404 | not_found | Company not found or deleted |
+| 409 | conflict | Invite already exists for this company and email |
+
+---
+
+## POST /api/auth/invites/accept
+
+Accept an invite by its secret token. Requires authentication; the invite
+target email must match the **session email** (never the body).
+
+**Auth**: Required (session cookie)
+
+**Request Body**:
+
+```json
+{
+  "token": "single-use-secret-token"
+}
+```
+
+**Success Response**: `200 OK`
+
+```json
+{
+  "id": "uuid",
+  "companyId": "uuid",
+  "acceptedAt": "2026-08-12T00:00:00Z"
+}
+```
+
+**Note (AUD-01)**: token is single-use (accepted invites reject replays). All
+failure modes (invalid, expired, consumed, wrong email) return the same
+generic 404 — no enumeration.
+
+**Error Responses**:
+| Status | Error Code | Condition |
+|--------|------------|-----------|
+| 400 | validation_error | `token` missing |
+| 404 | not_found | Invite not found, expired, already consumed, or email mismatch |
+
+---
+
+## GET /api/auth/invites
+
+List invites of a company.
+
+**Auth**: Required (session cookie), caller must be a member of the company.
+
+**Query Params**: `companyId` (required)
+
+**Success Response**: `200 OK`
+
+```json
+{
+  "invites": [
+    {
+      "id": "uuid",
+      "companyId": "uuid",
+      "email": "user@example.com",
+      "invitedBy": "uuid",
+      "acceptedAt": null,
+      "expiresAt": "2026-08-19T00:00:00Z",
+      "createdAt": "2026-08-12T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Note (AUD-01)**: invites never include the accept token.
+
+**Error Responses**:
+| Status | Error Code | Condition |
+|--------|------------|-----------|
+| 400 | validation_error | `companyId` missing |
+| 403 | forbidden | Caller is not a member of the company |
+| 404 | not_found | Company not found or deleted |
+
+---
+
 ## CORS Configuration
 
 - **Allowed Origin**: Explicit origin (e.g., `https://app.merp.com.br`) — no wildcard

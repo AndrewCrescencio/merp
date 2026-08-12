@@ -1,9 +1,13 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
-import { sendValidationError, sendNotFoundError } from '~~/server/utils/shared/errors'
+import { sendValidationError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
 
+// AUD-01: aceite por token secreto de uso único (256 bits). O token já
+// identifica o convite (linha tem company_id) — companyId não precisa ser
+// enviado. Respostas de erro são genéricas (404 "not found or expired"):
+// token inválido/expirado/reaplicado são indistinguíveis (anti-enumeração).
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
   if (!user) {
@@ -14,18 +18,13 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const body = await readBody<{ companyId?: string }>(event)
+  const body = await readBody<{ token?: string }>(event)
 
-  if (!body?.companyId || typeof body.companyId !== 'string') {
-    sendValidationError('companyId is required')
+  if (!body?.token || typeof body.token !== 'string' || body.token.length === 0) {
+    sendValidationError('token is required')
   }
 
-  const invite = await inviteRepository.findPendingInvite(body.companyId, user.email)
-  if (!invite) {
-    sendNotFoundError('Invite not found or expired')
-  }
-
-  const accepted = await inviteRepository.acceptInvite(body.companyId, user.email, user.id)
+  const accepted = await inviteRepository.acceptInvite(body.token, user.email, user.id)
 
   const ip = getClientIp(event)
   await createAuthEvent({
@@ -33,7 +32,7 @@ export default defineEventHandler(async (event) => {
     email: user.email,
     eventType: 'invite_accepted',
     ipAddress: ip || null,
-    metadata: { companyId: body.companyId },
+    metadata: { companyId: accepted.companyId },
   })
 
   return {

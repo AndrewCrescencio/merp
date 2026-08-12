@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockFindPendingInvite = vi.fn()
 const mockAcceptInvite = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockReadBody = vi.fn()
@@ -22,7 +21,6 @@ vi.mock('~~/server/utils/shared/ip', () => ({
 
 vi.mock('~~/server/utils/auth/invite/repository', () => ({
   inviteRepository: {
-    findPendingInvite: mockFindPendingInvite,
     acceptInvite: mockAcceptInvite,
   },
 }))
@@ -35,13 +33,10 @@ vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: (msg: string) => {
     throw new Error(msg)
   },
-  sendNotFoundError: (msg: string) => {
-    throw new Error(msg)
-  },
 }))
 
-const eventWithUser = () =>
-  ({ context: { user: { id: 'user-1', email: 'invitee@example.com' } } }) as any
+const eventWithUser = (user: Record<string, unknown> = {}) =>
+  ({ context: { user: { id: 'user-1', email: 'invitee@example.com', ...user } } }) as any
 
 describe('POST /api/auth/invites/accept', () => {
   beforeEach(() => {
@@ -54,31 +49,16 @@ describe('POST /api/auth/invites/accept', () => {
     await expect(handler({ context: {} } as any)).rejects.toThrow('Authentication required.')
   })
 
-  it('validates companyId is required', async () => {
+  it('validates token is required', async () => {
     mockReadBody.mockResolvedValue({})
 
     const handler = await import('~~/server/api/auth/invites.accept.post').then((m) => m.default)
-    await expect(handler(eventWithUser())).rejects.toThrow('companyId is required')
-  })
-
-  it('rejects when no pending invite for session email', async () => {
-    mockReadBody.mockResolvedValue({ companyId: 'company-1' })
-    mockFindPendingInvite.mockResolvedValue(null)
-
-    const handler = await import('~~/server/api/auth/invites.accept.post').then((m) => m.default)
-    await expect(handler(eventWithUser())).rejects.toThrow('Invite not found or expired')
-
-    expect(mockFindPendingInvite).toHaveBeenCalledWith('company-1', 'invitee@example.com')
+    await expect(handler(eventWithUser())).rejects.toThrow('token is required')
     expect(mockAcceptInvite).not.toHaveBeenCalled()
   })
 
-  it('uses session email, never the body, when accepting', async () => {
-    mockReadBody.mockResolvedValue({ companyId: 'company-1', email: 'attacker@example.com' })
-    mockFindPendingInvite.mockResolvedValue({
-      id: 'invite-1',
-      companyId: 'company-1',
-      email: 'invitee@example.com',
-    })
+  it('uses the session email, never the body, when accepting', async () => {
+    mockReadBody.mockResolvedValue({ token: 'tok-1', email: 'attacker@example.com' })
     mockAcceptInvite.mockResolvedValue({
       id: 'invite-1',
       companyId: 'company-1',
@@ -88,7 +68,7 @@ describe('POST /api/auth/invites/accept', () => {
     const handler = await import('~~/server/api/auth/invites.accept.post').then((m) => m.default)
     const result = await handler(eventWithUser())
 
-    expect(mockAcceptInvite).toHaveBeenCalledWith('company-1', 'invitee@example.com', 'user-1')
+    expect(mockAcceptInvite).toHaveBeenCalledWith('tok-1', 'invitee@example.com', 'user-1')
     expect(mockCreateAuthEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
@@ -101,5 +81,14 @@ describe('POST /api/auth/invites/accept', () => {
       companyId: 'company-1',
       acceptedAt: expect.any(Date),
     })
+  })
+
+  it('propagates rejection for invalid, expired or already-used tokens', async () => {
+    mockReadBody.mockResolvedValue({ token: 'bad-token' })
+    mockAcceptInvite.mockRejectedValue(new Error('Invite not found or expired'))
+
+    const handler = await import('~~/server/api/auth/invites.accept.post').then((m) => m.default)
+    await expect(handler(eventWithUser())).rejects.toThrow('Invite not found or expired')
+    expect(mockCreateAuthEvent).not.toHaveBeenCalled()
   })
 })

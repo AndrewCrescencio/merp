@@ -19,7 +19,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
   const registerUser = (email: string, name: string) =>
     identity.register({ email, password: 'password123', name })
 
-  it('creates, lists, finds and accepts an invite', async () => {
+  it('creates, lists, finds and accepts an invite by token', async () => {
     const ownerEmail = `owner-${Date.now()}@example.com`
     const inviteeEmail = `invitee-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'Owner')
@@ -33,6 +33,9 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
       invitedBy: owner.id,
     })
     expect(created).toMatchObject({ companyId: createdCompany.id, email: inviteeEmail })
+    expect(created.token).toBeTruthy()
+    // AUD-01: hash nunca sai do repositório — o que segue para a API é só o token
+    expect(created).not.toHaveProperty('tokenHash')
     expect(created.expiresAt.getTime()).toBeGreaterThan(Date.now())
 
     const pending = await repo.findPendingInvite(createdCompany.id, inviteeEmail)
@@ -41,7 +44,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const listed = await repo.listCompanyInvites(createdCompany.id)
     expect(listed.map((i: any) => i.id)).toContain(created.id)
 
-    const accepted = await repo.acceptInvite(createdCompany.id, inviteeEmail, invitee.id)
+    const accepted = await repo.acceptInvite(created.token, inviteeEmail, invitee.id)
     expect(accepted.acceptedAt).toBeInstanceOf(Date)
 
     expect(await repo.findPendingInvite(createdCompany.id, inviteeEmail)).toBeNull()
@@ -90,6 +93,100 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
         .where(eq(invite.id, created.id))
     })
 
-    expect(await repo.findPendingInvite(createdCompany.id, created.email)).toBeNull()
+    // AUD-01: token expirado também não aceita
+    await expect(repo.acceptInvite(created.token, created.email, owner.id)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+  })
+
+  it('is single-use: a consumed token cannot be accepted again', async () => {
+    const ownerEmail = `oneowner-${Date.now()}@example.com`
+    const inviteeEmail = `oneinvitee-${Date.now()}@example.com`
+    const owner = await registerUser(ownerEmail, 'One Owner')
+    const invitee = await registerUser(inviteeEmail, 'One Invitee')
+    const createdCompany = await company.createCompany({ name: 'One Company' })
+    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+
+    const created = await repo.createInvite({
+      companyId: createdCompany.id,
+      email: inviteeEmail,
+      invitedBy: owner.id,
+    })
+
+    await repo.acceptInvite(created.token, inviteeEmail, invitee.id)
+    await expect(repo.acceptInvite(created.token, inviteeEmail, invitee.id)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+  })
+
+  it('rejects a token presented by a different email (posse do token + email da sessão)', async () => {
+    const ownerEmail = `diffowner-${Date.now()}@example.com`
+    const inviteeEmail = `diffinvitee-${Date.now()}@example.com`
+    const otherEmail = `other-${Date.now()}@example.com`
+    const owner = await registerUser(ownerEmail, 'Diff Owner')
+    const invitee = await registerUser(inviteeEmail, 'Diff Invitee')
+    const other = await registerUser(otherEmail, 'Other User')
+    const createdCompany = await company.createCompany({ name: 'Diff Company' })
+    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+
+    const created = await repo.createInvite({
+      companyId: createdCompany.id,
+      email: inviteeEmail,
+      invitedBy: owner.id,
+    })
+
+    await expect(repo.acceptInvite(created.token, otherEmail, other.id)).rejects.toMatchObject({
+      statusCode: 404,
+    })
+
+    // o convite segue válido para o destinatário certo
+    const pending = await repo.findPendingInvite(createdCompany.id, inviteeEmail)
+    expect(pending?.id).toBe(created.id)
+    expect(await company.isCompanyMember(other.id, createdCompany.id)).toBe(false)
+  })
+
+  it('rejects a forged token (nothing matches an unknown hash)', async () => {
+    const ownerEmail = `forgedowner-${Date.now()}@example.com`
+    const inviteeEmail = `forgedinvitee-${Date.now()}@example.com`
+    const owner = await registerUser(ownerEmail, 'Forged Owner')
+    const invitee = await registerUser(inviteeEmail, 'Forged Invitee')
+    const createdCompany = await company.createCompany({ name: 'Forged Company' })
+    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+
+    const created = await repo.createInvite({
+      companyId: createdCompany.id,
+      email: inviteeEmail,
+      invitedBy: owner.id,
+    })
+
+    await expect(
+      repo.acceptInvite(`${created.token}x`, inviteeEmail, invitee.id),
+    ).rejects.toMatchObject({ statusCode: 404 })
+  })
+
+  it('RLS backstop: direct member self-insert without token or bootstrap flag is denied', async () => {
+    // AUD-01: mesmo que o check de app fosse removido, a policy cm_insert_policy
+    // nega o self-insert sem token_hash válido (não setamos o flag de bootstrap).
+    const ownerEmail = `rlsowner-${Date.now()}@example.com`
+    const attackerEmail = `rlsattacker-${Date.now()}@example.com`
+    const owner = await registerUser(ownerEmail, 'Rls Owner')
+    const attacker = await registerUser(attackerEmail, 'Rls Attacker')
+    const createdCompany = await company.createCompany({ name: 'Rls Company' })
+    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+
+    const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+    const { companyMember } = await import('~~/server/utils/schema')
+
+    await expect(
+      withTenant(createdCompany.id, attacker.id, async (tx) => {
+        await tx.insert(companyMember).values({
+          companyId: createdCompany.id,
+          userId: attacker.id,
+          role: 'member',
+        })
+      }),
+    ).rejects.toThrow()
+
+    expect(await company.isCompanyMember(attacker.id, createdCompany.id)).toBe(false)
   })
 })

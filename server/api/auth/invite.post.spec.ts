@@ -114,6 +114,7 @@ describe('POST /api/auth/invite', () => {
       companyId: 'company-1',
       email: 'user@example.com',
       expiresAt: new Date('2026-08-08T00:00:00Z'),
+      token: 'tok-1',
     })
 
     const handler = await import('~~/server/api/auth/invite.post').then((m) => m.default)
@@ -136,6 +137,7 @@ describe('POST /api/auth/invite', () => {
       companyId: 'company-1',
       email: 'user@example.com',
       expiresAt: expect.any(Date),
+      token: 'tok-1',
     })
   })
 })

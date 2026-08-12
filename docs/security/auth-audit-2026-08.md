@@ -15,11 +15,21 @@
 - **Localização:** `server/api/auth/invites.accept.post.ts:23`; `drizzle/0008_policy_insert_owner.sql:13-19` (`cm_insert_policy`)
 - **Descrição:** O convite é aceito por `(companyId + email da sessão)`, sem token secreto. O único gate é a checagem no app (`findPendingInvite`), que busca invite pendente para o email autenticado. A policy `cm_insert_policy` aceita `user_id = get_user_id()` — e o chamador define `app.user_id` para si mesmo via `withTenant` — então não há reavaliação de autorização no banco.
 - **Impacto / exploração:** Se qualquer refactor futuro remover ou enfraquecer o check de `findPendingInvite`, um usuário autenticado pode inserir a si mesmo como `member` em qualquer empresa (basta conhecer o `companyId`, que é exposto na busca pública). O RLS que aparenta ser backstop não cobre este caminho.
-- **Status:** pendente
-- **Perguntas em aberto:**
-  - O fluxo atual (aceite por email + companyId, sem link) é uma escolha de UX deliberada ou interim?
-  - Como o convidado descobre o `companyId` hoje para aceitar?
-  - Um token secreto no convite quebraria algum contrato de API existente (`invites.get`, `invites.accept`)?
+- **Status:** resolvido
+
+**Resolução (2026-08-11):**
+
+- **Decisão:** aceite passou a exigir **token secreto de uso único** (256 bits, `randomBytes(32)` base64url), persistido apenas como hash SHA-256 (`token_hash`) — dump da base não vaza tokens utilizáveis. O token é devolvido **uma única vez** na resposta do `POST /invite` (fluxo sem infra de email; o link de convite futuro sairá do token). O `companyId` não é mais enviado no aceite — o token identifica o convite (e a empresa). Email da sessão deve casar com o email do convite (defesa em profundidade; posse do token provaria o acesso pelo email de destino).
+- **Correção aplicada:**
+  - `server/utils/schema/invite.ts` — coluna `token_hash` (nullable para permitir push em tabela com linhas; o app sempre seta) + índice parcial (`invite_pending_token_hash_idx`).
+  - `drizzle/0012_invite_token_accept.sql` (novo) — **backstop RLS** em `cm_insert_policy`: o self-insert em `company_member` deixa de ser incondicional — exige (a) flag `app.allow_owner_bootstrap` (setado apenas nos caminhos confiados: `createCompanyWithOwner` e `createCompanyMember`) ou (b) `app.invite_token_hash` (GUC setado no mesmo tx do aceite) casando um convite não-expirado para o email da sessão (`EXISTS` na policy). Remover o check do app deixa de ser suficiente — o banco nega na execução. Convites pré-token (sem `token_hash`) são invalidados (expirados). Nova policy `invite_token_select_policy` permite ler o convite por token (fora do contexto de tenant) — sem token setado, `current_setting` → NULL → nunca casa (fail-closed).
+  - `server/utils/auth/invite/repository.ts` — `createInvite` gera token/hash e devolve o token cru (nunca o hash para fora); `acceptInvite(token, email, userId)` faz lookup por hash + **claim atômico de uso único** (`UPDATE ... WHERE accepted_at IS NULL` → 0 rows = token já usado/expirado → 404 genérico), com os GUCs de tenant/token setados na mesma transação; `toInviteResult` garante que `token_hash` nunca vaza em `invites.get`/respostas.
+  - `server/utils/auth/company/repository.ts` — flag `app.allow_owner_bootstrap` setado em `createCompanyWithOwner` e `createCompanyMember` (caminhos confiados; fixtures de teste usam este método).
+  - `server/api/auth/invites.accept.post.ts` — body `{ token }`; erros genéricos (404 "Invite not found or expired") para inválido/expirado/consumido/email errado (anti-enumeração, alinhado a AUD-03/06/07). `server/api/auth/invite.post.ts` — resposta inclui `token` (única exposição; não vai para auditoria).
+  - `specs/001-auth-context/contracts/auth-api.md` — contratos `POST /invite`, `POST /invites/accept` e `GET /invites` documentados com o novo body `{ token }` (mudança de contrato segura: sem frontend no repo).
+- **Garantias verificadas (testes + banco real):** token aceito uma única vez (replay → 404); token forjado/corrompido → 404; token apresentado por outro email (mesmo com posse) → 404 e convite segue válido; token expirado → 404; `token_hash` nunca exposto fora do repositório; **backstop RLS comprovado**: INSERT direto de member sem token nem flag → negado pelo banco (`42501`) e nenhuma linha criada.
+- **Risco residual declarado:** o token existe fora do banco (resposta de API) — logado por proxies de request se o corpo for logado (aceitável: uso único + TTL 7d; o fluxo definitivo é link por email). A policy `invite_token_select_policy` permite ler o convite a quem possuir o token — necessário para o lookup. Membros de uma empresa continuam podendo `UPDATE` invites não-aceitos na mesma empresa (policy antiga, `invite_update_policy`, sem check de role) — fora do escopo do AUD-01, registrar para revisão futura.
+- **Testes:** integração `server/utils/auth/invite/repository.test.ts` (7 casos, incl. backstop RLS) + unit `invites.accept.post.spec.ts` (token obrigatório, email da sessão nunca do body, propagação de 404) + `invite.post.spec.ts` (token na resposta).
 
 ---
 
@@ -196,7 +206,7 @@ Ordem de prioridade para planejamento de correção, combinando impacto e custo 
 1. **AUD-03 (enumeração no register)** — exploração trivial (1 requisição), baixo esforço de correção, melhora imediata do perfil LGPD.
 2. **AUD-02 (lockout DoS)** — explorável hoje sem bugs; correção exige decisão de chaveamento (email×IP) e possivelmente alteração de contrato (FR-010).
 3. **AUD-05 (infra: sslmode, TRUST_PROXY, fallbacks de env)** — correção de configuração de baixo esforço, mas depende do conhecimento do ambiente de deploy.
-4. **AUD-01 (token no convite)** — maior impacto potencial (autorização entre tenants), porém exige bug no app para exploração; correção provavelmente altera o fluxo de aceite (contrato/UX).
+4. **AUD-01 (token no convite)** — **resolvido (2026-08-11)** — aceite por token de uso único com backstop RLS. (Era o de maior impacto potencial; deixa o topo.)
 5. **AUD-04 (verificação de email / reset de senha)** — alto impacto de produto/LGPD, mas é decisão de escopo (feature nova), não hotfix.
 6. **AUD-06 (account_deactivated)** — impacto marginal; depende de decisão de produto sobre mascaramento.
 7. **AUD-07 (timing side-channel)** — impacto marginal e exploração difícil; correção de menor prioridade.

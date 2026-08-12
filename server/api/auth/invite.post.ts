@@ -66,5 +66,8 @@ export default defineEventHandler(async (event) => {
     companyId: created.companyId,
     email: created.email,
     expiresAt: created.expiresAt,
+    // AUD-01: token de aceite — devolvido UMA única vez nesta resposta.
+    // Nunca reaparece em invites.get nem em logs de auditoria.
+    token: created.token,
   }
 })

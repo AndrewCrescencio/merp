@@ -1,4 +1,4 @@
-import { and, eq, like, or } from 'drizzle-orm'
+import { and, eq, like, or, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
 import { createError, H3Error } from 'h3'
@@ -109,6 +109,9 @@ export class CompanyRepository implements ICompanyRepository {
           created!.id,
           ownerUserId,
           async (ctxTx) => {
+            // AUD-01: cm_insert_policy só permite self-insert com este flag
+            // (bootstrap do fundador) ou com token de convite válido.
+            await ctxTx.execute(sql`SELECT set_config('app.allow_owner_bootstrap', 'true', true)`)
             await ctxTx
               .insert(companyMember)
               .values({ companyId: created!.id, userId: ownerUserId, role: 'owner' })
@@ -140,6 +143,10 @@ export class CompanyRepository implements ICompanyRepository {
   ): Promise<CompanyMemberResult> {
     try {
       return await withTenant(companyId, userId, async (tx) => {
+        // AUD-01: caminho confiado de inserção de member (fixtures de teste e
+        // futuros fluxos de gestão) — marca o tx como bootstrap permitido;
+        // caminhos de aceite de convite NÃO usam este método (exigem token).
+        await tx.execute(sql`SELECT set_config('app.allow_owner_bootstrap', 'true', true)`)
         const [created] = await tx
           .insert(companyMember)
           .values({ companyId, userId, role })
