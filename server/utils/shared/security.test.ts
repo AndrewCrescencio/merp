@@ -8,9 +8,9 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
   let helpers: {
     checkIpRateLimit: (event: unknown) => Promise<void>
     checkEmailRateLimit: (event: unknown, email: string) => Promise<void>
-    checkAccountLockout: (email: string) => Promise<void>
-    recordFailedAttempt: (email: string) => Promise<void>
-    resetFailedAttempts: (email: string) => Promise<void>
+    checkAccountLockout: (email: string, ip?: string | null) => Promise<void>
+    recordFailedAttempt: (email: string, ip?: string | null) => Promise<void>
+    resetFailedAttempts: (email: string, ip?: string | null) => Promise<void>
   }
   let db: any
   let authSecurityState: any
@@ -99,48 +99,82 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     }
   })
 
-  it('locks the account after 10 consecutive failed attempts', async () => {
+  it('locks the (email, IP) pair after 10 failures from the same IP', async () => {
     const email = `lock-${Date.now()}@example.com`
+    const attackerIp = `203.0.113.${(Date.now() % 250) + 1}`
+    const victimIp = `198.51.100.${(Date.now() % 250) + 1}`
 
     for (let i = 0; i < 10; i++) {
-      await helpers.recordFailedAttempt(email)
+      await helpers.recordFailedAttempt(email, attackerIp)
     }
 
-    await expect(helpers.checkAccountLockout(email)).rejects.toMatchObject({
+    await expect(helpers.checkAccountLockout(email, attackerIp)).rejects.toMatchObject({
       statusCode: 401,
       message: expect.stringContaining('account_locked'),
     })
+
+    // AUD-02: o lockout por (email+IP) não bloqueia a vítima em outro IP.
+    await expect(helpers.checkAccountLockout(email, victimIp)).resolves.toBeUndefined()
+  })
+
+  it('locks the account for all IPs after 50 failures from rotating IPs (global tier, AUD-02)', async () => {
+    const email = `lock-global-${Date.now()}@example.com`
+
+    for (let i = 0; i < 50; i++) {
+      await helpers.recordFailedAttempt(email, `203.0.113.${(i % 250) + 1}`)
+    }
+
+    await expect(
+      helpers.checkAccountLockout(email, `198.51.100.${(Date.now() % 250) + 1}`),
+    ).rejects.toMatchObject({ statusCode: 401 })
   })
 
   it('unlocks after the lockout window elapses and resets the counter', async () => {
     const email = `lock-reset-${Date.now()}@example.com`
+    const ip = `203.0.113.${(Date.now() % 250) + 1}`
 
     for (let i = 0; i < 10; i++) {
-      await helpers.recordFailedAttempt(email)
+      await helpers.recordFailedAttempt(email, ip)
     }
-    await expect(helpers.checkAccountLockout(email)).rejects.toMatchObject({ statusCode: 401 })
+    await expect(helpers.checkAccountLockout(email, ip)).rejects.toMatchObject({ statusCode: 401 })
 
     await db
       .update(authSecurityState)
       .set({ lockedUntil: new Date(Date.now() - 1_000) })
-      .where(eq(authSecurityState.key, `lockout:${email}`))
+      .where(eq(authSecurityState.key, `lockout:${email}:${ip}`))
 
-    await expect(helpers.checkAccountLockout(email)).resolves.toBeUndefined()
+    await expect(helpers.checkAccountLockout(email, ip)).resolves.toBeUndefined()
 
-    await helpers.recordFailedAttempt(email)
-    await expect(helpers.checkAccountLockout(email)).resolves.toBeUndefined()
+    await helpers.recordFailedAttempt(email, ip)
+    await expect(helpers.checkAccountLockout(email, ip)).resolves.toBeUndefined()
   })
 
-  it('resetFailedAttempts clears the lockout state', async () => {
+  it('resetFailedAttempts clears both lockout tiers', async () => {
     const email = `lock-clear-${Date.now()}@example.com`
+    const ip = `203.0.113.${(Date.now() % 250) + 1}`
+
+    for (let i = 0; i < 10; i++) {
+      await helpers.recordFailedAttempt(email, ip)
+    }
+    await expect(helpers.checkAccountLockout(email, ip)).rejects.toMatchObject({ statusCode: 401 })
+
+    await helpers.resetFailedAttempts(email, ip)
+
+    await expect(helpers.checkAccountLockout(email, ip)).resolves.toBeUndefined()
+  })
+
+  it('with no IP, failures count only toward the global tier', async () => {
+    const email = `lock-noip-${Date.now()}@example.com`
 
     for (let i = 0; i < 10; i++) {
       await helpers.recordFailedAttempt(email)
     }
-    await expect(helpers.checkAccountLockout(email)).rejects.toMatchObject({ statusCode: 401 })
 
-    await helpers.resetFailedAttempts(email)
-
+    // Sem IP não há camada por-par: 10 falhas (abaixo do limiar global de 50)
+    // não travam nada.
     await expect(helpers.checkAccountLockout(email)).resolves.toBeUndefined()
+    await expect(
+      helpers.checkAccountLockout(email, `198.51.100.${(Date.now() % 250) + 1}`),
+    ).resolves.toBeUndefined()
   })
 })

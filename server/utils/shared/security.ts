@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 import { createError, setResponseHeaders } from 'h3'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { authSecurityState } from '../schema'
 import { logger } from '#shared/logger'
@@ -15,7 +15,11 @@ export function normalizeEmail(email: string): string {
 const RATE_WINDOW_MS = 60_000
 const MAX_REQUESTS_PER_EMAIL = 5
 const MAX_REQUESTS_PER_IP = 20
+// AUD-02: lockout em duas camadas — por (email+IP) no limiar da FR-016 (10) e
+// global por email em 50: brute-force distribuído (rotação de IPs) continua
+// travado, e o DoS custa 50 tentativas (≥10min a 5 req/min da FR-010) por lock.
 const MAX_FAILED_ATTEMPTS = 10
+const MAX_GLOBAL_FAILED_ATTEMPTS = 50
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000
 
 export interface RateLimitEntry {
@@ -63,6 +67,7 @@ export function evaluateLockout(
   failedAttempts: number,
   lockedUntil: Date | null,
   now: Date,
+  maxAttempts: number = MAX_FAILED_ATTEMPTS,
 ): LockoutDecision {
   const nowMs = now.getTime()
 
@@ -75,8 +80,7 @@ export function evaluateLockout(
   }
 
   const nextAttempts = failedAttempts + 1
-  const nextLockedUntil =
-    nextAttempts >= MAX_FAILED_ATTEMPTS ? new Date(nowMs + LOCKOUT_DURATION_MS) : null
+  const nextLockedUntil = nextAttempts >= maxAttempts ? new Date(nowMs + LOCKOUT_DURATION_MS) : null
 
   return { locked: false, nextAttempts, nextLockedUntil }
 }
@@ -148,13 +152,17 @@ export async function checkEmailRateLimit(event: H3Event, email: string): Promis
   await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
 }
 
-export async function checkAccountLockout(email: string): Promise<void> {
-  const key = `lockout:${email}`
-  const now = new Date()
+// AUD-02: chave por (email + IP) — 10 falhas de um IP não bloqueiam a vítima
+// (IP diferente) — e chave global por email com limiar maior (50) para
+// brute-force distribuído com rotação de IPs.
+function pairLockoutKey(email: string, ip?: string | null): string | null {
+  return ip ? `lockout:${email}:${ip}` : null
+}
 
+async function readLockout(key: string, now: Date): Promise<LockoutDecision> {
   // FOR UPDATE + transação: evita TOCTOU entre duas requisições concorrentes
   // que poderiam ambas ler a contagem antes do lockout ser atingido.
-  const decision = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     const [row] = await tx
       .select({ count: authSecurityState.count, lockedUntil: authSecurityState.lockedUntil })
       .from(authSecurityState)
@@ -164,21 +172,14 @@ export async function checkAccountLockout(email: string): Promise<void> {
 
     return evaluateLockout(row?.count ?? 0, row?.lockedUntil ?? null, now)
   })
-
-  if (decision.locked) {
-    sendAuthError(
-      401,
-      'account_locked',
-      'Account locked due to too many failed attempts. Please try again later.',
-    )
-  }
 }
 
-export async function recordFailedAttempt(email: string): Promise<void> {
-  const key = `lockout:${email}`
-  const now = new Date()
-
-  const decision = await db.transaction(async (tx) => {
+async function incrementLockout(
+  key: string,
+  now: Date,
+  maxAttempts: number,
+): Promise<LockoutDecision> {
+  return db.transaction(async (tx) => {
     await tx.insert(authSecurityState).values({ key }).onConflictDoNothing()
 
     const [row] = await tx
@@ -187,7 +188,7 @@ export async function recordFailedAttempt(email: string): Promise<void> {
       .where(eq(authSecurityState.key, key))
       .for('update')
 
-    const result = evaluateLockout(row?.count ?? 0, row?.lockedUntil ?? null, now)
+    const result = evaluateLockout(row?.count ?? 0, row?.lockedUntil ?? null, now, maxAttempts)
 
     await tx
       .update(authSecurityState)
@@ -196,13 +197,47 @@ export async function recordFailedAttempt(email: string): Promise<void> {
 
     return result
   })
+}
 
-  if (decision.nextLockedUntil) {
-    logger.warn('Account locked due to failed attempts', { email })
+export async function checkAccountLockout(email: string, ip?: string | null): Promise<void> {
+  const now = new Date()
+  const keys = [`lockout:${email}`]
+  const pairKey = pairLockoutKey(email, ip)
+  if (pairKey) keys.push(pairKey)
+
+  for (const key of keys) {
+    const decision = await readLockout(key, now)
+    if (decision.locked) {
+      sendAuthError(
+        401,
+        'account_locked',
+        'Account locked due to too many failed attempts. Please try again later.',
+      )
+    }
   }
 }
 
-export async function resetFailedAttempts(email: string): Promise<void> {
-  const key = `lockout:${email}`
-  await db.delete(authSecurityState).where(eq(authSecurityState.key, key))
+export async function recordFailedAttempt(email: string, ip?: string | null): Promise<void> {
+  const now = new Date()
+
+  const globalDecision = await incrementLockout(`lockout:${email}`, now, MAX_GLOBAL_FAILED_ATTEMPTS)
+  if (globalDecision.nextLockedUntil) {
+    logger.warn('Account locked for all IPs (global tier)', { email })
+  }
+
+  const pairKey = pairLockoutKey(email, ip)
+  if (pairKey) {
+    const pairDecision = await incrementLockout(pairKey, now, MAX_FAILED_ATTEMPTS)
+    if (pairDecision.nextLockedUntil) {
+      logger.warn('Account locked for IP (pair tier)', { email, ip })
+    }
+  }
+}
+
+export async function resetFailedAttempts(email: string, ip?: string | null): Promise<void> {
+  const keys = [`lockout:${email}`]
+  const pairKey = pairLockoutKey(email, ip)
+  if (pairKey) keys.push(pairKey)
+
+  await db.delete(authSecurityState).where(inArray(authSecurityState.key, keys))
 }

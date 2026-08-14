@@ -109,4 +109,12 @@ describe('evaluateLockout', () => {
     expect(result.nextAttempts).toBe(1)
     expect(result.nextLockedUntil).toBeNull()
   })
+
+  it('locks at the 50th failure when maxAttempts is raised (global tier, AUD-02)', () => {
+    const result = evaluateLockout(49, null, now, 50)
+
+    expect(result.locked).toBe(false)
+    expect(result.nextAttempts).toBe(50)
+    expect(result.nextLockedUntil).toEqual(new Date('2026-08-02T12:30:00.000Z'))
+  })
 })
