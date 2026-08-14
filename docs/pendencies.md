@@ -385,10 +385,13 @@ montar um link `https://app/.../reset-password/<token>?callbackURL=https://evil.
 na URL para o atacante. O link do email em si era seguro (o `requestPasswordReset`
 envia `redirectTo: baseURL` server-side), mas o handler não podia confiar no input.
 
-**Solução:** allowlist de origens (`BETTER_AUTH_URL` + `CORS_ORIGIN`); `callbackURL`
-de origem estranha ou malformado → fallback para a origem padrão do app. Sem mudança
-de contrato: o email continua apontando para a origem correta.
+**Solução (endurecida 2026-08-14):** o `callbackURL` foi **removido por completo** —
+o destino do redirect é derivado só de config de servidor (`BETTER_AUTH_URL`); input
+de usuário nunca influencia o destino. O email legítimo é gerado server-side com
+`redirectTo: baseURL`, então o parâmetro não servia a nenhum fluxo real — era
+superfície de ataque pura (elimina a classe inteira do open redirect, inclusive
+futuros bugs de allowlist).
 
-**Status (2026-08-14):** Implementado — testes: origem estranha rejeitada (cai para
-`BETTER_AUTH_URL`), `CORS_ORIGIN` aceito, caminho arbitrário reduzido à origem
-(existente), ausência de callbackURL usa `BETTER_AUTH_URL`.
+**Status (2026-08-14):** Implementado — testes: token válido → `<app-origin>/?token=`,
+token inválido/expirado → `?error=INVALID_TOKEN`, `callbackURL` (qualquer valor)
+ignorado, env ausente → fallback `http://localhost:3000`.

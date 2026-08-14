@@ -4,12 +4,10 @@ const mockValidateResetToken = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
 const mockSendRedirect = vi.fn()
 const mockGetRouterParam = vi.fn()
-const mockGetQuery = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   getRouterParam: mockGetRouterParam,
-  getQuery: mockGetQuery,
   sendRedirect: mockSendRedirect,
 }))
 
@@ -22,7 +20,7 @@ vi.mock('~~/server/utils/auth/identity/repository', () => ({
   identityRepository: { validateResetToken: mockValidateResetToken },
 }))
 
-describe('GET /api/auth/reset-password/[token] (AUD-04)', () => {
+describe('GET /api/auth/reset-password/[token] (AUD-04/AUD-08)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
@@ -36,7 +34,6 @@ describe('GET /api/auth/reset-password/[token] (AUD-04)', () => {
   it('redirects with the token to the app origin when the token is valid', async () => {
     vi.stubEnv('BETTER_AUTH_URL', 'https://app.merp.com.br')
     mockGetRouterParam.mockReturnValue('reset-token')
-    mockGetQuery.mockReturnValue({ callbackURL: 'https://app.merp.com.br' })
     mockValidateResetToken.mockResolvedValue(true)
 
     const handler = await import('~~/server/api/auth/reset-password/[token].get').then(
@@ -58,7 +55,6 @@ describe('GET /api/auth/reset-password/[token] (AUD-04)', () => {
   it('redirects with error=INVALID_TOKEN when the token is invalid or expired', async () => {
     vi.stubEnv('BETTER_AUTH_URL', 'https://app.merp.com.br')
     mockGetRouterParam.mockReturnValue('stale-token')
-    mockGetQuery.mockReturnValue({ callbackURL: 'https://app.merp.com.br' })
     mockValidateResetToken.mockResolvedValue(false)
 
     const handler = await import('~~/server/api/auth/reset-password/[token].get').then(
@@ -74,10 +70,9 @@ describe('GET /api/auth/reset-password/[token] (AUD-04)', () => {
     )
   })
 
-  it('uses only the origin of the callbackURL (never an arbitrary path)', async () => {
+  it('AUD-08: ignores any callbackURL in the query (destination is server-config only)', async () => {
     vi.stubEnv('BETTER_AUTH_URL', 'https://app.merp.com.br')
     mockGetRouterParam.mockReturnValue('reset-token')
-    mockGetQuery.mockReturnValue({ callbackURL: 'https://app.merp.com.br/reset?x=1' })
     mockValidateResetToken.mockResolvedValue(true)
 
     const handler = await import('~~/server/api/auth/reset-password/[token].get').then(
@@ -93,10 +88,8 @@ describe('GET /api/auth/reset-password/[token] (AUD-04)', () => {
     )
   })
 
-  it('falls back to BETTER_AUTH_URL when no callbackURL is present', async () => {
-    vi.stubEnv('BETTER_AUTH_URL', 'https://app.merp.com.br')
+  it('falls back to the default origin when BETTER_AUTH_URL is unset', async () => {
     mockGetRouterParam.mockReturnValue('reset-token')
-    mockGetQuery.mockReturnValue({})
     mockValidateResetToken.mockResolvedValue(true)
 
     const handler = await import('~~/server/api/auth/reset-password/[token].get').then(
@@ -107,46 +100,7 @@ describe('GET /api/auth/reset-password/[token] (AUD-04)', () => {
 
     expect(mockSendRedirect).toHaveBeenCalledWith(
       {} as any,
-      'https://app.merp.com.br/?token=reset-token',
-      302,
-    )
-  })
-
-  it('rejects a callbackURL from a foreign origin (anti-open-redirect)', async () => {
-    vi.stubEnv('BETTER_AUTH_URL', 'https://app.merp.com.br')
-    mockGetRouterParam.mockReturnValue('reset-token')
-    mockGetQuery.mockReturnValue({ callbackURL: 'https://evil.example.com/phish' })
-    mockValidateResetToken.mockResolvedValue(true)
-
-    const handler = await import('~~/server/api/auth/reset-password/[token].get').then(
-      (m) => m.default,
-    )
-
-    await handler({} as any)
-
-    expect(mockSendRedirect).toHaveBeenCalledWith(
-      {} as any,
-      'https://app.merp.com.br/?token=reset-token',
-      302,
-    )
-  })
-
-  it('accepts a callbackURL matching CORS_ORIGIN', async () => {
-    vi.stubEnv('BETTER_AUTH_URL', 'https://api.merp.com.br')
-    vi.stubEnv('CORS_ORIGIN', 'https://app.merp.com.br')
-    mockGetRouterParam.mockReturnValue('reset-token')
-    mockGetQuery.mockReturnValue({ callbackURL: 'https://app.merp.com.br/reset' })
-    mockValidateResetToken.mockResolvedValue(true)
-
-    const handler = await import('~~/server/api/auth/reset-password/[token].get').then(
-      (m) => m.default,
-    )
-
-    await handler({} as any)
-
-    expect(mockSendRedirect).toHaveBeenCalledWith(
-      {} as any,
-      'https://app.merp.com.br/?token=reset-token',
+      'http://localhost:3000/?token=reset-token',
       302,
     )
   })

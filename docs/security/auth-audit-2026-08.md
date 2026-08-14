@@ -103,7 +103,7 @@
 - **Localização:** `server/api/auth/reset-password/[token].get.ts`
 - **Descrição:** o GET aceitava qualquer `callbackURL` e redirecionava (302) para a origem dele com `?token=...` na URL — open redirect no domínio confiável; com um token válido, o token vazava na URL do destino atacante.
 - **Status:** resolvido (2026-08-14)
-- **Correção:** allowlist de origens (`BETTER_AUTH_URL` + `CORS_ORIGIN`); origem estranha/malformada → fallback para a origem padrão. Testes: origem estranha rejeitada, `CORS_ORIGIN` aceito, path arbitrário reduzido à origem, sem callbackURL → padrão. Registro em `docs/pendencies.md` (item 19).
+- **Correção:** o `callbackURL` da query foi **removido por completo** do handler — o destino do redirect deriva só de `BETTER_AUTH_URL` (config de servidor), nunca de input do usuário; o email legítimo é gerado server-side com `redirectTo: baseURL`, então o parâmetro não servia a nenhum fluxo real. Uma allowlist de origens (aplicada inicialmente no mesmo dia) foi substituída por esta forma mais forte: elimina a classe inteira do open redirect, sem superfície de config (env malformada não derruba mais o endpoint) nem futuro bug de allowlist. Testes: token válido/inválido → `<app-origin>/?token=` / `?error=INVALID_TOKEN`; `callbackURL` ignorado; env ausente → fallback. Registro em `docs/pendencies.md` (item 19).
 
 ---
 
