@@ -8,20 +8,25 @@ import {
   recordFailedAttempt,
   resetFailedAttempts,
 } from '~~/server/utils/shared/security'
-import { sendUnauthorizedError, sendValidationError } from '~~/server/utils/shared/errors'
+import {
+  sendAuthError,
+  sendUnauthorizedError,
+  sendValidationError,
+} from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { sendDeactivationNotice } from '~~/server/utils/shared/email'
 import { getClientIp } from '~~/server/utils/shared/ip'
 
 // LOCKOUT_EXEMPT_ERROR_CODES marca os codes que NÃO contam para lockout
-// (conta desativada não bloqueia o dono por 30min). Nada aqui é repassado
-// ao cliente: toda falha de login retorna o mesmo 401 genérico de credenciais
-// inválidas para impedir enumeração de contas (AUD-06); o motivo específico
-// fica apenas na auditoria interna.
-const LOCKOUT_EXEMPT_ERROR_CODES = new Set(['account_deactivated'])
+// (conta desativada não bloqueia o dono por 30min; email não-verificado tem
+// a senha CORRETA comprovada — bloquear seria punir a vítima). Nada aqui é
+// repassado como 401 genérico: o motivo específico fica apenas na auditoria
+// interna, exceto email_not_verified (403 explícito — ver abaixo).
+const LOCKOUT_EXEMPT_ERROR_CODES = new Set(['account_deactivated', 'email_not_verified'])
 
 function getLoginErrorReason(error: any): string {
-  if (error?.statusCode !== 401) return 'unknown'
+  const status = error?.statusCode ?? error?.status
+  if (status !== 401 && status !== 403) return 'unknown'
   if (typeof error?.message === 'string') {
     try {
       const parsed = JSON.parse(error.message)
@@ -29,7 +34,7 @@ function getLoginErrorReason(error: any): string {
         return LOCKOUT_EXEMPT_ERROR_CODES.has(parsed.error) ? parsed.error : 'invalid_credentials'
       }
     } catch {
-      // message não é JSON — 401 genérico
+      // message não é JSON — erro genérico
     }
   }
   return 'invalid_credentials'
@@ -45,10 +50,19 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Email and password are required')
   }
 
+  // AUD-02: IP resolvido uma vez no início — o lockout é chaveado por
+  // (email + IP) para que 10 falhas de um IP não bloqueiem a vítima.
+  let ip: string | null = null
+  try {
+    ip = getClientIp(event) ?? null
+  } catch {
+    // Sem socket (ex.: eventos de teste) — apenas a camada global por email.
+  }
+
   await checkEmailRateLimit(event, email)
 
   try {
-    await checkAccountLockout(email)
+    await checkAccountLockout(email, ip)
   } catch (error) {
     // A conta está bloqueada, mas o cliente recebe o mesmo 401 genérico de
     // credenciais inválidas (anti-enumeração). O motivo fica na auditoria.
@@ -75,13 +89,12 @@ export default defineEventHandler(async (event) => {
       event.headers,
     )
 
-    await resetFailedAttempts(email)
+    await resetFailedAttempts(email, ip)
 
     if (user.setCookie.length > 0) {
       appendResponseHeaders(event, { 'set-cookie': user.setCookie })
     }
 
-    const ip = getClientIp(event)
     await createAuthEvent({
       userId: user.id,
       email: user.email,
@@ -95,7 +108,6 @@ export default defineEventHandler(async (event) => {
       name: user.name,
     }
   } catch (error: any) {
-    const ip = getClientIp(event)
     const reason = getLoginErrorReason(error)
 
     await createAuthEvent({
@@ -109,7 +121,7 @@ export default defineEventHandler(async (event) => {
     // infraestrutura (503/500) ou conta desativada não devem bloquear o
     // usuário por 30 min.
     if (reason === 'invalid_credentials') {
-      await recordFailedAttempt(email)
+      await recordFailedAttempt(email, ip)
     }
 
     if (reason === 'account_deactivated') {
@@ -121,6 +133,19 @@ export default defineEventHandler(async (event) => {
       // serverless/edge.
       void sendDeactivationNotice(email)
       sendUnauthorizedError('Invalid email or password')
+    }
+
+    if (reason === 'email_not_verified') {
+      // AUD-04: 403 explícito — exceção deliberada ao 401 genérico. Só é
+      // alcançado com a senha CORRETA (o better-auth verifica o scrypt antes
+      // do check de email_verified), então não vaza existência de conta para
+      // quem não tem as credenciais. O link de verificação é enviado no
+      // mesmo fluxo (sendOnSignIn). Não conta para lockout.
+      sendAuthError(
+        403,
+        'email_not_verified',
+        'Please verify your email address before logging in.',
+      )
     }
 
     if (error?.statusCode === 401) {

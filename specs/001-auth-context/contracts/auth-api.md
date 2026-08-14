@@ -79,10 +79,121 @@ Authenticate with email and password. Creates a session (FR-005).
 |--------|------------|-----------|
 | 400 | validation_error | Missing email or password |
 | 401 | unauthorized | Invalid credentials (generic — no distinction between wrong password, non-existent user, locked, or deactivated account per CHK007; a deactivation notice email is sent to the account owner instead, AUD-06) |
+| 403 | email_not_verified | Correct password but email not verified (AUD-04; only reachable with the correct password — no enumeration) |
 | 429 | rate_limit_exceeded | Rate limit per email exceeded (5 req/min sliding window, FR-010) or per IP (20 req/min) |
 | 503 | service_unavailable | Database unreachable |
 
 **Rate Limit Headers** (on 429): `Retry-After`, `RateLimit-Reset`, `RateLimit-Remaining`
+
+**Note (AUD-04)**: `email_not_verified` does NOT count toward the per-email lockout (FR-010).
+
+---
+
+## POST /api/auth/send-verification-email
+
+Resend the email verification link (AUD-04). Always answers `{ "status": true }` regardless of whether the account exists or is already verified (anti-enumeration).
+
+**Request Body**:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Success Response**: `200 OK`
+
+```json
+{ "status": true }
+```
+
+**Error Responses**:
+| Status | Error Code | Condition |
+|--------|------------|-----------|
+| 400 | validation_error | Invalid email format |
+| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) or per email (5 req/min) |
+| 503 | service_unavailable | Database unreachable |
+
+---
+
+## GET /api/auth/verify-email?token=...
+
+Confirm email ownership by clicking the link from the email (AUD-04). The token is a signed JWT (1h expiry). Redirects to the origin (302) without any session state; unverified sessions from this browser are invalidated on success (better-auth behavior).
+
+**Query Parameters**: `token` (required)
+
+**Success Response**: `302 Found` → `Location: <origin>`
+
+**Error Responses**:
+| Status | Error Code | Condition |
+|--------|------------|-----------|
+| 302 | — | `Location: <origin>?error=INVALID_TOKEN` — expired/forged token |
+
+---
+
+## POST /api/auth/forget-password
+
+Request a password reset link (AUD-04). Always answers `{ "status": true }` regardless of whether the account exists (anti-enumeration).
+
+**Request Body**:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Success Response**: `200 OK`
+
+```json
+{ "status": true }
+```
+
+**Error Responses**:
+| Status | Error Code | Condition |
+|--------|------------|-----------|
+| 400 | validation_error | Invalid email format |
+| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) or per email (5 req/min) |
+| 503 | service_unavailable | Database unreachable |
+
+---
+
+## POST /api/auth/reset-password
+
+Set a new password with a single-use token from the forget-password email (AUD-04). Revokes all existing sessions (`revokeSessionsOnPasswordReset`). The token is accepted either in the body or the `token` query parameter (same validation, no double-consumption).
+
+**Request Body**:
+
+```json
+{
+  "token": "single-use-token",
+  "newPassword": "new-secure-password-456"
+}
+```
+
+**Success Response**: `200 OK`
+
+```json
+{ "status": true }
+```
+
+**Error Responses**:
+| Status | Error Code | Condition |
+|--------|------------|-----------|
+| 400 | invalid_token | Token invalid, expired, or already consumed (generic — indistinguishable) |
+| 400 | validation_error | Missing token or invalid password (min 8 chars) |
+| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) |
+| 503 | service_unavailable | Database unreachable |
+
+---
+
+## GET /api/auth/reset-password/[token]
+
+Click-time validation of the reset link, without consuming the token (AUD-04).
+
+**Success Response**: `302 Found` → `Location: <origin>?token=<token>`
+
+**Error Responses**: `302 Found` → `Location: <origin>?error=INVALID_TOKEN`
 
 ---
 

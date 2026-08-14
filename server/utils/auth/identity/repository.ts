@@ -4,12 +4,13 @@ import { db } from '../../db'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
-import { user, session } from '../../schema'
+import { user, session, verification } from '../../schema'
 import { createError, H3Error } from 'h3'
 import {
   handleDatabaseError,
   handleUpstreamTimeout,
   sendAuthUnavailableError,
+  sendValidationError,
   TimeoutError,
   withTimeout,
 } from '../../shared/errors'
@@ -100,6 +101,11 @@ export interface IIdentityRepository {
   withdrawConsent(userId: string): Promise<UserResult>
   deactivateUser(userId: string): Promise<UserResult>
   getUserSessions(userId: string): Promise<Array<{ id: string; createdAt: Date; expiresAt: Date }>>
+  sendVerificationEmail(email: string): Promise<void>
+  verifyEmail(token: string): Promise<void>
+  requestPasswordReset(email: string): Promise<void>
+  resetPassword(token: string, newPassword: string): Promise<void>
+  validateResetToken(token: string): Promise<boolean>
 }
 
 // AUD-07: senha-pad do caminho de conta desativada — constante impossível de
@@ -290,9 +296,136 @@ export class IdentityRepository implements IIdentityRepository {
       if (error?.statusCode === 401) {
         throw error
       }
+      // AUD-04: com requireEmailVerification, o better-auth responde 403
+      // email_not_verified — DEPOIS do verify de scrypt da senha (senha
+      // correta comprovada), então não vaza existência de conta. Reformatado
+      // no padrão JSON do app para o handler de login mapear a razão.
+      if (error?.statusCode === 403) {
+        throw createError({
+          status: 403,
+          statusText: '403',
+          message: JSON.stringify({
+            error: 'email_not_verified',
+            message: 'Please verify your email address before logging in.',
+          }),
+        })
+      }
       if (error instanceof H3Error) {
         throw error
       }
+      return handleDatabaseError(error)
+    }
+  }
+
+  // AUD-04: reenvio do link de verificação. O better-auth responde
+  // {status:true} para qualquer email (existente ou não) com piso de 500ms —
+  // anti-enumeração embutida; o envio real só ocorre para conta existente
+  // não-verificada.
+  async sendVerificationEmail(email: string): Promise<void> {
+    try {
+      const authInstance = await this.resolveAuth()
+      await withTimeout(authInstance.api.sendVerificationEmail({ body: { email } }), 5_000)
+    } catch (error: any) {
+      if (error instanceof TimeoutError) {
+        return handleUpstreamTimeout()
+      }
+      if (error instanceof H3Error) {
+        throw error
+      }
+      return handleDatabaseError(error)
+    }
+  }
+
+  // AUD-04: destino do link de verificação (GET). O token é um JWT assinado
+  // com TTL de 1h (expiresIn do emailVerification); idempotente — verificar
+  // email já verificado retorna sucesso.
+  async verifyEmail(token: string): Promise<void> {
+    try {
+      const authInstance = await this.resolveAuth()
+      await withTimeout(authInstance.api.verifyEmail({ query: { token } }), 5_000)
+    } catch (error: any) {
+      if (error instanceof TimeoutError) {
+        return handleUpstreamTimeout()
+      }
+      // Token inválido/expirado (APIError 400/401) → resposta genérica; nada
+      // a enumerar: o JWT não é forjável.
+      if (error?.statusCode === 400 || error?.statusCode === 401) {
+        sendValidationError('Invalid or expired verification link')
+      }
+      if (error instanceof H3Error) {
+        throw error
+      }
+      return handleDatabaseError(error)
+    }
+  }
+
+  // AUD-04: "esqueci minha senha". Resposta genérica e idêntica para email
+  // existente ou não (o better-auth gera o token e simula o lookup no
+  // caminho inexistente — anti-enumeração embutida). O redirectTo é a
+  // origem do app: o link de reset aponta para GET /api/auth/reset-password/
+  // <token>?callbackURL=<origin>, que valida e redireciona para o frontend.
+  async requestPasswordReset(email: string): Promise<void> {
+    try {
+      const authInstance = await this.resolveAuth()
+      const baseURL = process.env.BETTER_AUTH_URL || 'http://localhost:3000'
+      await withTimeout(
+        authInstance.api.requestPasswordReset({ body: { email, redirectTo: baseURL } }),
+        5_000,
+      )
+    } catch (error: any) {
+      if (error instanceof TimeoutError) {
+        return handleUpstreamTimeout()
+      }
+      if (error instanceof H3Error) {
+        throw error
+      }
+      return handleDatabaseError(error)
+    }
+  }
+
+  // AUD-04: define a nova senha com o token de reset. Uso único
+  // (consumeVerificationValue do better-auth), TTL de 1h; com
+  // revokeSessionsOnPasswordReset, todas as sessões do usuário são
+  // revogadas. Token inválido/consumido/expirado → 400 genérico.
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    try {
+      const authInstance = await this.resolveAuth()
+      await withTimeout(
+        authInstance.api.resetPassword({ query: { token }, body: { newPassword } }),
+        5_000,
+      )
+    } catch (error: any) {
+      if (error instanceof TimeoutError) {
+        return handleUpstreamTimeout()
+      }
+      if (error?.statusCode === 400) {
+        sendValidationError('Invalid or expired reset link')
+      }
+      if (error instanceof H3Error) {
+        throw error
+      }
+      return handleDatabaseError(error)
+    }
+  }
+
+  // AUD-04: valida o token de reset no clique do link (GET /api/auth/
+  // reset-password/<token>). NÃO consome — o consumo de uso único acontece
+  // no POST /reset-password. Acoplamento documentado: identifier no formato
+  // interno do better-auth (`reset-password:${token}` na tabela verification).
+  async validateResetToken(token: string): Promise<boolean> {
+    try {
+      const [found] = await db
+        .select({ id: verification.id })
+        .from(verification)
+        .where(
+          and(
+            eq(verification.identifier, `reset-password:${token}`),
+            gt(verification.expiresAt, new Date()),
+          ),
+        )
+        .limit(1)
+      return !!found
+    } catch (error) {
       return handleDatabaseError(error)
     }
   }

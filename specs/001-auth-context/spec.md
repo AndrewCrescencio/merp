@@ -155,7 +155,7 @@ authenticated requests carry the correct tenant context.
   observability event is emitted per FR-023.
 - How does the system handle concurrent sessions from different devices? → Allowed per FR-012. No limit enforced.
 - What happens when the identity store is unreachable during login? → The system returns HTTP 503 with `{ "error": "service_unavailable", "message": "Temporary error. Please try again." }` per FR-028.
-- What happens when repeated failed login attempts occur? → Account locks after 10 total failed attempts; auto-unlocks after 30 min per FR-016.
+- What happens when repeated failed login attempts occur? → Login attempts from a given IP are locked for 30 min after 10 failed attempts per FR-016; after 50 total failed attempts across IPs the account is locked for everyone for 30 min (AUD-02).
 - How does the system behave under high registration volume? → Register requests are rate-limited per FR-010.
 - What happens when a deactivated user tries to log in? → Login denied with HTTP 401 per FR-017.
 - What happens to a user's sessions when their account is deactivated? → All sessions immediately invalidated per FR-017.
@@ -195,9 +195,11 @@ authenticated requests carry the correct tenant context.
   making the requesting user its first member.
 - **FR-015**: System MUST provide an endpoint to search for existing
   companies and request to join.
-- **FR-016**: System MUST lock the account after 10 total failed
-  login attempts (any time window). Locked accounts auto-unlock after
-  30 minutes.
+- **FR-016**: System MUST lock login attempts after 10 failed attempts
+  from the same IP for an email (any time window); locked (email, IP) pairs
+  auto-unlock after 30 minutes. Additionally, the system MUST lock the account
+  for all IPs after 50 total failed attempts across IPs (distributed brute
+  force with IP rotation, AUD-02), also auto-unlocking after 30 minutes.
 - **FR-017**: System MUST support deactivating a user (soft delete).
   Deactivated users cannot log in, but their data is preserved.
 - **FR-018**: System MUST log all auth events — registration, login,
@@ -251,6 +253,22 @@ authenticated requests carry the correct tenant context.
   `{ "error": "service_unavailable", "message": "Temporary error. Please try again." }`.
   The underlying database error MUST NOT be leaked. The event MUST be
   logged with full error details.
+- **FR-029**: System MUST verify email ownership at registration and
+  block login until verification (AUD-04). Registration MUST send a
+  verification link; login with correct credentials on an unverified
+  account MUST return 403 `email_not_verified` (reachable only with the
+  correct password — never leaks account existence). Verification links
+  expire after 1h; replay is idempotent. The system MUST provide a
+  resend endpoint (`send-verification-email`) whose response is
+  indistinguishable for unknown/already-verified accounts.
+- **FR-030**: System MUST provide a password recovery flow ("forgot
+  password") (AUD-04): `forget-password` sends a single-use reset link
+  (expires 1h) to the account owner's email and always answers
+  `{ "status": true }` (anti-enumeration); `reset-password` consumes the
+  token (replay MUST fail with 400) and revokes ALL sessions on
+  success. Recovery MUST work for any account with a password —
+  including accounts pre-registered by a third party — so the real
+  email owner can always take the account back.
 
 ### Key Entities
 

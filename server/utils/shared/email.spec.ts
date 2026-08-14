@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { logger } from '#shared/logger'
-import { sendDeactivationNotice } from './email'
+import {
+  appVerificationLink,
+  sendDeactivationNotice,
+  sendPasswordResetLink,
+  sendVerificationEmailLink,
+} from './email'
 
 const fetchMock = vi.fn()
 const loggerErrorSpy = vi.spyOn(logger, 'error')
@@ -66,5 +71,55 @@ describe('sendDeactivationNotice', () => {
 
     await expect(sendDeactivationNotice('inactive@example.com')).resolves.toBeUndefined()
     expect(loggerErrorSpy).toHaveBeenCalled()
+  })
+})
+
+describe('AUD-04 email link handling (better-auth URLs → app endpoints)', () => {
+  it('verification link already points to /api/auth (basePath) and strips callbackURL', () => {
+    const url = 'https://app.merp.com.br/api/auth/verify-email?token=abc&callbackURL=%2F'
+
+    expect(appVerificationLink(url)).toBe('https://app.merp.com.br/api/auth/verify-email?token=abc')
+  })
+})
+
+describe('AUD-04 transactional email senders', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+  })
+
+  it('sendVerificationEmailLink sends the verification subject and link', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test_key')
+    vi.stubEnv('RESEND_FROM', 'no-reply@merp.example.com')
+    fetchMock.mockResolvedValue({ ok: true, status: 200, text: async () => '' })
+
+    await sendVerificationEmailLink('new@example.com', 'https://app/api/auth/verify-email?token=x')
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body).toMatchObject({
+      to: 'new@example.com',
+      subject: 'Verify your email address',
+    })
+    expect(body.html).toContain('/api/auth/verify-email?token=x')
+  })
+
+  it('sendPasswordResetLink sends the reset subject and link', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test_key')
+    vi.stubEnv('RESEND_FROM', 'no-reply@merp.example.com')
+    fetchMock.mockResolvedValue({ ok: true, status: 200, text: async () => '' })
+
+    await sendPasswordResetLink('lost@example.com', 'https://app/api/auth/reset-password/tok1')
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body).toMatchObject({
+      to: 'lost@example.com',
+      subject: 'Reset your password',
+    })
+    expect(body.html).toContain('/api/auth/reset-password/tok1')
   })
 })

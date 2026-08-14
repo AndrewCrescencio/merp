@@ -40,11 +40,28 @@
 - **Localização:** `server/utils/shared/security.ts:151` (`checkAccountLockout`), `:18` (`MAX_FAILED_ATTEMPTS`), `:141` (`MAX_REQUESTS_PER_IP`)
 - **Descrição:** A chave `lockout:<email>` é baseada apenas no email. O lockout é disparado após 10 falhas sem vínculo com o IP de origem. O rate limit por IP (20/min) é contornado com rotação de IPs.
 - **Impacto / exploração:** Atacante com um IP rotativo faz 10 tentativas erradas para o email da vítima → conta bloqueada por 30min; repetindo, o bloqueio se torna permanente (logout forçado, login impossível). Não há alerta ou limite de lockouts repetidos.
-- **Status:** mitigado parcialmente — o IP rate limit reduz o throughput, mas não impede rotação de IP.
+- **Status:** resolvido (commit `fix(auth): two-tier lockout keyed by email+IP (AUD-02)` — ver `git log --grep="AUD-02"`)
 - **Perguntas em aberto:**
   - O lockout deve ser keyed por (email + IP) ou (email + fingerprint de dispositivo)?
   - O limiar de 10 falhas é negociavel ou é requisito de contrato (FR-010)?
   - Existe monitoramento/alerting para lockouts repetidos do mesmo email?
+
+**Resolução (2026-08-14):**
+
+- **Perguntas em aberto respondidas:**
+  - **Chaveamento: (email + IP).** Fingerprint de dispositivo foi rejeitado — exigiria JS no cliente (o repo não tem frontend) e é burlável com spoofing de headers; o IP já é coletado para rate limit e auditoria.
+  - **Limiar de 10 falhas:** mantido como contrato (FR-016) para a camada por-(email+IP). A camada global usa um limiar novo (50), não coberto pela FR-016 original — a FR-016 foi atualizada para documentar as duas camadas.
+  - **Monitoramento/alerting:** não existe infra de observabilidade no repo; cada lockout continua logado com `logger.warn`, agora com a camada no contexto. Alerta de lockouts repetidos fica dependente de infra futura.
+- **Decisão:** lockout em **duas camadas** (prática recomendada pelo OWASP Authentication Cheat Sheet):
+  1. **Por (email + IP)** — 10 falhas do mesmo IP para o mesmo email → lock de 30min para esse par. Fecha o DoS do AUD-02: as 10 falhas de um atacante com IP rotativo não bloqueiam a vítima (IP diferente). O brute-force "clássico" de um único IP continua travado no limiar da FR-016.
+  2. **Global por email** — 50 falhas totais (qualquer IP) → lock de 30min para todos. Preserva o teto da FR-016 contra brute-force distribuído (rotação de IPs) e encarece o DoS 5x: a 5 req/min do rate limit por email (FR-010), 50 tentativas levam ≥10min para cada lock de 30min.
+- **Correção aplicada:**
+  - `server/utils/shared/security.ts` — `evaluateLockout` ganhou parâmetro `maxAttempts` (default 10, FR-016); `checkAccountLockout`/`recordFailedAttempt`/`resetFailedAttempts` recebem `ip` opcional e operam nas duas chaves `lockout:<email>` (global) e `lockout:<email>:<ip>` (par), cada uma em transação `FOR UPDATE` própria (anti-TOCTOU preservado); sem IP (sem socket) apenas a camada global atua. Linhas `lockout:<email>` pré-existentes no banco passam a valer como camada global (contadores ≤10 migram para o limiar de 50; locks ativos expiram em 30min).
+  - `server/api/auth/login.post.ts` — IP resolvido uma vez no início do handler (mesmo padrão try/catch do `checkIpRateLimit` para eventos sem socket) e propagado às três funções; auditoria e `sendDeactivationNotice` inalterados.
+  - `specs/001-auth-context/spec.md` — FR-016 (e FAQ) atualizada com as duas camadas.
+- **Garantias verificadas (testes + banco real):** 10 falhas do IP A → `account_locked` para (email, A), mas login normal para a vítima no IP B (o DoS é fechado); 50 falhas com IPs rotativos → lock global para qualquer IP; desbloqueio após 30min e `resetFailedAttempts` limpam as duas chaves; sem IP → 10 falhas não travam nada (abaixo do limiar global).
+- **Risco residual declarado:** DoS distribuído de verdade (botnet) ainda pode manter a vítima bloqueada por 30min a cada 50 tentativas (≥10min de disparo contínuo a 5 req/min) — eliminar por completo exigiria CAPTCHA/verificação por email no login, fora de escopo. O IP é a âncora do par — com `TRUST_PROXY` mal configurado o par seria forjável (mitigado pelo fail-closed do AUD-05, `server/utils/shared/ip.ts`).
+- **Testes:** `security.spec.ts` (limiar global via `maxAttempts`), `security.test.ts` (par não bloqueia outros IPs, lock global com IPs rotativos, unlock/reset nas duas chaves, sem-IP → só camada global), `login.post.spec.ts` (IP propagado às três funções). Suíte completa: 250 testes, lint limpo.
 
 ---
 
@@ -85,11 +102,29 @@
 - **Localização:** `server/api/auth/register.post.ts` (fluxo completo); `server/utils/auth/identity/repository.ts:106` (`register`); inexistência de endpoint de reset/verificação em `server/api/auth/`
 - **Descrição:** O registro cria conta sem verificar posse do email (`email_verified=false`), o login não exige verificação, e não existe fluxo de "esqueci minha senha" nem de reativação de conta desativada.
 - **Impacto / exploração:** Atacante pré-registra o email de um terceiro → o dono real recebe 409 para sempre (sem reset de senha, sem reativação). Usuários que perdem a senha ficam sem recuperação. Em contexto LGPD, o titular fica sem canal de acesso aos próprios dados.
-- **Status:** pendente
+- **Status:** resolvido
 - **Perguntas em aberto:**
   - Verificação de email é requisito desta feature ou de um contexto futuro (onboarding)?
   - Quem decide a política: produto ou compliance? Existe definição formal de quando o bloqueio pré-registro é aceitável?
   - Como a pendência #12 (fila de deleção/anonymização) se relaciona com contas pré-registradas?
+
+**Resolução (2026-08-14):**
+
+- **Decisões de política (aplicadas, mas reversíveis por produto):**
+  - Verificação de email **obrigatória** para login com senha: `requireEmailVerification: true` (melhor recuperação do que blocking — sem precedente de risco equivalente identificado).
+  - `sendOnSignUp: true` — email verificação no registro. `sendOnSignUp` da conta pré-registrada (terceiro que registrar email de outrem) é um email de confirmação da posse, no escopo de uso informado dos dados.
+  - `sendOnSignIn: true` — email de verificação reenviado **só após a senha correta** (posse do email não é testável por anônimos — sem vetor de spam) e **só se não verificada** (melhora do `sendVerificationEmail` nativo, que envia sem checar). Sem data migration: contas existentes com `email_verified=false` recebem o link na primeira tentativa de login com senha correta.
+  - Recuperação de conta pré-registrada **sem censura à senha**: `requestPasswordReset` + `resetPassword` completos para qualquer conta com senha — um atacante pré-registrado só perde a conta (nunca o email), e o dono real recupera por reset de senha (email de verificação cobre ambos os fluxos).
+  - **Fora de escopo (deliberado):** reativação de contas desativadas por retirada de consentimento (ato LGPD deliberado; resolver via suporte/anonimização #12); email `onExistingUserSignUp` (vetor de spam anônimo — qualquer um pode disparar emails a terceiros; os fluxos de verify/reset cobrem o valor de produto sem o vetor).
+- **Correção aplicada:**
+  - `shared/auth.ts` — `emailAndPassword.requireEmailVerification: true`, `sendResetPassword` (link do app, fire-and-forget via `void` — nunca atrasa o request nem falha o fluxo; equalização de timing AUD-03/AUD-07 preservada), `resetPasswordTokenExpiresIn: 3600`, `revokeSessionsOnPasswordReset: true`; `emailVerification.sendVerificationEmail` com `sendOnSignUp: true`, `sendOnSignIn: true`, `expiresIn: 3600`.
+  - Novos endpoints em `server/api/auth/`: `send-verification-email.post.ts`, `verify-email.get.ts` (302 para origin sem estado), `forget-password.post.ts`, `reset-password.post.ts` (token no body **ou** query, idempotente entre os dois canais), `reset-password/[token].get.ts` (valida sem consumir → 302 com `?token=` ou `?error=INVALID_TOKEN`). Rate limit por IP + por email (5/min) em todos.
+  - `server/utils/auth/identity/repository.ts` — `verifyEmail`, `sendVerificationEmail`, `requestPasswordReset`, `resetPassword` (wrap 400/401 em 400 genérico — token inválido/expirado/consumido indistinguíveis), `validateResetToken` (lookup drizzle na tabela `verification` do better-auth — acoplamento ao layout interno documentado no código); login: 403 `email_not_verified` repassado **só** com senha correta (sempre 401/403 genérico antes disso — sem enumeração), e **excluído do lockout** (`LOCKOUT_EXEMPT_ERROR_CODES`).
+  - `server/utils/shared/email.ts` — `sendTransactionalEmail` genérico (best-effort, nunca lança) + `sendVerificationEmailLink`/`sendPasswordResetLink` (Resend). Os links do better-auth já apontam para `/api/auth/...` (o `baseURL` do contexto inclui o basePath); só o `callbackURL` padrão é removido do link de verificação.
+- **Garantias verificadas (testes + banco real):** registro envia link de verificação e login é bloqueado (403 `email_not_verified`) até verificar; replay do link de verificação é idempotente (token JWT de 1h); token de reset é de **uso único** (replay → 400) e `validateResetToken` não o consome; reset revoga **todas** as sessões; senha antiga inválida / nova aceita; `requestPasswordReset` de email inexistente resolve silenciosamente (anti-enumeração, sem email capturado); **takeover de pré-registro**: dono real recupera via reset + verificação e faz login — o atacante perde a conta; token de verificação forjado rejeitado. 295 testes no total (250 baseline + 45).
+- **Risco residual declarado:** o login de conta **desativada** com senha correta continua retornando 401 genérico (AUD-06) — sem canal de recuperação; mitigado por suporte. Verificação por email depende da entrega (Resend) e de o titular ter acesso à caixa; melhorada por `sendOnSignIn` em cada login subsequente.
+- **Dependências de deploy:** `RESEND_API_KEY`/`RESEND_FROM` (mesmas envs do AUD-06; sem elas os emails são pulados com warning e a verificação nunca se completa — nova conta fica bloqueada em 403; logado no sistema de monitoramento do AUD-06).
+- **Perguntas em aberto:**
 
 ---
 
@@ -145,7 +180,7 @@
   - `server/utils/shared/email.ts` (novo) — `sendDeactivationNotice(email)`: POST `https://api.resend.com/emails` com `fetch` nativo (sem SDK), timeout 5s via `AbortController`, best-effort (sem key → warn + skip; qualquer erro → log, nunca lança; sem fila/retry).
   - `specs/001-auth-context/contracts/auth-api.md` — linha `401 account_deactivated` removida; 401 genérico documentado com nota do email automático.
   - `.env.example` — `RESEND_API_KEY`/`RESEND_FROM` documentados (ausência → email pulado com warn, login inalterado).
-- **Risco residual declarado (não corrigido nesta rodada):** o branch `account_deactivated` é isento de lockout por-email (`:109`), então um atacante que conheça o email de uma conta desativada pode gerar disparos repetidos do email de aviso, limitado apenas pelo rate limit por IP existente (20/min, contornável por rotação de IP). Decisão: não foi implementado rate limit no envio do email agora — gap conhecido, revisitado junto com o AUD-02 (chaveamento do lockout).
+- **Risco residual declarado (não corrigido nesta rodada):** o branch `account_deactivated` é isento de lockout por-email (`:109`), então um atacante que conheça o email de uma conta desativada pode gerar disparos repetidos do email de aviso, limitado apenas pelo rate limit por IP existente (20/min, contornável por rotação de IP). Revisado com o AUD-02 (2026-08-14): o chaveamento do lockout não cobre este gap (o envio de email fica fora do lockout por design — conta desativada não deve bloquear o dono); mitigação de spam de email segue como gap conhecido, dependente de infra de fila/rate limit de envio.
 - **Testes:** unit `server/utils/shared/email.spec.ts` (payload/headers corretos, skip sem key, erro do Resend não lança) + `server/api/auth/login.post.spec.ts` (401 genérico no caminho desativado, `sendDeactivationNotice` chamado com o email, reason `account_deactivated` na auditoria, sem failed attempt). Suíte completa: 229 testes, lint limpo.
 
 ---
@@ -204,7 +239,7 @@
 Ordem de prioridade para planejamento de correção, combinando impacto e custo de exploração:
 
 1. **AUD-03 (enumeração no register)** — exploração trivial (1 requisição), baixo esforço de correção, melhora imediata do perfil LGPD.
-2. **AUD-02 (lockout DoS)** — explorável hoje sem bugs; correção exige decisão de chaveamento (email×IP) e possivelmente alteração de contrato (FR-010).
+2. **AUD-02 (lockout DoS)** — **resolvido (2026-08-14)** — lockout em duas camadas keyed por (email+IP) no limiar da FR-016 e global por email em 50.
 3. **AUD-05 (infra: sslmode, TRUST_PROXY, fallbacks de env)** — correção de configuração de baixo esforço, mas depende do conhecimento do ambiente de deploy.
 4. **AUD-01 (token no convite)** — **resolvido (2026-08-11)** — aceite por token de uso único com backstop RLS. (Era o de maior impacto potencial; deixa o topo.)
 5. **AUD-04 (verificação de email / reset de senha)** — alto impacto de produto/LGPD, mas é decisão de escopo (feature nova), não hotfix.

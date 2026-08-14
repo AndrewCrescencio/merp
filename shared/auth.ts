@@ -3,6 +3,11 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { db } from '~~/server/utils/db'
 import * as schema from '~~/server/utils/schema'
 import { logger } from './logger'
+import {
+  appVerificationLink,
+  sendPasswordResetLink,
+  sendVerificationEmailLink,
+} from '~~/server/utils/shared/email'
 
 const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000'
 
@@ -29,6 +34,32 @@ function createAuth() {
     emailAndPassword: {
       enabled: true,
       autoSignIn: false,
+      // AUD-04: login exige email verificado (OWASP Authentication Cheat
+      // Sheet). O link de verificação é enviado no sign-up (sendOnSignUp) e
+      // reenviado automaticamente a cada tentativa de login com senha
+      // CORRETA de conta não-verificada (sendOnSignIn — o envio só ocorre
+      // depois do verify do scrypt, então não há vetor de spam anônimo).
+      // Contas pré-existentes (email_verified=false) recebem o link ao
+      // tentar logar — migração sem data migration.
+      requireEmailVerification: true,
+      resetPasswordTokenExpiresIn: 3600,
+      // OWASP: trocar a senha invalida todas as sessões existentes.
+      revokeSessionsOnPasswordReset: true,
+      // Fire-and-forget (void): os callbacks nunca podem atrasar o request
+      // (equalização de timing do AUD-03/AUD-07) nem falhar o fluxo. O link
+      // gerado pelo better-auth já aponta para /api/auth/reset-password/
+      // <token> (basePath do app) e carrega o callbackURL da origem.
+      sendResetPassword: ({ user, url }) => {
+        void sendPasswordResetLink(user.email, url)
+      },
+    },
+    emailVerification: {
+      sendVerificationEmail: ({ user, url }) => {
+        void sendVerificationEmailLink(user.email, appVerificationLink(url))
+      },
+      sendOnSignUp: true,
+      sendOnSignIn: true,
+      expiresIn: 3600,
     },
     // FR-010: TTL fixo — rememberMe=7d (expiresIn), sem rememberMe=24h
     // (better-auth usa 24h quando dontRememberMe). disableSessionRefresh

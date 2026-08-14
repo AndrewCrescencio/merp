@@ -9,6 +9,7 @@ const mockRecordFailedAttempt = vi.fn()
 const mockResetFailedAttempts = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockSendUnauthorizedError = vi.fn()
+const mockSendAuthError = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
 const mockAppendResponseHeaders = vi.fn()
@@ -45,6 +46,7 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
 vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: mockSendValidationError,
   sendUnauthorizedError: mockSendUnauthorizedError,
+  sendAuthError: mockSendAuthError,
 }))
 
 vi.mock('~~/server/utils/shared/audit', () => ({
@@ -68,6 +70,12 @@ describe('POST /api/auth/login', () => {
     })
     mockSendUnauthorizedError.mockImplementation((msg: string) => {
       throw new Error(msg)
+    })
+    mockSendAuthError.mockImplementation((status: number, error: string, message: string) => {
+      const err: any = new Error(JSON.stringify({ error, message }))
+      err.status = status
+      err.statusCode = status
+      throw err
     })
   })
 
@@ -148,8 +156,8 @@ describe('POST /api/auth/login', () => {
     await handler(event)
 
     expect(mockCheckEmailRateLimit).toHaveBeenCalledWith(event, 'user@example.com')
-    expect(mockCheckAccountLockout).toHaveBeenCalledWith('user@example.com')
-    expect(mockResetFailedAttempts).toHaveBeenCalledWith('user@example.com')
+    expect(mockCheckAccountLockout).toHaveBeenCalledWith('user@example.com', null)
+    expect(mockResetFailedAttempts).toHaveBeenCalledWith('user@example.com', null)
     expect(mockSignIn).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'user@example.com' }),
       event.headers,
@@ -165,7 +173,7 @@ describe('POST /api/auth/login', () => {
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
     await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
-    expect(mockRecordFailedAttempt).toHaveBeenCalledWith('user@example.com')
+    expect(mockRecordFailedAttempt).toHaveBeenCalledWith('user@example.com', null)
   })
 
   it('calls checkAccountLockout before authentication', async () => {
@@ -181,7 +189,7 @@ describe('POST /api/auth/login', () => {
 
     await handler({} as any)
 
-    expect(mockCheckAccountLockout).toHaveBeenCalledWith('user@example.com')
+    expect(mockCheckAccountLockout).toHaveBeenCalledWith('user@example.com', null)
   })
 
   it('returns user data on successful login', async () => {
@@ -217,7 +225,7 @@ describe('POST /api/auth/login', () => {
 
     await handler({} as any)
 
-    expect(mockResetFailedAttempts).toHaveBeenCalledWith('user@example.com')
+    expect(mockResetFailedAttempts).toHaveBeenCalledWith('user@example.com', null)
   })
 
   it('returns 401 on invalid credentials and records failed attempt', async () => {
@@ -229,7 +237,7 @@ describe('POST /api/auth/login', () => {
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
 
     await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
-    expect(mockRecordFailedAttempt).toHaveBeenCalledWith('user@example.com')
+    expect(mockRecordFailedAttempt).toHaveBeenCalledWith('user@example.com', null)
   })
 
   it('passes rememberMe flag and headers to repository', async () => {
@@ -296,6 +304,7 @@ describe('POST /api/auth/login', () => {
 
     await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
     expect(mockSignIn).not.toHaveBeenCalled()
+    expect(mockCheckAccountLockout).toHaveBeenCalledWith('locked@example.com', '203.0.113.9')
     expect(mockCreateAuthEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'locked@example.com',
@@ -394,6 +403,46 @@ describe('POST /api/auth/login', () => {
 
     await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
     expect(mockRecordFailedAttempt).not.toHaveBeenCalled()
+  })
+
+  it('AUD-04: returns explicit 403 email_not_verified and records it as the reason', async () => {
+    mockReadBody.mockResolvedValue({ email: 'unverified@example.com', password: 'password123' })
+    const notVerifiedError: any = new Error(
+      JSON.stringify({ error: 'email_not_verified', message: 'Email not verified' }),
+    )
+    notVerifiedError.statusCode = 403
+    mockSignIn.mockRejectedValue(notVerifiedError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 403 })
+    expect(mockSendAuthError).toHaveBeenCalledWith(
+      403,
+      'email_not_verified',
+      'Please verify your email address before logging in.',
+    )
+    expect(mockCreateAuthEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'unverified@example.com',
+        eventType: 'failed_login',
+        metadata: { reason: 'email_not_verified' },
+      }),
+    )
+  })
+
+  it('AUD-04: does not record a failed attempt or send a notice for email_not_verified', async () => {
+    mockReadBody.mockResolvedValue({ email: 'unverified@example.com', password: 'password123' })
+    const notVerifiedError: any = new Error(
+      JSON.stringify({ error: 'email_not_verified', message: 'Email not verified' }),
+    )
+    notVerifiedError.statusCode = 403
+    mockSignIn.mockRejectedValue(notVerifiedError)
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 403 })
+    expect(mockRecordFailedAttempt).not.toHaveBeenCalled()
+    expect(mockSendDeactivationNotice).not.toHaveBeenCalled()
   })
 
   it('does not record a failed attempt on infrastructure errors (503/500)', async () => {
