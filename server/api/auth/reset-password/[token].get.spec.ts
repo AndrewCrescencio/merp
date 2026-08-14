@@ -111,4 +111,43 @@ describe('GET /api/auth/reset-password/[token] (AUD-04)', () => {
       302,
     )
   })
+
+  it('rejects a callbackURL from a foreign origin (anti-open-redirect)', async () => {
+    vi.stubEnv('BETTER_AUTH_URL', 'https://app.merp.com.br')
+    mockGetRouterParam.mockReturnValue('reset-token')
+    mockGetQuery.mockReturnValue({ callbackURL: 'https://evil.example.com/phish' })
+    mockValidateResetToken.mockResolvedValue(true)
+
+    const handler = await import('~~/server/api/auth/reset-password/[token].get').then(
+      (m) => m.default,
+    )
+
+    await handler({} as any)
+
+    expect(mockSendRedirect).toHaveBeenCalledWith(
+      {} as any,
+      'https://app.merp.com.br/?token=reset-token',
+      302,
+    )
+  })
+
+  it('accepts a callbackURL matching CORS_ORIGIN', async () => {
+    vi.stubEnv('BETTER_AUTH_URL', 'https://api.merp.com.br')
+    vi.stubEnv('CORS_ORIGIN', 'https://app.merp.com.br')
+    mockGetRouterParam.mockReturnValue('reset-token')
+    mockGetQuery.mockReturnValue({ callbackURL: 'https://app.merp.com.br/reset' })
+    mockValidateResetToken.mockResolvedValue(true)
+
+    const handler = await import('~~/server/api/auth/reset-password/[token].get').then(
+      (m) => m.default,
+    )
+
+    await handler({} as any)
+
+    expect(mockSendRedirect).toHaveBeenCalledWith(
+      {} as any,
+      'https://app.merp.com.br/?token=reset-token',
+      302,
+    )
+  })
 })

@@ -370,3 +370,25 @@ atualizado com a nota de não sobrescrever em `.env` sem mudar a subnet.
 **Status (2026-08-14):** Implementado — `docker compose -f docker-compose.yml -f
 docker-compose.prod.yml config` valida; boot de produção passa a subir com o CIDR
 correto.
+
+---
+
+### 19. Open redirect no link de reset de senha (callbackURL da query) ✅ RESOLVIDO
+
+**Arquivo:** `server/api/auth/reset-password/[token].get.ts`
+
+O handler de clique do link de reset (GET `/api/auth/reset-password/<token>`) aceitava
+`callbackURL` da query string sem validação e redirecionava (302) para
+`<origin>/?token=...` — um **open redirect** no domínio confiável: qualquer um podia
+montar um link `https://app/.../reset-password/<token>?callbackURL=https://evil.com`
+(phishing com o domínio legítimo na URL) e, com um token válido na mão, vazar o token
+na URL para o atacante. O link do email em si era seguro (o `requestPasswordReset`
+envia `redirectTo: baseURL` server-side), mas o handler não podia confiar no input.
+
+**Solução:** allowlist de origens (`BETTER_AUTH_URL` + `CORS_ORIGIN`); `callbackURL`
+de origem estranha ou malformado → fallback para a origem padrão do app. Sem mudança
+de contrato: o email continua apontando para a origem correta.
+
+**Status (2026-08-14):** Implementado — testes: origem estranha rejeitada (cai para
+`BETTER_AUTH_URL`), `CORS_ORIGIN` aceito, caminho arbitrário reduzido à origem
+(existente), ausência de callbackURL usa `BETTER_AUTH_URL`.

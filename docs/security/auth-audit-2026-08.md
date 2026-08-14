@@ -96,6 +96,17 @@
 
 ---
 
+### AUD-08 — Open redirect no link de reset de senha (`callbackURL` da query)
+
+- **Categoria:** phishing / exfiltração de token
+- **Severidade:** baixa — o link do email é seguro (`redirectTo: baseURL` server-side); a falha é no handler de clique, que confiava no `callbackURL` da query.
+- **Localização:** `server/api/auth/reset-password/[token].get.ts`
+- **Descrição:** o GET aceitava qualquer `callbackURL` e redirecionava (302) para a origem dele com `?token=...` na URL — open redirect no domínio confiável; com um token válido, o token vazava na URL do destino atacante.
+- **Status:** resolvido (2026-08-14)
+- **Correção:** allowlist de origens (`BETTER_AUTH_URL` + `CORS_ORIGIN`); origem estranha/malformada → fallback para a origem padrão. Testes: origem estranha rejeitada, `CORS_ORIGIN` aceito, path arbitrário reduzido à origem, sem callbackURL → padrão. Registro em `docs/pendencies.md` (item 19).
+
+---
+
 ### AUD-04 — Ausência de verificação de email e de fluxo de recuperação de senha
 
 - **Categoria:** produto-LGPD
