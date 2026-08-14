@@ -86,7 +86,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
       invitedBy: owner.id,
     })
 
-    await withTenant(createdCompany.id, null, async (tx) => {
+    await withTenant(createdCompany.id, owner.id, async (tx) => {
       await tx
         .update(invite)
         .set({ expiresAt: new Date(Date.now() - 60_000) })
@@ -188,5 +188,45 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     ).rejects.toThrow()
 
     expect(await company.isCompanyMember(attacker.id, createdCompany.id)).toBe(false)
+  })
+
+  it('RLS backstop: member (non-owner) cannot UPDATE invites in the company', async () => {
+    // AUD-01 residual: a policy antiga (invite_update_policy sem check de role)
+    // deixava qualquer member alterar invites pendentes. Agora o UPDATE exige
+    // owner OU o claim por token — member sem token é negado no banco.
+    const ownerEmail = `updowner-${Date.now()}@example.com`
+    const memberEmail = `updmember-${Date.now()}@example.com`
+    const inviteeEmail = `updinvitee-${Date.now()}@example.com`
+    const owner = await registerUser(ownerEmail, 'Upd Owner')
+    const member = await registerUser(memberEmail, 'Upd Member')
+    const createdCompany = await company.createCompany({ name: 'Upd Company' })
+    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    await company.createCompanyMember(createdCompany.id, member.id, 'member')
+
+    const created = await repo.createInvite({
+      companyId: createdCompany.id,
+      email: inviteeEmail,
+      invitedBy: owner.id,
+    })
+
+    const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+    const { invite } = await import('~~/server/utils/schema')
+    const { eq } = await import('drizzle-orm')
+
+    // RLS de UPDATE filtra silenciosamente (0 rows) — o member não vê erro,
+    // mas a linha não muda; o invite continua intacto para o destinatário.
+    const hijackedEmail = `hijack-${Date.now()}@example.com`
+    const rows = await withTenant(createdCompany.id, member.id, async (tx) => {
+      return tx
+        .update(invite)
+        .set({ email: hijackedEmail })
+        .where(eq(invite.id, created.id))
+        .returning({ id: invite.id })
+    })
+    expect(rows).toHaveLength(0)
+
+    const pending = await repo.findPendingInvite(createdCompany.id, inviteeEmail)
+    expect(pending?.id).toBe(created.id)
+    expect(pending?.email).not.toBe(hijackedEmail)
   })
 })

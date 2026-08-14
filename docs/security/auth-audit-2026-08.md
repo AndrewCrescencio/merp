@@ -28,7 +28,8 @@
   - `server/api/auth/invites.accept.post.ts` — body `{ token }`; erros genéricos (404 "Invite not found or expired") para inválido/expirado/consumido/email errado (anti-enumeração, alinhado a AUD-03/06/07). `server/api/auth/invite.post.ts` — resposta inclui `token` (única exposição; não vai para auditoria).
   - `specs/001-auth-context/contracts/auth-api.md` — contratos `POST /invite`, `POST /invites/accept` e `GET /invites` documentados com o novo body `{ token }` (mudança de contrato segura: sem frontend no repo).
 - **Garantias verificadas (testes + banco real):** token aceito uma única vez (replay → 404); token forjado/corrompido → 404; token apresentado por outro email (mesmo com posse) → 404 e convite segue válido; token expirado → 404; `token_hash` nunca exposto fora do repositório; **backstop RLS comprovado**: INSERT direto de member sem token nem flag → negado pelo banco (`42501`) e nenhuma linha criada.
-- **Risco residual declarado:** o token existe fora do banco (resposta de API) — logado por proxies de request se o corpo for logado (aceitável: uso único + TTL 7d; o fluxo definitivo é link por email). A policy `invite_token_select_policy` permite ler o convite a quem possuir o token — necessário para o lookup. Membros de uma empresa continuam podendo `UPDATE` invites não-aceitos na mesma empresa (policy antiga, `invite_update_policy`, sem check de role) — fora do escopo do AUD-01, registrar para revisão futura.
+- **Risco residual declarado:** o token existe fora do banco (resposta de API) — logado por proxies de request se o corpo for logado (aceitável: uso único + TTL 7d; o fluxo definitivo é link por email). A policy `invite_token_select_policy` permite ler o convite a quem possuir o token — necessário para o lookup.
+- **Residual `invite_update_policy`/`invite_delete_policy` (registrado para revisão): resolvido (2026-08-14)** — members podiam `UPDATE`/`DELETE` invites não-aceitos da própria empresa (policy antiga só exigia tenant). Migration `drizzle/0013_invite_owner_update.sql`: `UPDATE` exige owner **ou** claim por token (email da sessão + `token_hash` no GUC + pendente + não expirado — preserva o `acceptInvite`, que roda com o contexto do convidado ainda não-member); `DELETE` é owner-only. Backstop verificado por teste de integração (member → 42501, invite intacto). Registro completo em `docs/pendencies.md` (item 17).
 - **Testes:** integração `server/utils/auth/invite/repository.test.ts` (7 casos, incl. backstop RLS) + unit `invites.accept.post.spec.ts` (token obrigatório, email da sessão nunca do body, propagação de 404) + `invite.post.spec.ts` (token na resposta).
 
 ---
@@ -151,7 +152,7 @@
   - `.env.example` — `TRUSTED_PROXY_CIDRS` documentada (obrigatória quando `TRUST_PROXY=true`).
 - **Garantias verificadas (testes):** `server/utils/shared/ip.spec.ts` (default não confia; confia só com flag + peer no CIDR; fail-closed para peer fora da lista e para flag sem CIDRs; normalização IPv4-mapped; IP único sem prefixo; valores ≠ `true` ignorados; CIDR malformado lança), `server/utils/db.spec.ts` (prod força/upgrade/respecta sslmode; fora de prod URL intocada), `server/plugins/validate-env.spec.ts` (nada fora de prod; lista de ausentes em prod; TRUST_PROXY=true com/sem CIDRs; malformado lança).
 - **Risco residual declarado:** `sslmode=require` não valida certificado (equivalente ao libpq `require`); e os CIDRs não podem provar que _há_ um proxy reescrevendo o header — um atacante com acesso à rede das origens confiadas conseguiria forjar o header. Ambos resolvem com deploy blindado (CA pinning via `verify-full` e regra de firewall para os CIDRs).
-- **Dependências de deploy:** produção precisa setar `CORS_ORIGIN`, `BETTER_AUTH_URL`, e — se atrás de proxy — `TRUST_PROXY=true` + `TRUSTED_PROXY_CIDRS`; o Postgres de prod precisa aceitar TLS (senão o boot de conexão falha, intencional).
+- **Dependências de deploy:** produção precisa setar `CORS_ORIGIN`, `BETTER_AUTH_URL`, e — se atrás de proxy — `TRUST_PROXY=true` + `TRUSTED_PROXY_CIDRS`; o Postgres de prod precisa aceitar TLS (senão o boot de conexão falha, intencional). Desde 2026-08-14 o `docker-compose.prod.yml` piná a subnet da `merp_network` em `172.28.0.0/16` e já define `TRUSTED_PROXY_CIDRS=172.28.0.0/16` no serviço `app` — o gap que fazia o boot de produção ser recusado (env ausente) está fechado no próprio compose.
 - **Perguntas em aberto:**
   - O deploy de produção termina TLS onde (proxy/load balancer vs. conexão direta ao Postgres remoto)?
   - O fallback para `localhost` é observável em produção hoje (há monitoramento de env)?
@@ -220,17 +221,19 @@
 
 ## Contexto — O que já está resolvido (não são problemas)
 
-| Item                                                                 | Referência                                                                    |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| RLS com FORCE + backstop TOCTOU (owner reavaliado na execução)       | `drizzle/0007_abnormal_talkback.sql`, `drizzle/0009_company_delete_owner.sql` |
-| Escape de LIKE wildcards na busca de empresas                        | `server/utils/auth/company/repository.ts:13` (`escapeLikePattern`)            |
-| Erro 500 genérico sem vazamento de detalhes internos                 | `server/error-handler.ts:46`                                                  |
-| Rate limit por IP antes do `readBody` (corpos grandes sem parse)     | `server/api/auth/login.post.ts:37`, `server/api/auth/register.post.ts:13`     |
-| `FOR UPDATE` + transação no rate limit e lockout (anti-TOCTOU)       | `server/utils/shared/security.ts:87,157`                                      |
-| CSRF mitigado (sameSite=lax, mutações só POST, CORS de origem única) | `shared/auth.ts:46`, `nuxt.config.ts:21-31`                                   |
-| Purge de `auth_security_state` (crescimento sem limite)              | `server/tasks/purge-security-state.ts`, `nuxt.config.ts:17`                   |
-| Anti-enumeração no login: `account_locked` mascarado, 401 genérico   | `server/api/auth/login.post.ts:53-62`                                         |
-| IP spoofing mitigado por default (`TRUST_PROXY=false`)               | `server/utils/shared/ip.ts:6`                                                 |
+| Item                                                                  | Referência                                                                    |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| RLS com FORCE + backstop TOCTOU (owner reavaliado na execução)        | `drizzle/0007_abnormal_talkback.sql`, `drizzle/0009_company_delete_owner.sql` |
+| Invites: UPDATE/DELETE restritos a owner (claim por token preservado) | `drizzle/0013_invite_owner_update.sql`                                        |
+| `TRUSTED_PROXY_CIDRS` definida no prod compose (subnet pinada)        | `docker-compose.prod.yml` (AUD-05 deploy gap fechado, 2026-08-14)             |
+| Escape de LIKE wildcards na busca de empresas                         | `server/utils/auth/company/repository.ts:13` (`escapeLikePattern`)            |
+| Erro 500 genérico sem vazamento de detalhes internos                  | `server/error-handler.ts:46`                                                  |
+| Rate limit por IP antes do `readBody` (corpos grandes sem parse)      | `server/api/auth/login.post.ts:37`, `server/api/auth/register.post.ts:13`     |
+| `FOR UPDATE` + transação no rate limit e lockout (anti-TOCTOU)        | `server/utils/shared/security.ts:87,157`                                      |
+| CSRF mitigado (sameSite=lax, mutações só POST, CORS de origem única)  | `shared/auth.ts:46`, `nuxt.config.ts:21-31`                                   |
+| Purge de `auth_security_state` (crescimento sem limite)               | `server/tasks/purge-security-state.ts`, `nuxt.config.ts:17`                   |
+| Anti-enumeração no login: `account_locked` mascarado, 401 genérico    | `server/api/auth/login.post.ts:53-62`                                         |
+| IP spoofing mitigado por default (`TRUST_PROXY=false`)                | `server/utils/shared/ip.ts:6`                                                 |
 
 ---
 

@@ -327,3 +327,46 @@ só é chamado para `invalid_credentials`. Juntamente: TTL de sessão corrigido 
 `disableSessionRefresh: true` — o refresh automático promoveria sessões de 24h para 7d;
 e detecção de email duplicado no register via statusCode 422 (antes, sniffing de
 `message.includes('already')`).
+
+---
+
+### 17. Member podia UPDATE/DELETE invites da empresa (residual AUD-01) ✅ RESOLVIDO
+
+**Arquivo:** `drizzle/0006_invites_rls.sql` (policies `invite_update_policy`/`invite_delete_policy`)
+
+O residual do AUD-01 (registrado em `docs/security/auth-audit-2026-08.md:31` para revisão
+futura): `invite_update_policy` e `invite_delete_policy` usavam apenas
+`USING ("company_id" = get_tenant_id())` — qualquer member podia alterar (email,
+expiração) ou apagar invites não-aceitos da própria empresa, sem check de role.
+
+**Solução:** `drizzle/0013_invite_owner_update.sql` — UPDATE agora exige **owner** OU o
+**claim por token** (mesmo padrão do `cm_insert_policy`): email do invite = email do
+usuário da sessão + `token_hash` no GUC + pendente + não expirado (cobre o
+`acceptInvite`, que roda com o contexto do convidado, ainda não-member). DELETE é
+owner-only (não há endpoint de revogação; quando houver, será restrito a owner).
+
+**Status (2026-08-14):** Implementado — migration `0013` aplicada via `apply-custom-sql`
+(idempotente). Teste de integração em `server/utils/auth/invite/repository.test.ts`:
+member tenta UPDATE de invite → negado pelo banco (42501) e invite permanece intacto;
+o teste de expiração manual passou a rodar como owner (era `null` — negado pela nova
+policy, correto).
+
+---
+
+### 18. Prod compose com TRUST_PROXY=true sem TRUSTED_PROXY_CIDRS ✅ RESOLVIDO
+
+**Arquivo:** `docker-compose.prod.yml`
+
+O compose de produção setava `TRUST_PROXY=true` (nginx reescreve o header) mas nunca
+definia `TRUSTED_PROXY_CIDRS` — obrigatória quando `TRUST_PROXY=true` (fail-closed do
+AUD-05, `server/plugins/validate-env.ts:13`). O boot de produção seria **recusado**
+conforme documentado: falha de config de deploy, não de código.
+
+**Solução:** subnet da `merp_network` pinada em `172.28.0.0/16` (ipam no compose de
+produção) e `TRUSTED_PROXY_CIDRS=172.28.0.0/16` setado no serviço `app` — o peer
+imediato (container nginx) fica deterministicamente dentro do CIDR. `.env.example`
+atualizado com a nota de não sobrescrever em `.env` sem mudar a subnet.
+
+**Status (2026-08-14):** Implementado — `docker compose -f docker-compose.yml -f
+docker-compose.prod.yml config` valida; boot de produção passa a subir com o CIDR
+correto.
