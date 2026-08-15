@@ -444,6 +444,10 @@ spec do endpoint atualizado (`searchCompanies('Test', 'user-1')`). Suíte: 298 t
 
 - lint limpo. Nota: a `company_select_policy` segue permissiva no banco (defesa em
   profundidade para SELECT direto) — nenhum endpoint expõe mais a busca global.
+- **Nota registrada (decisão pendente de produto):** a busca escopada mata a
+  descoberta de empresas para quem ainda não tem vínculo — se onboarding precisar de
+  busca pública no futuro, terá que ser decisão separada, ex.: busca pública limitada
+  a `id + name` (sem CNPJ, que é dado sensível) numa rota dedicada, com rate limit.
 
 ---
 
