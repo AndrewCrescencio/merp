@@ -109,9 +109,10 @@ export class CompanyRepository implements ICompanyRepository {
           created!.id,
           ownerUserId,
           async (ctxTx) => {
-            // AUD-01: cm_insert_policy só permite self-insert com este flag
-            // (bootstrap do fundador) ou com token de convite válido.
-            await ctxTx.execute(sql`SELECT set_config('app.allow_owner_bootstrap', 'true', true)`)
+            // AUD-01/AUD-11: cm_insert_policy (0014) só permite self-insert
+            // role='owner' com este flag (bootstrap do fundador); role='member'
+            // exige o flag de member (createCompanyMember) ou token de convite.
+            await ctxTx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
             await ctxTx
               .insert(companyMember)
               .values({ companyId: created!.id, userId: ownerUserId, role: 'owner' })
@@ -141,12 +142,25 @@ export class CompanyRepository implements ICompanyRepository {
     userId: string,
     role = 'member',
   ): Promise<CompanyMemberResult> {
+    // AUD-11: este método é bootstrap de MEMBRO (fixtures de teste e futuros
+    // fluxos que se auto-adicionam como member). Criar owner exige o caminho
+    // de founder (createCompanyWithOwner): a policy 0014 nega role='owner'
+    // com o flag de member — e este guard falha cedo com erro claro em vez
+    // de 42501 opaco. Adicionar OUTRO usuário é o branch is_company_owner
+    // da policy (owner adiciona qualquer membro) — nunca este método.
+    // Guard antes do try/catch: é erro de programação, não 503 de serviço.
+    if (role !== 'member') {
+      throw new Error(
+        'createCompanyMember: role must be "member"; owner bootstrap uses createCompanyWithOwner',
+      )
+    }
     try {
       return await withTenant(companyId, userId, async (tx) => {
-        // AUD-01: caminho confiado de inserção de member (fixtures de teste e
-        // futuros fluxos de gestão) — marca o tx como bootstrap permitido;
-        // caminhos de aceite de convite NÃO usam este método (exigem token).
-        await tx.execute(sql`SELECT set_config('app.allow_owner_bootstrap', 'true', true)`)
+        // AUD-01/AUD-11: caminho confiado de inserção de member (fixtures de
+        // teste e futuros fluxos de gestão) — marca o tx como bootstrap de
+        // member; caminhos de aceite de convite NÃO usam este método (exigem
+        // token). O flag não habilita role='owner' (0014).
+        await tx.execute(sql`SELECT set_config('app.allow_member_bootstrap', 'true', true)`)
         const [created] = await tx
           .insert(companyMember)
           .values({ companyId, userId, role })

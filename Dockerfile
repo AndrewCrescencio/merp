@@ -17,6 +17,9 @@ RUN pnpm install --frozen-lockfile && pnpm build
 
 FROM base AS production
 COPY --from=build /app/.output /app/.output
-EXPOSE 3000
 ENV NODE_ENV=production
+# AUD-11 (hardening): não rodar como root — o processo de runtime tem permissão
+# mínima; .output é somente leitura (lido), nada é escrito em /app.
+USER node
+EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]

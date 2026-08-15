@@ -8,11 +8,15 @@ import {
 } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
-import { normalizeEmail } from '~~/server/utils/shared/security'
+import { checkIpRateLimit, normalizeEmail } from '~~/server/utils/shared/security'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default defineEventHandler(async (event) => {
+  // AUD-11: rate limit por IP antes do readBody (mesmo padrão das rotas
+  // públicas) — criação de convites é mutação barata de abusar.
+  await checkIpRateLimit(event)
+
   const user = event.context.user as { id: string; email: string } | undefined
   if (!user) {
     throw createError({

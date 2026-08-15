@@ -24,8 +24,10 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const inviteeEmail = `invitee-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'Owner')
     const invitee = await registerUser(inviteeEmail, 'Invitee')
-    const createdCompany = await company.createCompany({ name: 'Invite Company' })
-    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    const createdCompany = await company.createCompanyWithOwner(
+      { name: 'Invite Company' },
+      owner.id,
+    )
 
     const created = await repo.createInvite({
       companyId: createdCompany.id,
@@ -56,8 +58,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const ownerEmail = `dupowner-${Date.now()}@example.com`
     const inviteeEmail = `dupinvitee-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'Dup Owner')
-    const createdCompany = await company.createCompany({ name: 'Dup Company' })
-    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    const createdCompany = await company.createCompanyWithOwner({ name: 'Dup Company' }, owner.id)
 
     await repo.createInvite({
       companyId: createdCompany.id,
@@ -73,8 +74,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
   it('returns null for expired invites', async () => {
     const ownerEmail = `expowner-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'Exp Owner')
-    const createdCompany = await company.createCompany({ name: 'Exp Company' })
-    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    const createdCompany = await company.createCompanyWithOwner({ name: 'Exp Company' }, owner.id)
 
     const { withTenant } = await import('~~/server/utils/auth/tenant-context')
     const { invite } = await import('~~/server/utils/schema')
@@ -104,8 +104,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const inviteeEmail = `oneinvitee-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'One Owner')
     const invitee = await registerUser(inviteeEmail, 'One Invitee')
-    const createdCompany = await company.createCompany({ name: 'One Company' })
-    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    const createdCompany = await company.createCompanyWithOwner({ name: 'One Company' }, owner.id)
 
     const created = await repo.createInvite({
       companyId: createdCompany.id,
@@ -126,8 +125,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const owner = await registerUser(ownerEmail, 'Diff Owner')
     const invitee = await registerUser(inviteeEmail, 'Diff Invitee')
     const other = await registerUser(otherEmail, 'Other User')
-    const createdCompany = await company.createCompany({ name: 'Diff Company' })
-    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    const createdCompany = await company.createCompanyWithOwner({ name: 'Diff Company' }, owner.id)
 
     const created = await repo.createInvite({
       companyId: createdCompany.id,
@@ -150,8 +148,10 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const inviteeEmail = `forgedinvitee-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'Forged Owner')
     const invitee = await registerUser(inviteeEmail, 'Forged Invitee')
-    const createdCompany = await company.createCompany({ name: 'Forged Company' })
-    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    const createdCompany = await company.createCompanyWithOwner(
+      { name: 'Forged Company' },
+      owner.id,
+    )
 
     const created = await repo.createInvite({
       companyId: createdCompany.id,
@@ -171,8 +171,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const attackerEmail = `rlsattacker-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'Rls Owner')
     const attacker = await registerUser(attackerEmail, 'Rls Attacker')
-    const createdCompany = await company.createCompany({ name: 'Rls Company' })
-    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    const createdCompany = await company.createCompanyWithOwner({ name: 'Rls Company' }, owner.id)
 
     const { withTenant } = await import('~~/server/utils/auth/tenant-context')
     const { companyMember } = await import('~~/server/utils/schema')
@@ -199,8 +198,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const inviteeEmail = `updinvitee-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'Upd Owner')
     const member = await registerUser(memberEmail, 'Upd Member')
-    const createdCompany = await company.createCompany({ name: 'Upd Company' })
-    await company.createCompanyMember(createdCompany.id, owner.id, 'owner')
+    const createdCompany = await company.createCompanyWithOwner({ name: 'Upd Company' }, owner.id)
     await company.createCompanyMember(createdCompany.id, member.id, 'member')
 
     const created = await repo.createInvite({

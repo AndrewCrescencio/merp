@@ -11,13 +11,18 @@ describe('missingProductionEnv (AUD-05)', () => {
     expect(missingProductionEnv({ NODE_ENV: 'development' })).toEqual([])
   })
 
-  it('flags missing CORS_ORIGIN and BETTER_AUTH_URL in production', () => {
+  it('flags missing CORS_ORIGIN, BETTER_AUTH_URL and APP_DATABASE_URL in production', () => {
     expect(missingProductionEnv({ NODE_ENV: 'production' })).toEqual([
       'CORS_ORIGIN',
       'BETTER_AUTH_URL',
+      'APP_DATABASE_URL',
     ])
     expect(
-      missingProductionEnv({ NODE_ENV: 'production', CORS_ORIGIN: 'https://app.example.com' }),
+      missingProductionEnv({
+        NODE_ENV: 'production',
+        CORS_ORIGIN: 'https://app.example.com',
+        APP_DATABASE_URL: 'postgres://app:pw@db:5432/merp',
+      }),
     ).toEqual(['BETTER_AUTH_URL'])
   })
 
@@ -50,6 +55,7 @@ describe('missingProductionEnv (AUD-05)', () => {
         NODE_ENV: 'production',
         CORS_ORIGIN: 'https://app.example.com',
         BETTER_AUTH_URL: 'https://app.example.com',
+        APP_DATABASE_URL: 'postgres://app:pw@db:5432/merp',
         TRUST_PROXY: 'false',
       }),
     ).toEqual([])

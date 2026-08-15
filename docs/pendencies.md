@@ -464,3 +464,50 @@ de origem única (`default-src 'self'`; `script-src 'self'`; `style-src 'self'
 `connect-src 'self'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action
 'self'`). Config validada via `nginx -t` (único erro do teste é o upstream `app:3000`
 não resolver fora da rede do compose — esperado).
+
+---
+
+### 23. Revisão de segurança 2026-08-15 (AUD-11) ✅ RESOLVIDO
+
+**Arquivos:** `server/utils/auth/company/repository.ts`, `drizzle/0014_bootstrap_role_split.sql`,
+`server/plugins/validate-env.ts`, `docker-compose.prod.yml`, `server/api/auth/invite.post.ts`,
+`server/api/auth/invites.accept.post.ts`, `server/api/auth/login.post.ts`, `Dockerfile`
+
+Achados da revisão do código inteiro contra a auditoria `docs/security/auth-audit-2026-08.md`
+(AUD-01 a AUD-10 verificados resolvidos no código; 298 testes verdes):
+
+1. **Mina de escalada no `createCompanyMember`** — o método se auto-autorizava: setava o
+   flag `app.allow_owner_bootstrap` e aceitava qualquer `(companyId, userId, role)`
+   incluindo `'owner'`, sem checar o papel do chamador. Nenhum endpoint o usava (só
+   fixtures de teste), mas qualquer fluxo futuro de "add member" que o reaproveitasse
+   anularia o backstop RLS do AUD-01 por dentro.
+   **Fix:** `drizzle/0014_bootstrap_role_split.sql` — flags de bootstrap escopados por role:
+   `app.allow_founder_bootstrap` → só `role='owner'` (setado apenas por
+   `createCompanyWithOwner`); `app.allow_member_bootstrap` → só `role='member'`
+   (`createCompanyMember`); a branch de token de convite também exige `role='member'`.
+   Guard no app: `createCompanyMember` rejeita `role !== 'member'` com erro claro.
+   Fixtures de teste migraram de `createCompany` + `createCompanyMember(..., 'owner')`
+   para `createCompanyWithOwner`. Testes novos: guard do app + backstop DB (raw SQL com
+   flag de member + role='owner' → 42501).
+
+2. **`APP_DATABASE_URL` ausente → produção rodava como role OWNER (fail-open)** — `db.ts`
+   caía silenciosamente para `DATABASE_URL`; o prod compose defaultava para vazio;
+   `validate-env.ts` não checava. RLS FORCE (0007) limitava o estrago, mas a postura
+   fail-closed do AUD-05 era violada.
+   **Fix:** `missingProductionEnv` exige `APP_DATABASE_URL` em produção (boot recusado);
+   `docker-compose.prod.yml` usa `${APP_DATABASE_URL?Variable not set}` (fail no compose).
+
+3. **Sem rate limit em `POST /api/auth/invite` e `POST /api/auth/invites/accept`** — mutações
+   baratas sem limite por IP.
+   **Fix:** `checkIpRateLimit` no início de ambos (padrão das rotas públicas).
+
+4. **`login.post.ts` — `getClientIp` fora de try/catch no catch de lockout** — sem socket,
+   um TypeError mascararia o 401 genérico com 500 espúrio.
+   **Fix:** re-resolução do IP dentro de try/catch (auditoria sem IP).
+
+5. **Dockerfile de produção rodava como root.**
+   **Fix:** `USER node` no stage `production` (`.output` é somente leitura).
+
+**Status (2026-08-15):** Implementado — migration `0014` aplicada via `apply-custom-sql`
+(idempotente); lint limpo; suíte completa verde (298 testes baseline + 2 novos de
+integração do item 1).

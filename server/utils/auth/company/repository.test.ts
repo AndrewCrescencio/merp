@@ -25,11 +25,8 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const userA = await registerUser(emailA, 'User A')
       const userB = await registerUser(emailB, 'User B')
 
-      const companyA = await repo.createCompany({ name: 'Company A' })
-      const companyB = await repo.createCompany({ name: 'Company B' })
-
-      await repo.createCompanyMember(companyA.id, userA.id, 'owner')
-      await repo.createCompanyMember(companyB.id, userB.id, 'owner')
+      const companyA = await repo.createCompanyWithOwner({ name: 'Company A' }, userA.id)
+      const companyB = await repo.createCompanyWithOwner({ name: 'Company B' }, userB.id)
 
       const userACompanies = await repo.findUserCompanies(userA.id)
       expect(userACompanies).toHaveLength(1)
@@ -47,11 +44,8 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const userA = await registerUser(emailA, 'Sel A')
       const userB = await registerUser(emailB, 'Sel B')
 
-      const companyA = await repo.createCompany({ name: 'Sel Company A' })
-      const companyB = await repo.createCompany({ name: 'Sel Company B' })
-
-      await repo.createCompanyMember(companyA.id, userA.id, 'owner')
-      await repo.createCompanyMember(companyB.id, userB.id, 'owner')
+      const companyA = await repo.createCompanyWithOwner({ name: 'Sel Company A' }, userA.id)
+      const companyB = await repo.createCompanyWithOwner({ name: 'Sel Company B' }, userB.id)
 
       const { withTenant } = await import('~~/server/utils/auth/tenant-context')
       const { companyMember } = await import('~~/server/utils/schema')
@@ -73,11 +67,8 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const userA = await registerUser(emailA, 'Upd A')
       const userB = await registerUser(emailB, 'Upd B')
 
-      const companyA = await repo.createCompany({ name: 'Upd Company A' })
-      const companyB = await repo.createCompany({ name: 'Upd Company B' })
-
-      await repo.createCompanyMember(companyA.id, userA.id, 'owner')
-      await repo.createCompanyMember(companyB.id, userB.id, 'owner')
+      const companyA = await repo.createCompanyWithOwner({ name: 'Upd Company A' }, userA.id)
+      const companyB = await repo.createCompanyWithOwner({ name: 'Upd Company B' }, userB.id)
 
       const { withTenant } = await import('~~/server/utils/auth/tenant-context')
       const { company } = await import('~~/server/utils/schema')
@@ -95,10 +86,11 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const member = await registerUser(`scope-member-${Date.now()}@example.com`, 'Scope Member')
       const outsider = await registerUser(`scope-outsider-${Date.now()}@example.com`, 'Scope Out')
 
-      const mine = await repo.createCompany({ name: 'Scope Mine Company' })
-      const theirs = await repo.createCompany({ name: 'Scope Theirs Company' })
-      await repo.createCompanyMember(mine.id, member.id, 'owner')
-      await repo.createCompanyMember(theirs.id, outsider.id, 'owner')
+      const mine = await repo.createCompanyWithOwner({ name: 'Scope Mine Company' }, member.id)
+      const theirs = await repo.createCompanyWithOwner(
+        { name: 'Scope Theirs Company' },
+        outsider.id,
+      )
 
       const memberResults = await repo.searchCompanies('Scope', member.id)
       expect(memberResults.map((c) => c.id)).toEqual([mine.id])
@@ -138,11 +130,8 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('returns the role of a member and null for non-members', async () => {
       const email = `role-${Date.now()}@example.com`
       const user = await registerUser(email, 'Role User')
-      const company = await repo.createCompany({ name: 'Role Company' })
+      const company = await repo.createCompanyWithOwner({ name: 'Role Company' }, user.id)
 
-      expect(await repo.getCompanyMembershipRole(user.id, company.id)).toBeNull()
-
-      await repo.createCompanyMember(company.id, user.id, 'owner')
       expect(await repo.getCompanyMembershipRole(user.id, company.id)).toBe('owner')
 
       const outsider = await registerUser(`outsider-${Date.now()}@example.com`, 'Outsider')
@@ -154,8 +143,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('lets an owner add a member to their own company', async () => {
       const owner = await registerUser(`add-owner-${Date.now()}@example.com`, 'Add Owner')
       const member = await registerUser(`add-member-${Date.now()}@example.com`, 'Add Member')
-      const company = await repo.createCompany({ name: 'Add Member Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'Add Member Company' }, owner.id)
 
       await repo.createCompanyMember(company.id, member.id, 'member')
 
@@ -165,8 +153,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('blocks an outsider from inserting themselves as owner via raw SQL', async () => {
       const owner = await registerUser(`raw-owner-${Date.now()}@example.com`, 'Raw Owner')
       const outsider = await registerUser(`raw-outsider-${Date.now()}@example.com`, 'Raw Outsider')
-      const company = await repo.createCompany({ name: 'Raw Insert Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'Raw Insert Company' }, owner.id)
 
       const { db } = await import('~~/server/utils/db')
       const { companyMember } = await import('~~/server/utils/schema')
@@ -181,11 +168,44 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
     })
 
+    it('AUD-11: createCompanyMember cannot bootstrap an owner (app guard)', async () => {
+      const user = await registerUser(`aud11-guard-${Date.now()}@example.com`, 'Aud11 Guard')
+      const company = await repo.createCompanyWithOwner({ name: 'Aud11 Guard Company' }, user.id)
+
+      await expect(repo.createCompanyMember(company.id, user.id, 'owner')).rejects.toThrow(
+        /createCompanyMember: role must be "member"/,
+      )
+      expect(await repo.getCompanyMembershipRole(user.id, company.id)).toBe('owner')
+    })
+
+    it('AUD-11: DB backstop — member bootstrap flag never grants role=owner', async () => {
+      const owner = await registerUser(`aud11-owner-${Date.now()}@example.com`, 'Aud11 Owner')
+      const attacker = await registerUser(`aud11-db-${Date.now()}@example.com`, 'Aud11 Db')
+      const company = await repo.createCompanyWithOwner({ name: 'Aud11 Db Company' }, owner.id)
+
+      const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+      const { companyMember } = await import('~~/server/utils/schema')
+      const { getPostgresErrorCode } = await import('~~/server/utils/shared/errors')
+      const { sql } = await import('drizzle-orm')
+
+      // Raw SQL com o flag de member no GUC — a policy (0014) exige o flag de
+      // founder para role='owner'; role='member' é negado pelo flag errado.
+      await expect(
+        withTenant(company.id, attacker.id, async (tx) => {
+          await tx.execute(sql`SELECT set_config('app.allow_member_bootstrap', 'true', true)`)
+          await tx.insert(companyMember).values({
+            companyId: company.id,
+            userId: attacker.id,
+            role: 'owner',
+          })
+        }),
+      ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
+    })
+
     it('blocks a member from promoting themselves to owner via UPDATE', async () => {
       const owner = await registerUser(`up-owner-${Date.now()}@example.com`, 'Up Owner')
       const member = await registerUser(`up-member-${Date.now()}@example.com`, 'Up Member')
-      const company = await repo.createCompany({ name: 'Up Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'Up Company' }, owner.id)
       await repo.createCompanyMember(company.id, member.id, 'member')
 
       const { withTenant } = await import('~~/server/utils/auth/tenant-context')
@@ -207,10 +227,8 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const ownerA = await registerUser(`move-owner-a-${Date.now()}@example.com`, 'Move Owner A')
       const ownerB = await registerUser(`move-owner-b-${Date.now()}@example.com`, 'Move Owner B')
       const member = await registerUser(`move-member-${Date.now()}@example.com`, 'Move Member')
-      const companyA = await repo.createCompany({ name: 'Move Company A' })
-      const companyB = await repo.createCompany({ name: 'Move Company B' })
-      await repo.createCompanyMember(companyA.id, ownerA.id, 'owner')
-      await repo.createCompanyMember(companyB.id, ownerB.id, 'owner')
+      const companyA = await repo.createCompanyWithOwner({ name: 'Move Company A' }, ownerA.id)
+      const companyB = await repo.createCompanyWithOwner({ name: 'Move Company B' }, ownerB.id)
       await repo.createCompanyMember(companyA.id, member.id, 'member')
 
       const { withTenant } = await import('~~/server/utils/auth/tenant-context')
@@ -233,8 +251,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('lets an owner soft-delete their company (company before members)', async () => {
       const owner = await registerUser(`del-owner-${Date.now()}@example.com`, 'Del Owner')
       const member = await registerUser(`del-member-${Date.now()}@example.com`, 'Del Member')
-      const company = await repo.createCompany({ name: 'Del Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'Del Company' }, owner.id)
       await repo.createCompanyMember(company.id, member.id, 'member')
 
       const result = await repo.softDeleteCompany(company.id, owner.id)
@@ -248,8 +265,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('backstop TOCTOU: a member cannot soft-delete the company (404, RLS denied)', async () => {
       const owner = await registerUser(`toc-owner-${Date.now()}@example.com`, 'TOC Owner')
       const member = await registerUser(`toc-member-${Date.now()}@example.com`, 'TOC Member')
-      const company = await repo.createCompany({ name: 'TOC Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'TOC Company' }, owner.id)
       await repo.createCompanyMember(company.id, member.id, 'member')
 
       await expect(repo.softDeleteCompany(company.id, member.id)).rejects.toMatchObject({
@@ -264,8 +280,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
   describe('updateCompany', () => {
     it('updates name, cnpj and razaoSocial and bumps updatedAt', async () => {
       const owner = await registerUser(`upd-owner-${Date.now()}@example.com`, 'Upd Owner')
-      const company = await repo.createCompany({ name: 'Update Co' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'Update Co' }, owner.id)
       const uniqueCnpj = `1${String(Date.now()).padStart(13, '0')}`
 
       const result = await repo.updateCompany(company.id, owner.id, {
@@ -287,8 +302,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const ownerB = await registerUser(`upd-dup-owner-${Date.now()}@example.com`, 'Upd Dup Owner')
       const uniqueCnpj = `2${String(Date.now()).padStart(13, '0')}`
       await repo.createCompany({ name: 'Co A', cnpj: uniqueCnpj })
-      const companyB = await repo.createCompany({ name: 'Co B' })
-      await repo.createCompanyMember(companyB.id, ownerB.id, 'owner')
+      const companyB = await repo.createCompanyWithOwner({ name: 'Co B' }, ownerB.id)
 
       await expect(
         repo.updateCompany(companyB.id, ownerB.id, { cnpj: uniqueCnpj }),
@@ -307,8 +321,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         `upd-toc-member-${Date.now()}@example.com`,
         'Upd TOC Member',
       )
-      const company = await repo.createCompany({ name: 'Upd TOC Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'Upd TOC Company' }, owner.id)
       await repo.createCompanyMember(company.id, member.id, 'member')
 
       await expect(
@@ -323,8 +336,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('lets an owner remove a member; the member is no longer a member', async () => {
       const owner = await registerUser(`rm-owner-${Date.now()}@example.com`, 'RM Owner')
       const member = await registerUser(`rm-member-${Date.now()}@example.com`, 'RM Member')
-      const company = await repo.createCompany({ name: 'RM Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'RM Company' }, owner.id)
       await repo.createCompanyMember(company.id, member.id, 'member')
 
       await repo.removeCompanyMember(company.id, owner.id, member.id)
@@ -336,8 +348,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('lets a member leave the company themselves', async () => {
       const owner = await registerUser(`lv-owner-${Date.now()}@example.com`, 'LV Owner')
       const member = await registerUser(`lv-member-${Date.now()}@example.com`, 'LV Member')
-      const company = await repo.createCompany({ name: 'LV Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'LV Company' }, owner.id)
       await repo.createCompanyMember(company.id, member.id, 'member')
 
       await repo.removeCompanyMember(company.id, member.id, member.id)
@@ -350,8 +361,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const owner = await registerUser(`blk-owner-${Date.now()}@example.com`, 'Blk Owner')
       const memberA = await registerUser(`blk-member-a-${Date.now()}@example.com`, 'Blk Member A')
       const memberB = await registerUser(`blk-member-b-${Date.now()}@example.com`, 'Blk Member B')
-      const company = await repo.createCompany({ name: 'Blk Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'Blk Company' }, owner.id)
       await repo.createCompanyMember(company.id, memberA.id, 'member')
       await repo.createCompanyMember(company.id, memberB.id, 'member')
 
@@ -366,8 +376,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('clears activeCompanyId on sessions of the removed user', async () => {
       const owner = await registerUser(`clr-owner-${Date.now()}@example.com`, 'Clr Owner')
       const member = await registerUser(`clr-member-${Date.now()}@example.com`, 'Clr Member')
-      const company = await repo.createCompany({ name: 'Clr Company' })
-      await repo.createCompanyMember(company.id, owner.id, 'owner')
+      const company = await repo.createCompanyWithOwner({ name: 'Clr Company' }, owner.id)
       await repo.createCompanyMember(company.id, member.id, 'member')
 
       const session = await identity.createSession(

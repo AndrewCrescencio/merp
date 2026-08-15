@@ -67,11 +67,18 @@ export default defineEventHandler(async (event) => {
     // A conta está bloqueada, mas o cliente recebe o mesmo 401 genérico de
     // credenciais inválidas (anti-enumeração). O motivo fica na auditoria.
     if (getLoginErrorReason(error) === 'invalid_credentials') {
-      const ip = getClientIp(event)
+      // AUD-11: getClientIp fora do try/catch mascararia o erro de lockout com
+      // um 500 espúrio (sem socket, ex.: eventos de teste) — auditoria sem IP.
+      let auditIp: string | null = null
+      try {
+        auditIp = getClientIp(event)
+      } catch {
+        // Sem socket — auditoria sem IP.
+      }
       await createAuthEvent({
         email,
         eventType: 'failed_login',
-        ipAddress: ip,
+        ipAddress: auditIp,
         metadata: { reason: 'account_locked' },
       })
       sendUnauthorizedError('Invalid email or password')
