@@ -91,9 +91,22 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       expect(await repo.findCompanyById(companyB.id)).toMatchObject({ name: 'Upd Company B' })
     })
 
-    it('allows company search without tenant context', async () => {
-      const result = await repo.searchCompanies('Company')
-      expect(result.length).toBeGreaterThanOrEqual(2)
+    it('AUD-10: search is scoped to the user membership', async () => {
+      const member = await registerUser(`scope-member-${Date.now()}@example.com`, 'Scope Member')
+      const outsider = await registerUser(`scope-outsider-${Date.now()}@example.com`, 'Scope Out')
+
+      const mine = await repo.createCompany({ name: 'Scope Mine Company' })
+      const theirs = await repo.createCompany({ name: 'Scope Theirs Company' })
+      await repo.createCompanyMember(mine.id, member.id, 'owner')
+      await repo.createCompanyMember(theirs.id, outsider.id, 'owner')
+
+      const memberResults = await repo.searchCompanies('Scope', member.id)
+      expect(memberResults.map((c) => c.id)).toEqual([mine.id])
+      expect(memberResults.some((c) => c.id === theirs.id)).toBe(false)
+
+      const outsiderResults = await repo.searchCompanies('Scope', outsider.id)
+      expect(outsiderResults.map((c) => c.id)).toEqual([theirs.id])
+      expect(outsiderResults.some((c) => c.id === mine.id)).toBe(false)
     })
   })
 
@@ -109,10 +122,14 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
 
     it('rolls back company creation when owner insert fails', async () => {
       const name = `Atomic Fail ${Date.now()}`
+      const searcher = await registerUser(
+        `atomic-search-${Date.now()}@example.com`,
+        'Atomic Searcher',
+      )
 
       await expect(repo.createCompanyWithOwner({ name }, 'nonexistent-user-id')).rejects.toThrow()
 
-      const results = await repo.searchCompanies('Atomic Fail')
+      const results = await repo.searchCompanies('Atomic Fail', searcher.id)
       expect(results.some((c: any) => c.name === name)).toBe(false)
     })
   })

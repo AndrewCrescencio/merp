@@ -18,7 +18,9 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Search query is required')
   }
 
-  const companies = await companyRepository.searchCompanies(query.q.trim())
+  // AUD-10: escopada por vínculo — o repositório só retorna empresas onde
+  // user.id é member (antes: busca global, vazava nome+CNPJ de tudo).
+  const companies = await companyRepository.searchCompanies(query.q.trim(), user.id)
 
   return { companies: companies.map((c) => ({ id: c.id, name: c.name, cnpj: c.cnpj })) }
 })

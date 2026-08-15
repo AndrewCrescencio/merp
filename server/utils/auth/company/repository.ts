@@ -46,7 +46,7 @@ export interface ICompanyRepository {
     userId: string,
     role?: string,
   ): Promise<CompanyMemberResult>
-  searchCompanies(query: string): Promise<CompanyResult[]>
+  searchCompanies(query: string, userId: string): Promise<CompanyResult[]>
   findCompanyById(id: string): Promise<CompanyResult | null>
   findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>>
   isCompanyMember(userId: string, companyId: string): Promise<boolean>
@@ -168,19 +168,35 @@ export class CompanyRepository implements ICompanyRepository {
     }
   }
 
-  async searchCompanies(query: string): Promise<CompanyResult[]> {
+  // AUD-10: busca escopada por vínculo — apenas empresas onde o usuário é
+  // member aparecem (antes: qualquer autenticado enumerava nome+CNPJ de tudo).
+  // O join roda com withTenant(null, userId): a cm_select_policy (0005) só
+  // expõe linhas de company_member com user_id = get_user_id().
+  async searchCompanies(query: string, userId: string): Promise<CompanyResult[]> {
     try {
       const pattern = `%${escapeLikePattern(query)}%`
-      return await db
-        .select()
-        .from(company)
-        .where(
-          and(
-            eq(company.isDeleted, false),
-            or(like(company.name, pattern), like(company.cnpj, pattern)),
-          ),
-        )
-        .limit(20)
+      return await withTenant(null, userId, async (tx) => {
+        return await tx
+          .select({
+            id: company.id,
+            name: company.name,
+            cnpj: company.cnpj,
+            razaoSocial: company.razaoSocial,
+            isDeleted: company.isDeleted,
+            createdAt: company.createdAt,
+            updatedAt: company.updatedAt,
+          })
+          .from(companyMember)
+          .innerJoin(company, eq(companyMember.companyId, company.id))
+          .where(
+            and(
+              eq(companyMember.userId, userId),
+              eq(company.isDeleted, false),
+              or(like(company.name, pattern), like(company.cnpj, pattern)),
+            ),
+          )
+          .limit(20)
+      })
     } catch (error) {
       return handleDatabaseError(error)
     }

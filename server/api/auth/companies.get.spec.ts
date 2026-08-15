@@ -59,7 +59,7 @@ describe('GET /api/auth/companies', () => {
 
     const result = await handler(event)
 
-    expect(mockSearchCompanies).toHaveBeenCalledWith('Test')
+    expect(mockSearchCompanies).toHaveBeenCalledWith('Test', 'user-1')
     expect(result).toEqual({
       companies: [{ id: 'c1', name: 'Test Company', cnpj: '12345678901234' }],
     })

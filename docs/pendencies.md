@@ -395,3 +395,68 @@ futuros bugs de allowlist).
 **Status (2026-08-14):** Implementado — testes: token válido → `<app-origin>/?token=`,
 token inválido/expirado → `?error=INVALID_TOKEN`, `callbackURL` (qualquer valor)
 ignorado, env ausente → fallback `http://localhost:3000`.
+
+---
+
+### 20. Middleware de auth bloqueava os links de email (AUD-09) ✅ RESOLVIDO
+
+**Arquivo:** `server/middleware/auth.ts` (publicRoutes)
+
+O middleware de sessão só liberava `register`/`login`/`health`/`/` — os destinos dos
+links dos emails (`GET /api/auth/verify-email`, `GET /api/auth/reset-password/<token>`
+e `POST /api/auth/reset-password`) retornavam 401 sem sessão, e o usuário que clica o
+link de email **não tem sessão** (autoSignIn=false; reset é só para quem esqueceu a
+senha). Deadlock: registro → link de verificação 401 → login 403 `email_not_verified`
+com reenvio do mesmo link quebrado; reset de senha impossível. Neutralizava as
+mitigações de AUD-03/AUD-04. Os specs unitários não pegavam porque chamavam os
+handlers direto, sem passar pelo middleware.
+
+**Solução (2026-08-15):** `publicRoutes` ganhou `/api/auth/verify-email` e
+`/api/auth/reset-password`; novo `publicRoutePrefixes` (match por prefixo) cobre o GET
+dinâmico `/api/auth/reset-password/<token>` — o `includes` literal não casa o path com
+token. Essas rotas se autenticam pelo próprio token (uso único + TTL 1h) + rate limit
+por IP, não por sessão. Testes: 2 casos novos em `server/middleware/auth.spec.ts`
+(rotas de email passam sem sessão; `getSession` não é chamado). Registro completo em
+`docs/security/aud-09-middleware-email-links.md`. Suíte: 298 testes + lint limpo.
+
+---
+
+### 21. Busca global de empresas expunha nome+CNPJ de tudo (AUD-10) ✅ RESOLVIDO
+
+**Arquivo:** `server/utils/auth/company/repository.ts` (`searchCompanies`),
+`server/api/auth/companies.get.ts`
+
+`GET /api/auth/companies?q=...` buscava em **todas** as empresas não-deletadas —
+qualquer usuário autenticado enumerava nome+CNPJ do banco inteiro, sem vínculo. A
+policy `company_select_policy` (0005) liberava `is_deleted = false` sem contexto.
+
+**Decisão (2026-08-15):** escopar por vínculo — a busca só retorna empresas onde o
+usuário é member. Consequência assumida: a descoberta de empresas para novos usuários
+sem vínculo deixa de existir (self-join já era via convite; onboarding futuro precisa
+de outro mecanismo se quiser busca pública).
+
+**Solução:** `searchCompanies(query, userId)` agora faz `innerJoin company_member`
+dentro de `withTenant(null, userId, ...)` — o GUC `app.user_id` é necessário porque a
+`cm_select_policy` só expõe linhas de `company_member` com `user_id = get_user_id()`
+(sem contexto, o join retornaria 0 linhas). Endpoint repassa `user.id`. Testes: caso
+de integração novo (member vê só as próprias empresas; outsider não vê as do outro) +
+spec do endpoint atualizado (`searchCompanies('Test', 'user-1')`). Suíte: 298 testes
+
+- lint limpo. Nota: a `company_select_policy` segue permissiva no banco (defesa em
+  profundidade para SELECT direto) — nenhum endpoint expõe mais a busca global.
+
+---
+
+### 22. nginx sem CSP / Referrer-Policy (AUD-10) ✅ RESOLVIDO
+
+**Arquivo:** `infra/nginx/nginx.conf`
+
+Faltavam `Content-Security-Policy` e `Referrer-Policy` (HSTS/nosniff/XFO já existiam).
+
+**Solução (2026-08-15):** `Referrer-Policy: no-referrer` — o token de reset aparece em
+URL (`?token=...`) e não deve vazar em Referer de navegações externas. CSP conservadora
+de origem única (`default-src 'self'`; `script-src 'self'`; `style-src 'self'
+'unsafe-inline'` para estilos injetados pelo Vue; `img/font-src 'self' data:`;
+`connect-src 'self'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action
+'self'`). Config validada via `nginx -t` (único erro do teste é o upstream `app:3000`
+não resolver fora da rede do compose — esperado).
