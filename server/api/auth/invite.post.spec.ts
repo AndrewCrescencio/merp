@@ -51,6 +51,11 @@ vi.mock('~~/server/utils/shared/errors', async (importOriginal) => {
   }
 })
 
+vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
+  ...(await importOriginal()),
+  checkIpRateLimit: vi.fn(),
+}))
+
 const eventWithUser = (overrides: Record<string, unknown> = {}) =>
   ({ context: { user: { id: 'user-1', email: 'owner@example.com' } }, ...overrides }) as any
 
