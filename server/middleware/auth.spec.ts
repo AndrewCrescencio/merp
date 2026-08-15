@@ -96,6 +96,34 @@ describe('auth middleware', () => {
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 
+  it('AUD-09: skips auth for verify-email route (email link, no session)', async () => {
+    mockGetRequestURL.mockReturnValue(
+      new URL('http://localhost:3000/api/auth/verify-email?token=signed-jwt'),
+    )
+
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    const event = { headers: new Headers() } as any
+
+    const result = await handler(event)
+
+    expect(result).toBeUndefined()
+    expect(mockGetSession).not.toHaveBeenCalled()
+  })
+
+  it('AUD-09: skips auth for reset-password routes (email link GET and POST, no session)', async () => {
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    for (const path of ['/api/auth/reset-password/some-token', '/api/auth/reset-password']) {
+      mockGetRequestURL.mockReturnValue(new URL(`http://localhost:3000${path}`))
+
+      const event = { headers: new Headers() } as any
+
+      await expect(handler(event)).resolves.toBeUndefined()
+      expect(mockGetSession).not.toHaveBeenCalled()
+    }
+  })
+
   it('returns 503 auth_unavailable when auth instance cannot be resolved', async () => {
     mockGetAuth.mockRejectedValue(new Error('auth init failed'))
 
