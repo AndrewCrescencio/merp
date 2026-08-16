@@ -3,6 +3,8 @@ services:
     build:
       context: .
       target: production
+      args:
+        - CORS_ORIGIN=${CORS_ORIGIN:?CORS_ORIGIN obrigatória no build (baked no Nitro, AUD-05)}
     env_file:
       - .env
     environment:
@@ -10,6 +12,9 @@ services:
       - APP_DATABASE_URL=${APP_DATABASE_URL?Variable not set - role de app (nao-dona) obrigatoria para RLS vigorar}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET?Variable not set}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
+      # O nginx do projeto proxy para app:3000 (infra/nginx/nginx.conf) —
+      # .env/.env.example usam PORT=5173 (dev), que quebraria o proxy.
+      - PORT=3000
       - NODE_ENV=production
       # Confia em X-Forwarded-For APENAS porque o nginx sobrescreve o header
       # (infra/nginx/nginx.conf) e o app não é exposto fora da rede interna.

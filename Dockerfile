@@ -12,6 +12,8 @@ ENV NODE_ENV=development
 CMD ["pnpm", "dev"]
 
 FROM base AS build
+ARG CORS_ORIGIN
+ENV CORS_ORIGIN=${CORS_ORIGIN}
 COPY . .
 RUN pnpm install --frozen-lockfile && pnpm build
 
