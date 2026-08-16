@@ -1,4 +1,5 @@
 import { defineEventHandler, readBody, appendResponseHeaders } from 'h3'
+import { logger } from '#shared/logger'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
   checkAccountLockout,
@@ -102,11 +103,19 @@ export default defineEventHandler(async (event) => {
       appendResponseHeaders(event, { 'set-cookie': user.setCookie })
     }
 
-    await createAuthEvent({
+    // AUD-13: fire-and-forget (padrão FR-023) — o Set-Cookie de sessão já foi
+    // anexado; se a auditoria falhasse com await, o cliente receberia 503 com
+    // sessão válida criada (estado inconsistente + sessões órfãs em retries).
+    void createAuthEvent({
       userId: user.id,
       email: user.email,
       eventType: 'login',
       ipAddress: ip,
+    }).catch((error: unknown) => {
+      logger.warn('Failed to emit login auth event', {
+        userId: user.id,
+        error: error instanceof Error ? error.message : String(error),
+      })
     })
 
     return {

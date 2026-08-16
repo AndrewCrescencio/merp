@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
     sendForbiddenError('User is not a member of the specified company')
   }
 
-  await companyRepository.setActiveCompany(currentSession.id, body.companyId)
+  await companyRepository.setActiveCompany(currentSession.id, body.companyId, user.id)
 
   event.context.activeCompanyId = body.companyId
 

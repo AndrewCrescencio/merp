@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockSignIn = vi.fn()
-const mockCreateAuthEvent = vi.fn()
+const mockCreateAuthEvent = vi.fn().mockResolvedValue(undefined)
 const mockCheckIpRateLimit = vi.fn()
 const mockCheckEmailRateLimit = vi.fn()
 const mockCheckAccountLockout = vi.fn()

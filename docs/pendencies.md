@@ -563,3 +563,64 @@ Revisão do código inteiro após AUD-11 (300 testes verdes). Achados novos:
   max-age 1a) já presente nos server/locations e por `main_no_query` (token nunca logado).
 
 **Status (2026-08-16):** Implementado — lint limpo; suíte completa verde.
+
+---
+
+### 25. Revisão de segurança 2026-08-16 (AUD-13) ✅ RESOLVIDO
+
+Revisão em profundidade das áreas não lidas no AUD-12 (handlers de companies/consent/
+export, shared/auth.ts, security.ts, tenant-context.ts, pii-audit, error-handler).
+Itens verificados OK: export.get (só dados próprios), tokens de reset/verify (uso único,
+TTL 1h), cookies (httpOnly+samesite=lax+secure), CSRF, sliding window sem TOCTOU
+(`FOR UPDATE`), GUCs transaction-local, mass assignment limitado no register.
+
+Corrigido:
+
+1. **TOCTOU no switch de empresa (médio-alto, latente)** — `companies.switch.post.ts`
+   checava `isCompanyMember` e depois `setActiveCompany` em transações separadas: um
+   owner podia remover o membro na janela entre as duas, deixando
+   `session.activeCompanyId` apontando para empresa onde o usuário não é mais membro —
+   o GUC de tenant satisfaz as policies RLS sozinho (`get_tenant_id()`), então qualquer
+   endpoint futuro que confie no contexto vazaria para ex-membros.
+   **Fix:** `setActiveCompany(sessionId, companyId, userId)` revalida a filiação **na
+   mesma transação** do update (`EXISTS` em company_member com o GUC de user setado;
+   falha → 403). `softDeleteCompany` também limpa `activeCompanyId` das sessões da
+   empresa deletada (gap análogo já coberto em `removeCompanyMember`).
+
+2. **Registro sem consentimento gravado (médio)** — `consentTermsVersion` era opcional
+   (`required: false` no better-auth, `if (input.consentTermsVersion)` no repositório):
+   conta ativa criada com `consent_terms_version` NULL se o cliente omitisse o campo, e
+   a versão alegada vinha do cliente sem validação — base legal do registro (LGPD)
+   forjável.
+   **Fix:** `register.post.ts` exige `consentTermsVersion` não-vazio (400) e normaliza
+   com trim antes de repassar. Teste novo no spec.
+
+3. **Login: 503 com sessão válida criada (baixo)** — o `Set-Cookie` de sessão era
+   anexado ANTES do `await createAuthEvent`; falha de auditoria (DB down) virava 503
+   com sessão válida no cliente → retries acumulam sessões órfãs.
+   **Fix:** auditoria do caminho de sucesso passou para fire-and-forget (padrão FR-023,
+   `void ... .catch(logger.warn)`) — auditoria nunca mais bloqueia nem falha o login.
+
+**Aceitos como decisão (documentados, não corrigidos):**
+
+- **Ações destrutivas sem reautenticação** (`deactivate.post`, `consent/withdraw.post`)
+  — ASVS recomenda re-autenticação; sem frontend no repo, é decisão de produto.
+  Mitigado por SameSite=Lax (CSRF) e cookie httpOnly.
+- **Spam vector de email** — `send-verification-email`/`forget-password`/notice de
+  desativação disparam emails reais a 5/min por email (300/h com rotação de IP; o
+  better-auth não tem cooldown, só floor de timing). Resíduo conhecido do AUD-04/06;
+  mitigação real exige infra de fila/cooldown de envio.
+- **Oráculos de enumeração 404/403** — `findCompanyById` → 404 antes do check de role
+  → 403 (existência de empresa por UUID); `members.delete` → 404/403 (filiação);
+  mensagens distintas member/owner. Baixo: requer autenticação e UUIDs.
+- **Token de reset na query do redirect** (`/api/auth/reset-password/<token>` → `/?token=`)
+  — padrão comum; mitigado por `no-referrer`, logs sem query (AUD-10) e HSTS.
+
+**Nota operacional (ambiente):** a senha da role `merp_app` foi sobrescrita duas vezes
+em 2026-08-16 por recriações do container postgres (a conexão dos testes vem do host
+via bridge do Docker → cai na regra scram do pg_hba, **não** no trust de loopback —
+o trust só vale para conexões de dentro do container). Se os testes integração falharem
+com `28P01 password authentication failed for user "merp_app"`, reaplicar:
+`docker exec merp-postgres-1 psql -U merp -d postgres -c "ALTER ROLE merp_app WITH LOGIN PASSWORD 'merp_app'"`.
+
+**Status (2026-08-16):** Implementado — lint limpo; suíte completa verde (302 testes).

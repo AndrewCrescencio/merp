@@ -5,6 +5,7 @@ import { createError, H3Error } from 'h3'
 import {
   handleDatabaseError,
   sendConflictError,
+  sendForbiddenError,
   sendNotFoundError,
   getPostgresErrorCode,
 } from '../../shared/errors'
@@ -56,7 +57,7 @@ export interface ICompanyRepository {
     executedByUserId: string,
     targetUserId: string,
   ): Promise<void>
-  setActiveCompany(sessionId: string, companyId: string | null): Promise<void>
+  setActiveCompany(sessionId: string, companyId: string | null, userId: string): Promise<void>
   getActiveCompany(sessionId: string): Promise<string | null>
   softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult>
   updateCompany(
@@ -320,15 +321,40 @@ export class CompanyRepository implements ICompanyRepository {
     }
   }
 
-  async setActiveCompany(sessionId: string, companyId: string | null): Promise<void> {
+  async setActiveCompany(
+    sessionId: string,
+    companyId: string | null,
+    userId: string,
+  ): Promise<void> {
     try {
-      await withTenant(companyId, null, async (tx) => {
+      await withTenant(companyId, userId, async (tx) => {
+        if (companyId !== null) {
+          // AUD-13: revalidação de filiação NA MESMA transação do write —
+          // o check no handler (empresas.switch.post.ts) roda em transação
+          // separada: um owner poderia remover o membro na janela entre o
+          // check e o update, deixando activeCompanyId apontando para uma
+          // empresa onde o usuário não é mais membro (contexto de tenant
+          // que satisfaz as policies RLS por get_tenant_id()).
+          const [membership] = await tx
+            .select({ id: companyMember.id })
+            .from(companyMember)
+            .where(and(eq(companyMember.companyId, companyId), eq(companyMember.userId, userId)))
+            .limit(1)
+
+          if (!membership) {
+            sendForbiddenError('User is not a member of the specified company')
+          }
+        }
+
         await tx
           .update(session)
           .set({ activeCompanyId: companyId, updatedAt: new Date() })
           .where(eq(session.id, sessionId))
       })
     } catch (error) {
+      if (error instanceof H3Error) {
+        throw error
+      }
       return handleDatabaseError(error)
     }
   }
@@ -363,6 +389,15 @@ export class CompanyRepository implements ICompanyRepository {
           sendNotFoundError('Company not found') // RLS negou ou já deletada (0 rows)
         }
         await tx.delete(companyMember).where(eq(companyMember.companyId, companyId))
+
+        // AUD-13: ex-membros não podem continuar com activeCompanyId na
+        // empresa deletada — context.tenantId do middleware viria de uma
+        // empresa morta (mesmo gap que removeCompanyMember já cobria).
+        await tx
+          .update(session)
+          .set({ activeCompanyId: null, updatedAt: new Date() })
+          .where(eq(session.activeCompanyId, companyId))
+
         return updated!
       })
     } catch (error) {

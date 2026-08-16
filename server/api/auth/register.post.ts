@@ -33,13 +33,23 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Name is required')
   }
 
+  // AUD-13: consentimento é a base legal do registro (LGPD) — a conta não
+  // pode existir sem a versão dos termos aceita gravada.
+  if (
+    !body?.consentTermsVersion ||
+    typeof body.consentTermsVersion !== 'string' ||
+    body.consentTermsVersion.trim().length === 0
+  ) {
+    sendValidationError('consentTermsVersion is required')
+  }
+
   await checkEmailRateLimit(event, email)
 
   const user = await identityRepository.register({
     email,
     password: body.password,
     name: body.name.trim(),
-    consentTermsVersion: body.consentTermsVersion,
+    consentTermsVersion: body.consentTermsVersion.trim(),
   })
 
   if (user) {

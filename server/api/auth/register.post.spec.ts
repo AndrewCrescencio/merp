@@ -102,11 +102,25 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
+  it('AUD-13: rejects registration without consentTermsVersion', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('consentTermsVersion is required')
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
   it('checks IP rate limit before reading the body', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'password123',
       name: 'Test User',
+      consentTermsVersion: 'v1',
     })
     mockRegister.mockResolvedValue({
       id: 'uuid',
@@ -147,6 +161,7 @@ describe('POST /api/auth/register', () => {
       email: 'user@example.com',
       password: 'password123',
       name: 'Test User',
+      consentTermsVersion: 'v1',
     })
     mockRegister.mockResolvedValue({
       id: 'uuid',
@@ -168,6 +183,7 @@ describe('POST /api/auth/register', () => {
       email: '  User@Example.COM  ',
       password: 'password123',
       name: 'Test User',
+      consentTermsVersion: 'v1',
     })
     mockRegister.mockResolvedValue({
       id: 'uuid',
@@ -192,6 +208,7 @@ describe('POST /api/auth/register', () => {
       email: 'user@example.com',
       password: 'password123',
       name: 'Test User',
+      consentTermsVersion: 'v1',
     })
     const createdAt = new Date('2026-01-01')
     mockRegister.mockResolvedValue({
@@ -220,6 +237,7 @@ describe('POST /api/auth/register', () => {
       email: 'user@example.com',
       password: 'password123',
       name: 'Test User',
+      consentTermsVersion: 'v1',
     })
     mockRegister.mockResolvedValue(null)
 
@@ -241,6 +259,7 @@ describe('POST /api/auth/register', () => {
       email: 'user@example.com',
       password: 'password123',
       name: 'Alice',
+      consentTermsVersion: 'v1',
     })
     const createdAt = new Date('2026-01-01')
     mockRegister.mockResolvedValue({
@@ -258,6 +277,7 @@ describe('POST /api/auth/register', () => {
       email: 'user@example.com',
       password: 'password123',
       name: 'Alice',
+      consentTermsVersion: 'v1',
     })
     expect(result).toHaveProperty('name', 'Alice')
   })
@@ -266,7 +286,8 @@ describe('POST /api/auth/register', () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'password123',
-      name: '  Alice  ',
+      name: 'Alice',
+      consentTermsVersion: 'v1',
     })
     mockRegister.mockResolvedValue({
       id: 'uuid-123',
@@ -282,6 +303,7 @@ describe('POST /api/auth/register', () => {
       email: 'user@example.com',
       password: 'password123',
       name: 'Alice',
+      consentTermsVersion: 'v1',
     })
   })
 

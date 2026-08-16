@@ -385,7 +385,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         new Date(Date.now() + 60_000),
         false,
       )
-      await repo.setActiveCompany(session.id, company.id)
+      await repo.setActiveCompany(session.id, company.id, member.id)
       expect(await repo.getActiveCompany(session.id)).toBe(company.id)
 
       await repo.removeCompanyMember(company.id, owner.id, member.id)

@@ -94,7 +94,7 @@ describe('POST /api/auth/companies/switch', () => {
 
     const result = await handler(event)
 
-    expect(mockSetActiveCompany).toHaveBeenCalledWith('session-1', 'company-1')
+    expect(mockSetActiveCompany).toHaveBeenCalledWith('session-1', 'company-1', 'user-1')
     expect(result).toEqual({ message: 'Active company switched' })
     expect(event.context.activeCompanyId).toBe('company-1')
   })
