@@ -96,6 +96,17 @@ describe('auth middleware', () => {
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 
+  it('skips auth for forget-password route (starts recovery, caller is always logged out)', async () => {
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/forget-password'))
+
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    const event = { headers: new Headers() } as any
+
+    await expect(handler(event)).resolves.toBeUndefined()
+    expect(mockGetSession).not.toHaveBeenCalled()
+  })
+
   it('AUD-09: skips auth for verify-email route (email link, no session)', async () => {
     mockGetRequestURL.mockReturnValue(
       new URL('http://localhost:3000/api/auth/verify-email?token=signed-jwt'),

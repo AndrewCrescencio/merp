@@ -20,7 +20,7 @@ export default defineNuxtConfig({
       tasks: true,
     },
     scheduledTasks: {
-      '0 0 * * *': ['purge-sessions', 'purge-security-state'],
+      '0 0 * * *': ['purge-sessions', 'purge-security-state', 'purge-auth-events'],
     },
   },
 

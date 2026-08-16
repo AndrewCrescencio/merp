@@ -10,6 +10,8 @@ const publicRoutes = [
   '/api/auth/login',
   '/api/auth/verify-email',
   '/api/auth/reset-password',
+  // AUD-04: inicia o fluxo de recuperação — sempre deslogado por definição.
+  '/api/auth/forget-password',
   '/api/health',
   '/',
 ]

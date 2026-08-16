@@ -511,3 +511,55 @@ Achados da revisão do código inteiro contra a auditoria `docs/security/auth-au
 **Status (2026-08-15):** Implementado — migration `0014` aplicada via `apply-custom-sql`
 (idempotente); lint limpo; suíte completa verde (298 testes baseline + 2 novos de
 integração do item 1).
+
+---
+
+### 24. Revisão de segurança 2026-08-16 (AUD-12) ✅ RESOLVIDO
+
+Revisão do código inteiro após AUD-11 (300 testes verdes). Achados novos:
+
+1. **`POST /api/auth/forget-password` bloqueado pelo middleware** — `publicRoutes`
+   (`server/middleware/auth.ts`) liberava `verify-email` e `reset-password` (AUD-09) mas
+   esquecia o endpoint que **inicia** a recuperação — quem esqueceu a senha está deslogado
+   por definição → 401 "Authentication required." antes do handler. O fluxo de recovery do
+   AUD-04 (incl. takeover de pré-registro) ficava morto em produção; os specs não pegavam
+   pelo mesmo gap do AUD-09 (chamada direta do handler, sem middleware).
+   **Fix:** `'/api/auth/forget-password'` na `publicRoutes` + teste no `auth.spec.ts`.
+   Rota continua protegida por `checkIpRateLimit` + `checkEmailRateLimit` (5/min).
+
+2. **nginx aceitava qualquer Host** — sem `default_server` explícito, o único server block
+   443 virava default implícito para qualquer Host (o comentário AUD-11 afirmava pinning
+   que não existia); `Host` era repassado ao app como veio. Sem exploração hoje (links
+   derivam de `BETTER_AUTH_URL`, não do Host), mas qualquer dependência futura do Host
+   herdaria o vetor (host-poisoning em links de reset).
+   **Fix:** `if ($host != app.merp.com.br) { return 444; }` nos server blocks 80 e 443 —
+   Host desconhecido descartado antes de redirect/log/proxy.
+
+3. **`auth_event` sem purge** — `session_validated` é gravado em toda request autenticada
+   (`server/middleware/auth.ts:113`) e não havia task de retenção (só `purge-sessions` e
+   `purge-security-state`). Crescimento monotônico de PII (email/IP/metadata por request)
+   — risco LGPD de retenção.
+   **Fix:** `server/tasks/purge-auth-events.ts` (retenção 90 dias, mesmo padrão das tasks
+   existentes) + agendada no `nuxt.config.ts`.
+
+**Aceitos como decisão (não corrigidos):**
+
+- **Tabelas de identidade sem RLS** (`user`, `session`, `account`, `verification`,
+  `auth_event`, `auth_security_state`) — o backstop RLS cobre apenas as tabelas de tenant
+  (`company`, `company_member`, `invite`). Tabelas de identidade são **globais por
+  natureza** (o better-auth consulta `user` por email, `session` por token, sem GUC de
+  tenant); policy permissiva = no-op, policy restritiva = quebra auth. Não há posição
+  intermediária viável — a mitigação é a camada de app (checks de autorização) + role de
+  app com privilégios mínimos. Revisitar se algum dia houver escopo por tenant em
+  identidade.
+- **`company_select_policy` permissiva no banco** — decisão de produto já registrada
+  (item 21, nota de 2026-08-15): busca pública futura. Todos os handlers escopam por
+  membership na camada de app.
+- **`GET /api/auth/invites` acessível a qualquer member** — deliberado e protegido por
+  teste de regressão (`invites.get.spec.ts`): convites pendentes são contexto da equipe;
+  a RLS espelha o handler. Criar convite segue owner-only.
+- **Token de reset em claro no `:80`** — inevitável se o cliente fizer request por http
+  (o token vai na linha de request); mitigado por HSTS (`Strict-Transport-Security`,
+  max-age 1a) já presente nos server/locations e por `main_no_query` (token nunca logado).
+
+**Status (2026-08-16):** Implementado — lint limpo; suíte completa verde.
