@@ -58,15 +58,30 @@ services:
       - '443:443'
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - certs:/etc/letsencrypt
+      - certs:/etc/letsencrypt:ro
+      - webroot:/var/www/certbot:ro
     depends_on:
       - app
     restart: always
     networks:
       - merp_network
 
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certs:/etc/letsencrypt
+      - webroot:/var/www/certbot
+    # Uso:
+    #   1ª emissão:  docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot -d ${DOMAIN} -m ${CERTBOT_EMAIL} --agree-tos --no-eff-email
+    #   renovação:   docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm certbot renew
+    #                + exec nginx nginx -s reload (o nginx só lê o cert novo em start/reload)
+    #   cron do host: 15 3 * * * docker compose -f ... -f docker-compose.prod.yml run --rm certbot renew && docker compose -f ... -f docker-compose.prod.yml exec nginx nginx -s reload
+    networks:
+      - merp_network
+
 volumes:
   certs:
+  webroot:
 
 networks:
   # Subnet pinada para que TRUSTED_PROXY_CIDRS (acima) seja determinístico —

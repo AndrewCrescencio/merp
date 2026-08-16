@@ -624,3 +624,37 @@ com `28P01 password authentication failed for user "merp_app"`, reaplicar:
 `docker exec merp-postgres-1 psql -U merp -d postgres -c "ALTER ROLE merp_app WITH LOGIN PASSWORD 'merp_app'"`.
 
 **Status (2026-08-16):** Implementado — lint limpo; suíte completa verde (302 testes).
+
+---
+
+### 18. Certificado TLS de produção (Let's Encrypt) — NÃO IMPLEMENTADO ⏳ PENDENTE DE INFRA
+
+**Status (2026-08-16):** A infra de emissão foi montada (nginx webroot + serviço `certbot` no compose prod), mas a emissão real está **bloqueada por dependências externas** verificadas nesta data:
+
+| Dependência                                      | Estado verificado                                                        |
+| ------------------------------------------------ | ------------------------------------------------------------------------ |
+| Registro A `app.merp.com.br` → IP público        | **Não existe** (DNS público não resolve; testado contra 1.1.1.1)         |
+| Port-forward 80/443 no roteador → `192.168.5.56` | **Não configurado** (timeout em `170.244.29.54:80/443`)                  |
+| IP público fixo                                  | **Dinâmico** (host em DHCP — `wlo1 dynamic`); considerar IP fixo ou DDNS |
+
+**Já implementado (validado com `nginx -t` e teste real):**
+
+- `nginx.conf` — `location /.well-known/acme-challenge/` no server 80 com `root /var/www/certbot` (webroot); o redirect https ficou em `location /` porque **`return` no nível server vence locations** (fase rewrite roda antes do content handler — padrão canônico do certbot). Desafio testado: 200.
+- `docker-compose.prod.yml` — serviço `certbot` (certbot/certbot) + volume `webroot` compartilhado (ro no nginx); volume `certs` é o mesmo do nginx.
+- `.env.example` — `DOMAIN` e `CERTBOT_EMAIL`.
+
+**Passos restantes (executar no servidor de produção, nesta ordem):**
+
+1. Criar registro A: `app.merp.com.br` → IP público do servidor (e port-forward 80/443 → máquina).
+2. Bootstrap (nginx não sobe sem cert): cert dummy no volume `certs` (openssl + copiar para `live/merp/` com `fullchain.pem`, `privkey.pem`, `chain.pem`), depois `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`.
+3. Emissão real:
+   `docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot -d ${DOMAIN} -m ${CERTBOT_EMAIL} --agree-tos --no-eff-email`
+4. `docker compose -f docker-compose.yml -f docker-compose.prod.yml exec nginx nginx -s reload`
+5. Cron do host (renovação — 90 dias):
+   `15 3 * * * docker compose -f /caminho/docker-compose.yml -f /caminho/docker-compose.prod.yml run --rm certbot renew && docker compose -f /caminho/docker-compose.yml -f /caminho/docker-compose.prod.yml exec nginx nginx -s reload`
+   (o reload é **obrigatório**: o nginx só lê o cert novo em start/reload; o desafio webroot não precisa.)
+
+**Bugs corrigidos no caminho (verificação 2026-08-16):**
+
+- `return 301` no nível server do bloco 80 **engolia o location ACME** (retornava 301 para o desafio) — corrigido movendo o redirect para `location /`.
+- Renovação sem reload documentada anteriormente — corrigido no comentário do compose.
