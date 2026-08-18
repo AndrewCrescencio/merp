@@ -658,3 +658,71 @@ com `28P01 password authentication failed for user "merp_app"`, reaplicar:
 
 - `return 301` no nível server do bloco 80 **engolia o location ACME** (retornava 301 para o desafio) — corrigido movendo o redirect para `location /`.
 - Renovação sem reload documentada anteriormente — corrigido no comentário do compose.
+
+---
+
+### 26. Revisão de segurança 2026-08-16 (AUD-14) ✅ RESOLVIDO
+
+Revisão do código inteiro após AUD-13 (302 testes verdes), focada em consistência
+dos padrões já estabelecidos (FR-023, AUD-11) e em superfícies não cobertas pelos
+itens anteriores. Achados novos:
+
+1. **FR-023 violado fora do login (médio)** — o `createAuthEvent` lançava
+   (`handleDatabaseError`) e handlers **aguardavam** a auditoria depois da mutação
+   cometida: register, logout, deactivate, consent/withdraw, companies
+   update/delete, members delete, invite create/accept devolviam 503 com o efeito
+   já persistido (retry → 409/404 confusos, sessões órfãs). No login, a auditoria
+   de `failed_login` awaited podia mascarar o 401 com 503 e **pular** o
+   `recordFailedAttempt` (brute-force seguiria sem contagem).
+   **Fix raiz:** `createAuthEvent` passou a **nunca lançar** — falha de insert vira
+   `logger.warn` e resolve; os `.catch()` existentes (middleware, repositórios)
+   seguem válidos como no-op. Garantia coberta por spec novo
+   (`server/utils/shared/audit.spec.ts`: falha → resolve + warn).
+
+2. **Inputs sem teto de tamanho (médio, DoS leve + PII bloat)** — emails gigantes
+   viram chaves `rate:`/`lockout:` no `auth_security_state` (PK text; índice btree
+   quebra em ~2704 bytes → 54000 → 503) e `name`/`consentTermsVersion` viram
+   colunas de PII desproporcionais; senha de megabytes custa scrypt desmedido no
+   register/login/reset (o better-auth hasheia antes de validar).
+   **Fix:** constantes em `server/utils/shared/security.ts` (RFC 5321/OWASP):
+   `MAX_EMAIL_LENGTH=254`, `MAX_PASSWORD_LENGTH=128`, `MAX_NAME_LENGTH=120`,
+   `MAX_CONSENT_VERSION_LENGTH=50`, `MAX_SEARCH_QUERY_LENGTH=100`; checks em
+   login, register, forget-password, send-verification-email, invite,
+   reset-password e companies.get. No login o excesso responde 401 genérico
+   **idêntico** a credenciais inválidas (nenhuma conta legítima passa dos tetos —
+   zero oráculo, timing uniforme) e roda **antes** do `checkEmailRateLimit` (email
+   gigante nunca vira chave). Specs novos em cada handler.
+
+3. **Login de sucesso derrubado por falha de `resetFailedAttempts` (baixo-médio)**
+   — sessão criada pelo better-auth, `Set-Cookie` nunca anexado (append vinha
+   depois), resposta 503, auditoria `failed_login` reason `'unknown'` enganosa e
+   sessão órfã. **Fix:** try/catch → `logger.warn` → entrega o login; contadores
+   stale expiram (30min lockout / 24h purge). Spec novo no login.
+
+4. **`pii-audit` logava `name` (baixo)** — PII desnecessária em logs json-file do
+   Docker; `email`+`userId` bastam para accountability. **Fix:** `name` removido do
+   log; specs atualizados.
+
+5. **`POST /api/auth/companies` sem rate limit por IP (baixo)** — mesma classe do
+   AUD-11 (mutação barata de abusar: INSERT por request, sem teto por sessão).
+   **Fix:** `checkIpRateLimit` antes do `readBody` (padrão invite.post). Specs novos.
+
+6. **Error handler sem `Content-Type: application/json` (baixo)** — corpo de erro é
+   sempre JSON do contrato (FR-026) mas sem o header; clientes/proxies podiam
+   tratar como texto (sniffing). **Fix:** header setado em toda resposta de erro.
+   Spec novo.
+
+7. **`getClientIp` podia lançar sem node (baixo, consistência)** — o
+   `getRequestIP` do h3 não usa optional chaining (`event.node.req.socket`):
+   evento sem node (testes/web) → TypeError → 500 espúrio; o login já tratava com
+   try/catch, os demais 9 call sites não. **Fix raiz:** `getClientIp` fail-closed
+   (try/catch interno → `undefined`; rate limit/auditoria ficam sem IP, nunca 500).
+   Spec novo.
+
+**Verificados OK (sem ação):** validação/rate limit das rotas de recovery,
+middleware e nginx (AUD-09/12), RLS e grants (AUD-01/05/11, `0015`), todos os
+demais achados AUD-01 a AUD-13 (releitura de código completa).
+
+**Status (2026-08-16):** Implementado — lint limpo; suíte completa verde (320
+testes, +18 vs. baseline: 13 specs de handlers + audit + ip + error-handler +
+pii-audit).

@@ -59,6 +59,18 @@ describe('POST /api/auth/send-verification-email (AUD-04)', () => {
     expect(mockSendVerificationEmail).not.toHaveBeenCalled()
   })
 
+  it('AUD-14: rejects oversized email before the rate-limit key', async () => {
+    mockReadBody.mockResolvedValue({ email: `${'a'.repeat(300)}@example.com` })
+
+    const handler = await import('~~/server/api/auth/send-verification-email.post').then(
+      (m) => m.default,
+    )
+
+    await expect(handler({} as any)).rejects.toThrow('Valid email is required')
+    expect(mockCheckEmailRateLimit).not.toHaveBeenCalled()
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled()
+  })
+
   it('checks the per-email rate limit before delegating', async () => {
     mockReadBody.mockResolvedValue({ email: 'USER@Example.com ' })
 

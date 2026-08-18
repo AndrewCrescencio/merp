@@ -84,6 +84,64 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
+  it('AUD-14: rejects oversized email', async () => {
+    mockReadBody.mockResolvedValue({
+      email: `${'a'.repeat(300)}@example.com`,
+      password: 'password123',
+      name: 'Test User',
+      consentTermsVersion: 'v1',
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Valid email is required')
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
+  it('AUD-14: rejects oversized password', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'x'.repeat(1000),
+      name: 'Test User',
+      consentTermsVersion: 'v1',
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Password must be at most 128 characters')
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
+  it('AUD-14: rejects oversized name', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'x'.repeat(200),
+      consentTermsVersion: 'v1',
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Name must be at most 120 characters')
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
+  it('AUD-14: rejects oversized consentTermsVersion', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+      consentTermsVersion: 'v'.repeat(100),
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow(
+      'consentTermsVersion must be at most 50 characters',
+    )
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
   it('validates name is required', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
 

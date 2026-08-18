@@ -55,6 +55,15 @@ describe('POST /api/auth/reset-password (AUD-04)', () => {
     expect(mockResetPassword).not.toHaveBeenCalled()
   })
 
+  it('AUD-14: rejects oversized passwords before delegating', async () => {
+    mockReadBody.mockResolvedValue({ token: 'reset-token', newPassword: 'x'.repeat(1000) })
+
+    const handler = await import('~~/server/api/auth/reset-password.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Password must be at most 128 characters')
+    expect(mockResetPassword).not.toHaveBeenCalled()
+  })
+
   it('rejects requests without a token', async () => {
     mockReadBody.mockResolvedValue({ newPassword: 'new-password-123' })
     mockGetQuery.mockReturnValue({})

@@ -1,5 +1,5 @@
 import { defineNitroErrorHandler } from 'nitropack/runtime'
-import { send, setResponseStatus } from 'h3'
+import { send, setResponseHeaders, setResponseStatus } from 'h3'
 import { logger } from '#shared/logger'
 
 export interface ApiError {
@@ -58,5 +58,8 @@ export default defineNitroErrorHandler((error, event) => {
   }
 
   setResponseStatus(event, normalized.status)
+  // AUD-14: resposta de erro sempre JSON do contrato — sem Content-Type,
+  // clientes/proxies podem tratar o corpo como texto (sniffing).
+  setResponseHeaders(event, { 'content-type': 'application/json' })
   return send(event, JSON.stringify(normalized.body))
 })

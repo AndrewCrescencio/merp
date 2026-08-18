@@ -5,6 +5,8 @@ import {
   checkAccountLockout,
   checkEmailRateLimit,
   checkIpRateLimit,
+  MAX_EMAIL_LENGTH,
+  MAX_PASSWORD_LENGTH,
   normalizeEmail,
   recordFailedAttempt,
   resetFailedAttempts,
@@ -49,6 +51,15 @@ export default defineEventHandler(async (event) => {
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !body?.password) {
     sendValidationError('Email and password are required')
+  }
+
+  // AUD-14: tetos de tamanho ANTES do checkEmailRateLimit — email gigante não
+  // pode virar chave `rate:`/`lockout:` (PK text; índice btree quebra → 503)
+  // nem pagar scrypt em senha de megabytes. Resposta 401 genérico idêntica a
+  // credenciais inválidas: nenhuma conta legítima passa dos tetos (register
+  // impõe os mesmos) — zero oráculo de enumeração, timing uniforme.
+  if (email.length > MAX_EMAIL_LENGTH || body.password.length > MAX_PASSWORD_LENGTH) {
+    sendUnauthorizedError('Invalid email or password')
   }
 
   // AUD-02: IP resolvido uma vez no início — o lockout é chaveado por
@@ -97,7 +108,19 @@ export default defineEventHandler(async (event) => {
       event.headers,
     )
 
-    await resetFailedAttempts(email, ip)
+    // AUD-14: reset de lockout não pode derrubar um login de sucesso — se a
+    // limpeza falhar (DB hiccup), a sessão já foi criada pelo better-auth;
+    // virar 503 aqui devolveria erro com sessão órfã + auditoria failed_login
+    // reason 'unknown' enganosa. Loga e entrega o login; contadores stale
+    // expiram em 30min/24h (purge-security-state).
+    try {
+      await resetFailedAttempts(email, ip)
+    } catch (error) {
+      logger.warn('Failed to reset failed attempts after successful login', {
+        email,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
 
     if (user.setCookie.length > 0) {
       appendResponseHeaders(event, { 'set-cookie': user.setCookie })

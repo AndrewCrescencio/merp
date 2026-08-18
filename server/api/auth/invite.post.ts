@@ -8,7 +8,7 @@ import {
 } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
-import { checkIpRateLimit, normalizeEmail } from '~~/server/utils/shared/security'
+import { checkIpRateLimit, MAX_EMAIL_LENGTH, normalizeEmail } from '~~/server/utils/shared/security'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -34,6 +34,12 @@ export default defineEventHandler(async (event) => {
 
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email)) {
+    sendValidationError('A valid email is required')
+  }
+
+  // AUD-14: teto de tamanho — email gigante não vira linha/PII desproporcional
+  // nem chave de auditoria inválida.
+  if (email.length > MAX_EMAIL_LENGTH) {
     sendValidationError('A valid email is required')
   }
 

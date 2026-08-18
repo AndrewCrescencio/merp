@@ -48,6 +48,16 @@ describe('GET /api/auth/companies', () => {
     expect(mockSearchCompanies).not.toHaveBeenCalled()
   })
 
+  it('AUD-14: rejects oversized search queries', async () => {
+    mockGetQuery.mockReturnValue({ q: 'x'.repeat(200) })
+
+    const handler = await import('~~/server/api/auth/companies.get').then((m) => m.default)
+    const event = { context: { user: { id: 'user-1' } } } as any
+
+    await expect(handler(event)).rejects.toThrow('Search query must be at most 100 characters')
+    expect(mockSearchCompanies).not.toHaveBeenCalled()
+  })
+
   it('returns matching companies', async () => {
     mockGetQuery.mockReturnValue({ q: 'Test' })
     mockSearchCompanies.mockResolvedValue([

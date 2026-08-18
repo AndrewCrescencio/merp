@@ -88,6 +88,53 @@ describe('POST /api/auth/login', () => {
     expect(mockSignIn).not.toHaveBeenCalled()
   })
 
+  it('AUD-14: rejects oversized email with generic 401 before any rate-limit key', async () => {
+    mockReadBody.mockResolvedValue({
+      email: `${'a'.repeat(300)}@example.com`,
+      password: 'password123',
+    })
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
+    expect(mockCheckEmailRateLimit).not.toHaveBeenCalled()
+    expect(mockCheckAccountLockout).not.toHaveBeenCalled()
+    expect(mockSignIn).not.toHaveBeenCalled()
+  })
+
+  it('AUD-14: rejects oversized password with generic 401', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'x'.repeat(1000),
+    })
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Invalid email or password')
+    expect(mockCheckEmailRateLimit).not.toHaveBeenCalled()
+    expect(mockSignIn).not.toHaveBeenCalled()
+  })
+
+  it('AUD-14: resetFailedAttempts failure does not fail a successful login', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
+    mockSignIn.mockResolvedValue({
+      id: 'uuid',
+      email: 'user@example.com',
+      name: null,
+      setCookie: [],
+    })
+    mockResetFailedAttempts.mockRejectedValue(new Error('db hiccup'))
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    const result = await handler({} as any)
+
+    expect(result).toEqual({ id: 'uuid', email: 'user@example.com', name: null })
+    expect(mockCreateAuthEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'failed_login' }),
+    )
+  })
+
   it('checks IP rate limit before reading the body', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({

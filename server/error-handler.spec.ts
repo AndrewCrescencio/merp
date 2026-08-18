@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockSetResponseStatus = vi.fn()
+const mockSetResponseHeaders = vi.fn()
 const mockSend = vi.fn()
 const mockLoggerError = vi.fn()
 
 vi.mock('h3', () => ({
   setResponseStatus: mockSetResponseStatus,
+  setResponseHeaders: mockSetResponseHeaders,
   send: mockSend,
 }))
 
@@ -38,6 +40,21 @@ describe('error-handler (FR-026)', () => {
       JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
     )
     expect(mockLoggerError).not.toHaveBeenCalled()
+  })
+
+  it('AUD-14: always sets JSON content-type on error responses', async () => {
+    const error = {
+      statusCode: 403,
+      message: JSON.stringify({ error: 'forbidden', message: 'nope' }),
+    }
+    const event = {} as any
+
+    const handler = await import('~~/server/error-handler').then((m) => m.default)
+    await handler(error, event)
+
+    expect(mockSetResponseHeaders).toHaveBeenCalledWith(event, {
+      'content-type': 'application/json',
+    })
   })
 
   it('turns generic 500 errors into internal_error without leaking the message', async () => {

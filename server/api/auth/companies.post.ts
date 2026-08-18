@@ -1,8 +1,14 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { checkIpRateLimit } from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
+  // AUD-14: rate limit por IP antes do readBody (mesmo padrão do invite.post,
+  // AUD-11) — criação de empresa é mutação barata de abusar (INSERT por
+  // request, sem teto por sessão).
+  await checkIpRateLimit(event)
+
   const user = event.context.user as { id: string } | undefined
   if (!user) {
     throw createError({

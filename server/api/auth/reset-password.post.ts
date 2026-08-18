@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery, readBody } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { checkIpRateLimit } from '~~/server/utils/shared/security'
+import { checkIpRateLimit, MAX_PASSWORD_LENGTH } from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 
 // AUD-04: define a nova senha com o token de reset (uso único, TTL 1h).
@@ -14,6 +14,12 @@ export default defineEventHandler(async (event) => {
 
   if (!body?.newPassword || typeof body.newPassword !== 'string' || body.newPassword.length < 8) {
     sendValidationError('Password must be at least 8 characters')
+  }
+
+  // AUD-14: teto superior — senha de megabytes custaria scrypt desproporcional
+  // no reset (mesmo limite do register/login).
+  if (body.newPassword.length > MAX_PASSWORD_LENGTH) {
+    sendValidationError('Password must be at most 128 characters')
   }
 
   const token = typeof body?.token === 'string' && body.token ? body.token : getQuery(event).token

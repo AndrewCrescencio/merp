@@ -112,4 +112,15 @@ describe('getClientIp', () => {
     process.env.TRUSTED_PROXY_CIDRS = 'not-an-ip/8'
     await expect(import('./ip')).rejects.toThrow(/TRUSTED_PROXY_CIDRS inválido/)
   })
+
+  it('AUD-14: returns undefined instead of throwing when getRequestIP throws (no node)', async () => {
+    mockGetRequestIP.mockImplementation(() => {
+      throw new TypeError('event.node is undefined')
+    })
+
+    const getClientIp = await loadGetClientIp({})
+    const event = {} as any
+
+    expect(getClientIp(event)).toBeUndefined()
+  })
 })

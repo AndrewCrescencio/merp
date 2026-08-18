@@ -43,6 +43,14 @@ export function isTrustedPeer(peer: string | undefined): boolean {
 }
 
 export function getClientIp(event: H3Event): string | null | undefined {
-  const peer = event.node?.req?.socket?.remoteAddress
-  return getRequestIP(event, { xForwardedFor: TRUST_PROXY && isTrustedPeer(peer) })
+  // AUD-14: fail-closed — evento sem node (ex.: eventos de teste/web) não
+  // pode derrubar handlers com TypeError de `event.node.req` (o getRequestIP
+  // do h3 não usa optional chaining). Retorna undefined: rate limit por IP e
+  // auditoria apenas ficam sem IP, nunca 500.
+  try {
+    const peer = event.node?.req?.socket?.remoteAddress
+    return getRequestIP(event, { xForwardedFor: TRUST_PROXY && isTrustedPeer(peer) })
+  } catch {
+    return undefined
+  }
 }

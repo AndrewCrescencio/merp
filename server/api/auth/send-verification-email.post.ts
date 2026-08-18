@@ -3,6 +3,7 @@ import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
   checkEmailRateLimit,
   checkIpRateLimit,
+  MAX_EMAIL_LENGTH,
   normalizeEmail,
 } from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
@@ -18,6 +19,11 @@ export default defineEventHandler(async (event) => {
 
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !email.includes('@')) {
+    sendValidationError('Valid email is required')
+  }
+
+  // AUD-14: teto antes do checkEmailRateLimit — email gigante não vira chave.
+  if (email.length > MAX_EMAIL_LENGTH) {
     sendValidationError('Valid email is required')
   }
 

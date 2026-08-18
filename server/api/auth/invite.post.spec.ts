@@ -84,6 +84,17 @@ describe('POST /api/auth/invite', () => {
     await expect(handler(eventWithUser())).rejects.toThrow('A valid email is required')
   })
 
+  it('AUD-14: rejects oversized invite email', async () => {
+    mockReadBody.mockResolvedValue({
+      companyId: 'company-1',
+      email: `${'a'.repeat(300)}@example.com`,
+    })
+
+    const handler = await import('~~/server/api/auth/invite.post').then((m) => m.default)
+    await expect(handler(eventWithUser())).rejects.toThrow('A valid email is required')
+    expect(mockCreateInvite).not.toHaveBeenCalled()
+  })
+
   it('rejects when company does not exist', async () => {
     mockReadBody.mockResolvedValue({ companyId: 'company-1', email: 'user@example.com' })
     mockFindCompanyById.mockResolvedValue(null)

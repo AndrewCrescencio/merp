@@ -13,11 +13,13 @@ export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string; name?: string | null } | undefined
 
   if (user) {
+    // AUD-14: sem `name` no log — email+userId bastam para accountability;
+    // nome é PII desnecessária em logs (json-file do Docker, retenção
+    // ilimitada enquanto o container existir).
     logger.info('pii_access', {
       event: 'pii_access',
       userId: user.id,
       email: user.email,
-      name: user.name || null,
       path,
       purpose: path === '/api/auth/export' ? 'data_export' : 'session_check',
       timestamp: new Date().toISOString(),

@@ -12,6 +12,17 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
+// AUD-14: tetos de tamanho de input — sem eles, emails gigantes viram chaves
+// `rate:`/`lockout:` no auth_security_state (PK text; índice btree quebra em
+// ~2704 bytes → 54000 → 503) e name/consent/password viram colunas de PII
+// gigantes ou custo de scrypt desproporcional. Valores do RFC 5321 (email) e
+// OWASP (password ≤ 128, name ≤ 120).
+export const MAX_EMAIL_LENGTH = 254
+export const MAX_PASSWORD_LENGTH = 128
+export const MAX_NAME_LENGTH = 120
+export const MAX_CONSENT_VERSION_LENGTH = 50
+export const MAX_SEARCH_QUERY_LENGTH = 100
+
 const RATE_WINDOW_MS = 60_000
 const MAX_REQUESTS_PER_EMAIL = 5
 const MAX_REQUESTS_PER_IP = 20

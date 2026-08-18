@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockCreateCompanyWithOwner = vi.fn()
 const mockReadBody = vi.fn()
+const mockCheckIpRateLimit = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -12,6 +13,11 @@ vi.mock('h3', () => ({
     ;(err as any).statusCode = opts.status
     throw err
   },
+}))
+
+vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
+  ...(await importOriginal()),
+  checkIpRateLimit: mockCheckIpRateLimit,
 }))
 
 vi.mock('~~/server/utils/auth/company/repository', () => ({
@@ -29,6 +35,7 @@ vi.mock('~~/server/utils/shared/errors', () => ({
 describe('POST /api/auth/companies', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCheckIpRateLimit.mockResolvedValue(undefined)
   })
 
   it('requires authentication', async () => {
@@ -36,6 +43,32 @@ describe('POST /api/auth/companies', () => {
     const event = { context: {} } as any
 
     await expect(handler(event)).rejects.toThrow('Authentication required.')
+  })
+
+  it('AUD-14: checks IP rate limit before reading the body', async () => {
+    mockReadBody.mockResolvedValue({ name: 'Test Company' })
+    mockCreateCompanyWithOwner.mockResolvedValue({ id: 'company-1', name: 'Test Company' })
+
+    const handler = await import('~~/server/api/auth/companies.post').then((m) => m.default)
+    const event = { context: { user: { id: 'user-1' } } } as any
+
+    await handler(event)
+
+    expect(mockCheckIpRateLimit).toHaveBeenCalledWith(event)
+  })
+
+  it('returns 429 from IP rate limit without reading the body', async () => {
+    const ipError: any = new Error('rate limited')
+    ipError.status = 429
+    ipError.statusCode = 429
+    mockCheckIpRateLimit.mockRejectedValue(ipError)
+
+    const handler = await import('~~/server/api/auth/companies.post').then((m) => m.default)
+    const event = { context: { user: { id: 'user-1' } } } as any
+
+    await expect(handler(event)).rejects.toMatchObject({ statusCode: 429 })
+    expect(mockReadBody).not.toHaveBeenCalled()
+    expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
   })
 
   it('validates company name is required', async () => {
