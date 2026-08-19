@@ -88,6 +88,15 @@ describe('POST /api/auth/login', () => {
     expect(mockSignIn).not.toHaveBeenCalled()
   })
 
+  it('AUD-23: rejects non-string password with 400 instead of TypeError → 500', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 12345678 })
+
+    const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow('Email and password are required')
+    expect(mockSignIn).not.toHaveBeenCalled()
+  })
+
   it('AUD-14: rejects oversized email with generic 401 before any rate-limit key', async () => {
     mockReadBody.mockResolvedValue({
       email: `${'a'.repeat(300)}@example.com`,

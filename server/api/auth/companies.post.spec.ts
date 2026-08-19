@@ -81,6 +81,36 @@ describe('POST /api/auth/companies', () => {
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
   })
 
+  it('AUD-21: rejects company name over 200 chars', async () => {
+    mockReadBody.mockResolvedValue({ name: 'x'.repeat(201) })
+
+    const handler = await import('~~/server/api/auth/companies.post').then((m) => m.default)
+    const event = { context: { user: { id: 'user-1' } } } as any
+
+    await expect(handler(event)).rejects.toThrow('Company name must be at most 200 characters')
+    expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
+  })
+
+  it('AUD-21/23: rejects non-string cnpj instead of throwing TypeError', async () => {
+    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: 12345678901234 })
+
+    const handler = await import('~~/server/api/auth/companies.post').then((m) => m.default)
+    const event = { context: { user: { id: 'user-1' } } } as any
+
+    await expect(handler(event)).rejects.toThrow('cnpj must be a string')
+    expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
+  })
+
+  it('AUD-21: rejects cnpj over 30 chars', async () => {
+    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '1'.repeat(31) })
+
+    const handler = await import('~~/server/api/auth/companies.post').then((m) => m.default)
+    const event = { context: { user: { id: 'user-1' } } } as any
+
+    await expect(handler(event)).rejects.toThrow('cnpj must be at most 30 characters')
+    expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
+  })
+
   it('creates company and makes user first member as owner', async () => {
     mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '12345678901234' })
     mockCreateCompanyWithOwner.mockResolvedValue({ id: 'company-1', name: 'Test Company' })

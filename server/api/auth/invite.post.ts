@@ -8,9 +8,12 @@ import {
 } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
-import { checkIpRateLimit, MAX_EMAIL_LENGTH, normalizeEmail } from '~~/server/utils/shared/security'
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import {
+  checkIpRateLimit,
+  EMAIL_REGEX,
+  MAX_EMAIL_LENGTH,
+  normalizeEmail,
+} from '~~/server/utils/shared/security'
 
 export default defineEventHandler(async (event) => {
   // AUD-11: rate limit por IP antes do readBody (mesmo padrão das rotas

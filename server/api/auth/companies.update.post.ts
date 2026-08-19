@@ -3,6 +3,11 @@ import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
 import {
+  MAX_CNPJ_LENGTH,
+  MAX_COMPANY_NAME_LENGTH,
+  MAX_RAZAO_SOCIAL_LENGTH,
+} from '~~/server/utils/shared/security'
+import {
   sendValidationError,
   sendNotFoundError,
   assertCompanyRole,
@@ -34,19 +39,31 @@ export default defineEventHandler(async (event) => {
     if (typeof body.name !== 'string' || body.name.trim().length === 0) {
       sendValidationError('Company name must be a non-empty string')
     }
-    input.name = body.name.trim()
+    const name = body.name.trim()
+    if (name.length > MAX_COMPANY_NAME_LENGTH) {
+      sendValidationError('Company name must be at most 200 characters')
+    }
+    input.name = name
   }
   if (body.cnpj !== undefined) {
     if (typeof body.cnpj !== 'string') {
       sendValidationError('cnpj must be a string')
     }
-    input.cnpj = body.cnpj.trim() || undefined
+    const cnpj = body.cnpj.trim() || undefined
+    if (cnpj && cnpj.length > MAX_CNPJ_LENGTH) {
+      sendValidationError('cnpj must be at most 30 characters')
+    }
+    input.cnpj = cnpj
   }
   if (body.razaoSocial !== undefined) {
     if (typeof body.razaoSocial !== 'string') {
       sendValidationError('razaoSocial must be a string')
     }
-    input.razaoSocial = body.razaoSocial.trim() || undefined
+    const razaoSocial = body.razaoSocial.trim() || undefined
+    if (razaoSocial && razaoSocial.length > MAX_RAZAO_SOCIAL_LENGTH) {
+      sendValidationError('razaoSocial must be at most 200 characters')
+    }
+    input.razaoSocial = razaoSocial
   }
   if (Object.keys(input).length === 0) {
     sendValidationError('At least one field (name, cnpj, razaoSocial) is required')

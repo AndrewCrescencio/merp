@@ -1,6 +1,11 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
-import { checkIpRateLimit } from '~~/server/utils/shared/security'
+import {
+  checkIpRateLimit,
+  MAX_CNPJ_LENGTH,
+  MAX_COMPANY_NAME_LENGTH,
+  MAX_RAZAO_SOCIAL_LENGTH,
+} from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
@@ -24,11 +29,33 @@ export default defineEventHandler(async (event) => {
     sendValidationError('Company name is required')
   }
 
+  // AUD-21: tetos de tamanho — PII corporativa não vira coluna gigante.
+  if (body.name.trim().length > MAX_COMPANY_NAME_LENGTH) {
+    sendValidationError('Company name must be at most 200 characters')
+  }
+
+  // AUD-23: body types lax → TypeError → 500; validar antes de trim.
+  if (body.cnpj !== undefined && typeof body.cnpj !== 'string') {
+    sendValidationError('cnpj must be a string')
+  }
+  const cnpj = body.cnpj?.trim() || undefined
+  if (cnpj && cnpj.length > MAX_CNPJ_LENGTH) {
+    sendValidationError('cnpj must be at most 30 characters')
+  }
+
+  if (body.razaoSocial !== undefined && typeof body.razaoSocial !== 'string') {
+    sendValidationError('razaoSocial must be a string')
+  }
+  const razaoSocial = body.razaoSocial?.trim() || undefined
+  if (razaoSocial && razaoSocial.length > MAX_RAZAO_SOCIAL_LENGTH) {
+    sendValidationError('razaoSocial must be at most 200 characters')
+  }
+
   const created = await companyRepository.createCompanyWithOwner(
     {
       name: body.name.trim(),
-      cnpj: body.cnpj?.trim() || undefined,
-      razaoSocial: body.razaoSocial?.trim() || undefined,
+      cnpj,
+      razaoSocial,
     },
     user.id,
   )

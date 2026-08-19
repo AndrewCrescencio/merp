@@ -96,6 +96,17 @@ describe('POST /api/auth/companies/update', () => {
     expect(mockUpdateCompany).not.toHaveBeenCalled()
   })
 
+  it('AUD-21: rejects company name over 200 chars', async () => {
+    mockReadBody.mockResolvedValue({ companyId: 'company-1', name: 'x'.repeat(201) })
+
+    const handler = await loadHandler()
+
+    const event = { context: { user: { id: 'user-1', email: 'user@example.com' } } } as any
+
+    await expect(handler(event)).rejects.toThrow('Company name must be at most 200 characters')
+    expect(mockUpdateCompany).not.toHaveBeenCalled()
+  })
+
   it('throws 404 when company not found', async () => {
     mockReadBody.mockResolvedValue({ companyId: 'company-1', name: 'New Name' })
     mockFindCompanyById.mockResolvedValue(null)

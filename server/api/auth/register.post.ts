@@ -3,6 +3,7 @@ import { identityRepository, generateUserId } from '~~/server/utils/auth/identit
 import {
   checkEmailRateLimit,
   checkIpRateLimit,
+  EMAIL_REGEX,
   MAX_CONSENT_VERSION_LENGTH,
   MAX_EMAIL_LENGTH,
   MAX_NAME_LENGTH,
@@ -25,7 +26,8 @@ export default defineEventHandler(async (event) => {
 
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
 
-  if (!email || !email.includes('@')) {
+  // AUD-22: EMAIL_REGEX (compartilhado) — includes('@') aceitava 'a@b'.
+  if (!email || !EMAIL_REGEX.test(email)) {
     sendValidationError('Valid email is required')
   }
 

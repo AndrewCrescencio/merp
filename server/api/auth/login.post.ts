@@ -49,7 +49,9 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event)
 
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
-  if (!email || !body?.password) {
+  // AUD-23: typeof password entra na validação — senha numérica passava por
+  // !body?.password e derrubava no `.length`/scrypt com TypeError → 500.
+  if (!email || typeof body?.password !== 'string' || !body.password) {
     sendValidationError('Email and password are required')
   }
 

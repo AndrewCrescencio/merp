@@ -22,6 +22,16 @@ export const MAX_PASSWORD_LENGTH = 128
 export const MAX_NAME_LENGTH = 120
 export const MAX_CONSENT_VERSION_LENGTH = 50
 export const MAX_SEARCH_QUERY_LENGTH = 100
+// AUD-21: tetos de empresa — PII corporativa não vira coluna desproporcional
+// (CNPJ é identificador fixo de 14 dígitos; teto 30 cobre formatos com máscara).
+export const MAX_COMPANY_NAME_LENGTH = 200
+export const MAX_CNPJ_LENGTH = 30
+export const MAX_RAZAO_SOCIAL_LENGTH = 200
+
+// AUD-22: validação mínima de formato — o antigo email.includes('@') aceitava
+// 'a@b' e 'a@' como válidos. Este regex não é RFC 5321 completo (de propósito);
+// é a linha de frente barata antes do costoso check do better-auth.
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const RATE_WINDOW_MS = 60_000
 const MAX_REQUESTS_PER_EMAIL = 5
