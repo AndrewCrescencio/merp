@@ -726,3 +726,115 @@ demais achados AUD-01 a AUD-13 (releitura de código completa).
 **Status (2026-08-16):** Implementado — lint limpo; suíte completa verde (320
 testes, +18 vs. baseline: 13 specs de handlers + audit + ip + error-handler +
 pii-audit).
+
+---
+
+## Auditoria de segurança 2026-08-18 (AUD-15 a AUD-25) ⏳ PENDENTE
+
+Revisão integral do repositório — relatório completo em
+`docs/security/security-audit-2026-08-18.md`. Nenhuma correção aplicada; os
+prompts de correção estão em `prompts/33`, `34`, `35` (executar em ordem).
+
+### 27. Rate limit do nginx 5 req/min por IP (AUD-15) ⏳ PENDENTE
+
+**Arquivo:** `infra/nginx/nginx.conf`
+
+Bucket compartilhado entre todos os endpoints `/api/auth/` — qualquer usuário
+atrás do mesmo IP (NAT) ou um atacante exaure o bucket de todos; fluxo legítimo
+de login estoura a janela. A app já limita fino (20/min IP, 5/min email).
+
+**Correção:** `prompts/33` — `rate=20r/m`, `burst=10 nodelay`, comentários
+atualizados.
+
+---
+
+### 28. Sem rate limit por usuário em rotas autenticadas (AUD-16) ⏳ PENDENTE
+
+**Arquivo:** `server/middleware/auth.ts`, `server/utils/shared/security.ts`
+
+Todo request protegido grava `session_validated` em `auth_event` e endpoints
+como `/api/auth/export` não têm teto por usuário — contas baratas + IPs
+rotativos saturam o pool do banco e enchem a auditoria de lixo.
+
+**Correção:** `prompts/33` — `checkUserRateLimit` (chave `rate:user:${userId}`,
+60/min) no middleware antes do `emitSessionEvent`.
+
+---
+
+### 29. GET com PII sem `Cache-Control: no-store` (AUD-17) ⏳ PENDENTE
+
+**Arquivos:** `server/api/auth/me.get.ts`, `export.get.ts`, `invites.get.ts`
+
+Email, nome, CNPJ e sessões em GET sem no-store (app nem nginx) — cache de
+navegador/proxy em máquina compartilhada.
+
+**Correção:** `prompts/34` — middleware `no-store.ts` para toda rota `/api/**`.
+
+---
+
+### 30. Token de reset de senha em claro no banco (AUD-18) ⏳ PENDENTE (risco aceito)
+
+**Arquivo:** `server/utils/auth/identity/repository.ts` (`verification`)
+
+O fluxo de reset do better-auth guarda o token cru no `identifier` da tabela
+`verification` — dump do banco permite account takeover. Design do better-auth;
+reavaliar se o fluxo for customizado.
+
+---
+
+### 31. Role `merp_app` e grants core fora de migração (AUD-19) ⏳ PENDENTE
+
+**Arquivos:** `drizzle/0015_app_role_grants.sql`, `docker-compose.prod.yml`
+
+Criação da role e grants em `user`/`session`/`account`/`verification`/
+`company`/`company_member` só em test-setup e docs (passo manual em prod);
+`DATABASE_URL` (owner) injetada no container do app sem uso em runtime.
+
+**Correção:** migração SQL idempotente com grants core; remover `DATABASE_URL`
+do compose prod.
+
+---
+
+### 32. `company_select_policy` aberta / `findCompanyById` sem membership (AUD-20) ⏳ PENDENTE
+
+**Arquivos:** `drizzle/0004`, `server/utils/auth/company/repository.ts`
+
+Qualquer autenticado tem oráculo de existência de empresa por ID; a policy no
+banco permite leitura de todas as empresas não-deletadas — ponto onde um
+endpoint futuro vazaria dados.
+
+**Correção:** restringir policy (membership via `EXISTS`) ou membership check
+no `findCompanyById`; revisar fluxos legítimos.
+
+---
+
+### 33. Validações de input: tetos empresa, email regex, types (AUD-21/22/23) ⏳ PENDENTE
+
+**Arquivos:** `companies.post.ts`, `companies.update.post.ts`, `login.post.ts`,
+`register.post.ts`, `forget-password.post.ts`, `send-verification-email.post.ts`,
+`invite.post.ts`, `server/utils/shared/security.ts`
+
+Sem tetos em name/cnpj/razaoSocial (btree quebra → 500); `email.includes('@')`
+fraco em 3 rotas públicas; body types lax (password/cnpj numérico → 500).
+
+**Correção:** `prompts/34` — tetos (200/30/200), `EMAIL_REGEX` compartilhado,
+typeof checks → 400.
+
+---
+
+### 34. `BETTER_AUTH_SECRET` não exigida no boot de produção (AUD-24) ⏳ PENDENTE
+
+**Arquivo:** `server/plugins/validate-env.ts`
+
+Exigir secret com length ≥ 32 em produção (padrão AUD-05).
+
+**Correção:** `prompts/35`.
+
+---
+
+### 35. `/api/health` sem rate limit (AUD-25) ✅ ACEITO
+
+**Arquivo:** `server/api/health.get.ts`
+
+Health público ilimitado (1 SELECT/request) — aceito para health checks de
+orquestrador; revisitar se virar problema de carga.
