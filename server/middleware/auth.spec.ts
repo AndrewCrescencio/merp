@@ -10,6 +10,7 @@ const mockLoggerWarn = vi.fn()
 const mockLoggerError = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockAppendResponseHeaders = vi.fn()
+const mockCheckUserRateLimit = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -41,6 +42,10 @@ vi.mock('~~/server/utils/shared/audit', () => ({
   createAuthEvent: mockCreateAuthEvent,
 }))
 
+vi.mock('~~/server/utils/shared/security', () => ({
+  checkUserRateLimit: mockCheckUserRateLimit,
+}))
+
 describe('auth middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -56,6 +61,7 @@ describe('auth middleware', () => {
     mockSendAuthUnavailableError.mockImplementation(() => {
       throw new Error('Authentication service is starting. Please try again.')
     })
+    mockCheckUserRateLimit.mockResolvedValue(undefined)
   })
 
   it('skips auth for public routes', async () => {
@@ -69,6 +75,7 @@ describe('auth middleware', () => {
 
     expect(result).toBeUndefined()
     expect(mockGetSession).not.toHaveBeenCalled()
+    expect(mockCheckUserRateLimit).not.toHaveBeenCalled()
   })
 
   it('skips auth for login route', async () => {
@@ -211,6 +218,41 @@ describe('auth middleware', () => {
         tenantId: null,
       },
     })
+  })
+
+  it('AUD-16: checks user rate limit on valid session (limit not reached)', async () => {
+    const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
+    const session = { id: 'session-1', userId: 'user-1', activeCompanyId: 'company-1' }
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
+    mockCreateAuthEvent.mockResolvedValue(undefined)
+
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    const event = { headers: new Headers(), context: {} } as any
+
+    await handler(event)
+
+    expect(mockCheckUserRateLimit).toHaveBeenCalledWith(event, 'user-1')
+    expect(event.context.user).toEqual(user)
+    expect(mockCreateAuthEvent).toHaveBeenCalled()
+  })
+
+  it('AUD-16: blocks with 429 when user rate limit exceeded, no session_validated event', async () => {
+    const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
+    const session = { id: 'session-1', userId: 'user-1' }
+    mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
+    mockCreateAuthEvent.mockResolvedValue(undefined)
+    mockCheckUserRateLimit.mockRejectedValue(
+      Object.assign(new Error('Too many requests. Try again later.'), { statusCode: 429 }),
+    )
+
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    const event = { headers: new Headers(), context: {} } as any
+
+    await expect(handler(event)).rejects.toMatchObject({ statusCode: 429 })
+    expect(mockCreateAuthEvent).not.toHaveBeenCalled()
+    expect(event.context.user).toBeUndefined()
   })
 
   it('returns unauthorized when no session and no cookie', async () => {

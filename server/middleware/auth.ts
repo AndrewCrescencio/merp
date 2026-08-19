@@ -4,6 +4,7 @@ import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
 import { sendAuthError, sendAuthUnavailableError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { checkUserRateLimit } from '~~/server/utils/shared/security'
 
 const publicRoutes = [
   '/api/auth/register',
@@ -111,6 +112,11 @@ export default defineEventHandler(async (event) => {
 
     sendAuthError(401, 'unauthorized', 'Authentication required.')
   }
+
+  // AUD-16: teto por usuário (60/min) nas rotas autenticadas — ANTES do
+  // emitSessionEvent: requests 429 não geram session_validated (menos lixo
+  // em auth_event) e não avançam o contexto.
+  await checkUserRateLimit(event, session.user.id)
 
   emitSessionEvent({
     sessionId: session.session.id,

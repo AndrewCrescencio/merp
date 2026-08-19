@@ -26,6 +26,10 @@ export const MAX_SEARCH_QUERY_LENGTH = 100
 const RATE_WINDOW_MS = 60_000
 const MAX_REQUESTS_PER_EMAIL = 5
 const MAX_REQUESTS_PER_IP = 20
+// AUD-16: teto por usuário nas rotas autenticadas — o nginx limita por IP
+// (camada grossa), mas é contornável com IPs rotativos; esta camada trava
+// o martelar de endpoints protegidos mesmo com N contas/IPs.
+export const MAX_REQUESTS_PER_USER = 60
 // AUD-02: lockout em duas camadas — por (email+IP) no limiar da FR-016 (10) e
 // global por email em 50: brute-force distribuído (rotação de IPs) continua
 // travado, e o DoS custa 50 tentativas (≥10min a 5 req/min da FR-010) por lock.
@@ -161,6 +165,12 @@ export async function checkIpRateLimit(event: H3Event): Promise<void> {
 // from one IP is also throttled (em conjunto com checkIpRateLimit).
 export async function checkEmailRateLimit(event: H3Event, email: string): Promise<void> {
   await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
+}
+
+// AUD-16: sliding window per user (60/min) nas rotas autenticadas — cobre o
+// que o rate limit por IP do nginx/app não vê (IPs rotativos, NAT).
+export async function checkUserRateLimit(event: H3Event, userId: string): Promise<void> {
+  await checkRateLimitKey(event, `rate:user:${userId}`, MAX_REQUESTS_PER_USER)
 }
 
 // AUD-02: chave por (email + IP) — 10 falhas de um IP não bloqueiam a vítima
