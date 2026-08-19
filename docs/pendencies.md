@@ -729,13 +729,15 @@ pii-audit).
 
 ---
 
-## Auditoria de segurança 2026-08-18 (AUD-15 a AUD-25) ⏳ PENDENTE
+## Auditoria de segurança 2026-08-18 (AUD-15 a AUD-25) ✅ REVISÃO CONCLUÍDA
 
 Revisão integral do repositório — relatório completo em
-`docs/security/security-audit-2026-08-18.md`. Nenhuma correção aplicada; os
-prompts de correção estão em `prompts/33`, `34`, `35` (executar em ordem).
+`docs/security/security-audit-2026-08-18.md`. Correções aplicadas em
+2026-08-18 pelos prompts `33`, `34` e `35` (executados em ordem, `pnpm test` +
+`pnpm lint` verdes em cada um). Pendências restantes: AUD-18 (risco aceito),
+AUD-19 (operacional) e AUD-20 (defesa em profundidade).
 
-### 27. Rate limit do nginx 5 req/min por IP (AUD-15) ⏳ PENDENTE
+### 27. Rate limit do nginx 5 req/min por IP (AUD-15) ✅ RESOLVIDO
 
 **Arquivo:** `infra/nginx/nginx.conf`
 
@@ -743,12 +745,16 @@ Bucket compartilhado entre todos os endpoints `/api/auth/` — qualquer usuário
 atrás do mesmo IP (NAT) ou um atacante exaure o bucket de todos; fluxo legítimo
 de login estoura a janela. A app já limita fino (20/min IP, 5/min email).
 
-**Correção:** `prompts/33` — `rate=20r/m`, `burst=10 nodelay`, comentários
-atualizados.
+**Correção (prompt 33):** `rate=20r/m`, `burst=10 nodelay` — o nginx vira
+camada grossa anti-anomalia (por IP); a fina (sliding window) vive na app;
+20r/m alinhado ao `MAX_REQUESTS_PER_IP`. Comentários atualizados.
+
+**Status (2026-08-18):** Implementado — `docker compose config` valida;
+`nginx -t` limpo. Detalhes no relatório (AUD-15).
 
 ---
 
-### 28. Sem rate limit por usuário em rotas autenticadas (AUD-16) ⏳ PENDENTE
+### 28. Sem rate limit por usuário em rotas autenticadas (AUD-16) ✅ RESOLVIDO
 
 **Arquivo:** `server/middleware/auth.ts`, `server/utils/shared/security.ts`
 
@@ -756,19 +762,29 @@ Todo request protegido grava `session_validated` em `auth_event` e endpoints
 como `/api/auth/export` não têm teto por usuário — contas baratas + IPs
 rotativos saturam o pool do banco e enchem a auditoria de lixo.
 
-**Correção:** `prompts/33` — `checkUserRateLimit` (chave `rate:user:${userId}`,
-60/min) no middleware antes do `emitSessionEvent`.
+**Correção (prompt 33):** `checkUserRateLimit` (chave `rate:user:${userId}`,
+60/min) no middleware antes do `emitSessionEvent` — 429 não gera
+`session_validated` nem avança o contexto.
+
+**Status (2026-08-18):** Implementado — unit (janela/limite), integração
+(chave no DB, janela desliza) e middleware (429 sem evento). Detalhes no
+relatório (AUD-16).
 
 ---
 
-### 29. GET com PII sem `Cache-Control: no-store` (AUD-17) ⏳ PENDENTE
+### 29. GET com PII sem `Cache-Control: no-store` (AUD-17) ✅ RESOLVIDO
 
 **Arquivos:** `server/api/auth/me.get.ts`, `export.get.ts`, `invites.get.ts`
 
 Email, nome, CNPJ e sessões em GET sem no-store (app nem nginx) — cache de
 navegador/proxy em máquina compartilhada.
 
-**Correção:** `prompts/34` — middleware `no-store.ts` para toda rota `/api/**`.
+**Correção (prompt 34):** middleware `no-store.ts` para toda rota `/api/**`
+(`no-store, no-cache, must-revalidate`) — um ponto cobre me/export/invites +
+futuras.
+
+**Status (2026-08-18):** Implementado — spec do middleware (recebe em
+`/api/`, não recebe na raiz, mantém em throw). Detalhes no relatório (AUD-17).
 
 ---
 
@@ -778,7 +794,11 @@ navegador/proxy em máquina compartilhada.
 
 O fluxo de reset do better-auth guarda o token cru no `identifier` da tabela
 `verification` — dump do banco permite account takeover. Design do better-auth;
-reavaliar se o fluxo for customizado.
+reavaliar se o fluxo for customizado. Mitigação: o dump já expõe senhas scrypt
+e tokens de sessão (risco é a classe "banco comprometido").
+
+**Status (2026-08-18):** Pendente — risco aceito documentado no relatório
+(AUD-18); migração de grants (AUD-19) reduz a superfície de leitura.
 
 ---
 
@@ -790,8 +810,11 @@ Criação da role e grants em `user`/`session`/`account`/`verification`/
 `company`/`company_member` só em test-setup e docs (passo manual em prod);
 `DATABASE_URL` (owner) injetada no container do app sem uso em runtime.
 
-**Correção:** migração SQL idempotente com grants core; remover `DATABASE_URL`
-do compose prod.
+**Correção planejada:** migração SQL idempotente com grants core; remover
+`DATABASE_URL` do compose prod.
+
+**Status (2026-08-18):** Pendente — operacional, registrado no relatório
+(AUD-19).
 
 ---
 
@@ -801,14 +824,17 @@ do compose prod.
 
 Qualquer autenticado tem oráculo de existência de empresa por ID; a policy no
 banco permite leitura de todas as empresas não-deletadas — ponto onde um
-endpoint futuro vazaria dados.
+endpoint futuro vazaria dados. Endpoints atuais não vazam dados (IDs UUIDv4,
+obtidos apenas por membros).
 
-**Correção:** restringir policy (membership via `EXISTS`) ou membership check
-no `findCompanyById`; revisar fluxos legítimos.
+**Correção planejada:** restringir policy (membership via `EXISTS`) ou
+membership check no `findCompanyById`; revisar fluxos legítimos.
+
+**Status (2026-08-18):** Pendente — registrado no relatório (AUD-20).
 
 ---
 
-### 33. Validações de input: tetos empresa, email regex, types (AUD-21/22/23) ⏳ PENDENTE
+### 33. Validações de input: tetos empresa, email regex, types (AUD-21/22/23) ✅ RESOLVIDO
 
 **Arquivos:** `companies.post.ts`, `companies.update.post.ts`, `login.post.ts`,
 `register.post.ts`, `forget-password.post.ts`, `send-verification-email.post.ts`,
@@ -817,18 +843,26 @@ no `findCompanyById`; revisar fluxos legítimos.
 Sem tetos em name/cnpj/razaoSocial (btree quebra → 500); `email.includes('@')`
 fraco em 3 rotas públicas; body types lax (password/cnpj numérico → 500).
 
-**Correção:** `prompts/34` — tetos (200/30/200), `EMAIL_REGEX` compartilhado,
-typeof checks → 400.
+**Correção (prompt 34):** tetos (200/30/200), `EMAIL_REGEX` compartilhado nas
+4 rotas públicas, typeof checks → 400.
+
+**Status (2026-08-18):** Implementado — specs dos handlers com inputs
+gigantes/numéricos → 400. Detalhes no relatório (AUD-21/22/23).
 
 ---
 
-### 34. `BETTER_AUTH_SECRET` não exigida no boot de produção (AUD-24) ⏳ PENDENTE
+### 34. `BETTER_AUTH_SECRET` não exigida no boot de produção (AUD-24) ✅ RESOLVIDO
 
 **Arquivo:** `server/plugins/validate-env.ts`
 
 Exigir secret com length ≥ 32 em produção (padrão AUD-05).
 
-**Correção:** `prompts/35`.
+**Correção (prompt 35):** `missingProductionEnv` flagra ausente/encurtada
+(`BETTER_AUTH_SECRET (mínimo 32 caracteres)`); fora de produção inalterado.
+
+**Status (2026-08-18):** Implementado — specs: ausente/encurtada (31 chars) em
+produção → flagrada; `>= 32` → ok; ausente fora de prod → ok. Detalhes no
+relatório (AUD-24).
 
 ---
 
@@ -837,4 +871,5 @@ Exigir secret com length ≥ 32 em produção (padrão AUD-05).
 **Arquivo:** `server/api/health.get.ts`
 
 Health público ilimitado (1 SELECT/request) — aceito para health checks de
-orquestrador; revisitar se virar problema de carga.
+orquestrador; revisitar se virar problema de carga. Decisão registrada no
+relatório (AUD-25).
