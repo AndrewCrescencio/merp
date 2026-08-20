@@ -67,7 +67,7 @@ describe('POST /api/auth/register', () => {
   })
 
   it('validates email format', async () => {
-    mockReadBody.mockResolvedValue({ email: 'invalid', password: 'password123' })
+    mockReadBody.mockResolvedValue({ email: 'invalid', password: 'Str0ngP@ssw0rd!2026' })
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
@@ -84,10 +84,26 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
+  it('rejects common/breached passwords (deny-list)', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'password123',
+      name: 'Test User',
+      consentTermsVersion: 'v1',
+    })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow(
+      'Password is too common. Choose a stronger password.',
+    )
+    expect(mockRegister).not.toHaveBeenCalled()
+  })
+
   it('AUD-14: rejects oversized email', async () => {
     mockReadBody.mockResolvedValue({
       email: `${'a'.repeat(300)}@example.com`,
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v1',
     })
@@ -115,7 +131,7 @@ describe('POST /api/auth/register', () => {
   it('AUD-14: rejects oversized name', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'x'.repeat(200),
       consentTermsVersion: 'v1',
     })
@@ -129,7 +145,7 @@ describe('POST /api/auth/register', () => {
   it('AUD-14: rejects oversized consentTermsVersion', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v'.repeat(100),
     })
@@ -143,7 +159,7 @@ describe('POST /api/auth/register', () => {
   })
 
   it('validates name is required', async () => {
-    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
+    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'Str0ngP@ssw0rd!2026' })
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
@@ -152,7 +168,11 @@ describe('POST /api/auth/register', () => {
   })
 
   it('validates name is not empty', async () => {
-    mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123', name: '' })
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'Str0ngP@ssw0rd!2026',
+      name: '',
+    })
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
@@ -163,7 +183,7 @@ describe('POST /api/auth/register', () => {
   it('AUD-13: rejects registration without consentTermsVersion', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
     })
 
@@ -176,7 +196,7 @@ describe('POST /api/auth/register', () => {
   it('checks IP rate limit before reading the body', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v1',
     })
@@ -217,7 +237,7 @@ describe('POST /api/auth/register', () => {
   it('calls checkEmailRateLimit with email', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v1',
     })
@@ -239,7 +259,7 @@ describe('POST /api/auth/register', () => {
   it('normalizes mixed-case email before rate limit and registration', async () => {
     mockReadBody.mockResolvedValue({
       email: '  User@Example.COM  ',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v1',
     })
@@ -264,7 +284,7 @@ describe('POST /api/auth/register', () => {
   it('returns 201 with user data on successful registration', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v1',
     })
@@ -293,7 +313,7 @@ describe('POST /api/auth/register', () => {
   it('AUD-03: returns identical 201 response when email already registered', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v1',
     })
@@ -315,7 +335,7 @@ describe('POST /api/auth/register', () => {
   it('registers with name', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Alice',
       consentTermsVersion: 'v1',
     })
@@ -333,7 +353,7 @@ describe('POST /api/auth/register', () => {
 
     expect(mockRegister).toHaveBeenCalledWith({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Alice',
       consentTermsVersion: 'v1',
     })
@@ -343,7 +363,7 @@ describe('POST /api/auth/register', () => {
   it('trims whitespace from name', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Alice',
       consentTermsVersion: 'v1',
     })
@@ -359,7 +379,7 @@ describe('POST /api/auth/register', () => {
 
     expect(mockRegister).toHaveBeenCalledWith({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Alice',
       consentTermsVersion: 'v1',
     })
@@ -368,7 +388,7 @@ describe('POST /api/auth/register', () => {
   it('passes consentTermsVersion to repository when provided', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v1',
     })
@@ -385,7 +405,7 @@ describe('POST /api/auth/register', () => {
 
     expect(mockRegister).toHaveBeenCalledWith({
       email: 'user@example.com',
-      password: 'password123',
+      password: 'Str0ngP@ssw0rd!2026',
       name: 'Test User',
       consentTermsVersion: 'v1',
     })

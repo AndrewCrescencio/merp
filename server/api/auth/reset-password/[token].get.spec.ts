@@ -47,7 +47,7 @@ describe('GET /api/auth/reset-password/[token] (AUD-04/AUD-08)', () => {
     expect(mockValidateResetToken).toHaveBeenCalledWith('reset-token')
     expect(mockSendRedirect).toHaveBeenCalledWith(
       event,
-      'https://app.merp.com.br/?token=reset-token',
+      'https://app.merp.com.br/#/reset-password?token=reset-token',
       302,
     )
   })
@@ -83,7 +83,7 @@ describe('GET /api/auth/reset-password/[token] (AUD-04/AUD-08)', () => {
 
     expect(mockSendRedirect).toHaveBeenCalledWith(
       {} as any,
-      'https://app.merp.com.br/?token=reset-token',
+      'https://app.merp.com.br/#/reset-password?token=reset-token',
       302,
     )
   })
@@ -100,7 +100,7 @@ describe('GET /api/auth/reset-password/[token] (AUD-04/AUD-08)', () => {
 
     expect(mockSendRedirect).toHaveBeenCalledWith(
       {} as any,
-      'http://localhost:3000/?token=reset-token',
+      'http://localhost:3000/#/reset-password?token=reset-token',
       302,
     )
   })

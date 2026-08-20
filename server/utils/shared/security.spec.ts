@@ -3,6 +3,7 @@ import {
   MAX_REQUESTS_PER_USER,
   evaluateLockout,
   evaluateRateLimit,
+  isWeakPassword,
   normalizeEmail,
 } from './security'
 
@@ -13,6 +14,17 @@ describe('normalizeEmail', () => {
 
   it('keeps already normalized emails unchanged', () => {
     expect(normalizeEmail('foo@bar.com')).toBe('foo@bar.com')
+  })
+})
+
+describe('isWeakPassword', () => {
+  it('flags common passwords case-insensitively', () => {
+    expect(isWeakPassword('Password123')).toBe(true)
+    expect(isWeakPassword('qwerty')).toBe(true)
+  })
+
+  it('accepts non-common passwords', () => {
+    expect(isWeakPassword('Str0ngP@ssw0rd!2026')).toBe(false)
   })
 })
 

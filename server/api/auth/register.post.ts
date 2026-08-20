@@ -9,6 +9,7 @@ import {
   MAX_NAME_LENGTH,
   MAX_PASSWORD_LENGTH,
   normalizeEmail,
+  isWeakPassword,
 } from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
@@ -44,6 +45,10 @@ export default defineEventHandler(async (event) => {
 
   if (body.password.length > MAX_PASSWORD_LENGTH) {
     sendValidationError('Password must be at most 128 characters')
+  }
+
+  if (isWeakPassword(body.password)) {
+    sendValidationError('Password is too common. Choose a stronger password.')
   }
 
   if (!body?.name || typeof body.name !== 'string' || body.name.trim().length === 0) {

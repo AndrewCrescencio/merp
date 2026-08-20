@@ -33,14 +33,20 @@ export interface SignInInput {
 const USER_ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 // AUD-03: id sintético no mesmo formato do better-auth (32 chars
-// alfanuméricos) para o caminho de "email já registrado".
+// alfanuméricos) para o caminho de "email já registrado". Rejection sampling:
+// bytes >= maxValid são descartados — `% 62` direto teria viés de módulo
+// (256/62 não é exato) favorecendo chars iniciais do alfabeto.
 export function generateUserId(): string {
-  const bytes = randomBytes(32)
-  let id = ''
-  for (let i = 0; i < bytes.length; i++) {
-    id += USER_ID_ALPHABET[bytes[i] % USER_ID_ALPHABET.length]
+  const alphabetLength = USER_ID_ALPHABET.length
+  const maxValid = 256 - (256 % alphabetLength)
+  const chars: string[] = []
+  while (chars.length < 32) {
+    for (const byte of randomBytes(32)) {
+      if (chars.length >= 32) break
+      if (byte < maxValid) chars.push(USER_ID_ALPHABET[byte % alphabetLength])
+    }
   }
-  return id
+  return chars.join('')
 }
 
 export interface UserResult {

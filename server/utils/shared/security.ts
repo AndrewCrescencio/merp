@@ -33,6 +33,32 @@ export const MAX_RAZAO_SOCIAL_LENGTH = 200
 // é a linha de frente barata antes do costoso check do better-auth.
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// OWASP Authentication Cheat Sheet / NIST SP 800-63B: senhas NOVAS são
+// comparadas contra valores comuns/comprometidos (deny-list top de leaks).
+// Aplicada só em register/reset-password — login nunca rejeita (conta
+// existente com senha fraca não pode ser bloqueada sem DB de breaches).
+export const WEAK_PASSWORD_LIST = new Set([
+  'password',
+  '12345678',
+  '123456789',
+  'qwerty',
+  'abc123',
+  'password1',
+  'password123',
+  'iloveyou',
+  'admin',
+  'welcome',
+  'monkey',
+  'letmein',
+  '123123',
+  'dragon',
+  'football',
+])
+
+export function isWeakPassword(password: string): boolean {
+  return WEAK_PASSWORD_LIST.has(password.toLowerCase())
+}
+
 const RATE_WINDOW_MS = 60_000
 const MAX_REQUESTS_PER_EMAIL = 5
 const MAX_REQUESTS_PER_IP = 20

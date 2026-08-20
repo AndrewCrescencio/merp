@@ -1,6 +1,10 @@
 import { defineEventHandler, getQuery, readBody } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { checkIpRateLimit, MAX_PASSWORD_LENGTH } from '~~/server/utils/shared/security'
+import {
+  checkIpRateLimit,
+  isWeakPassword,
+  MAX_PASSWORD_LENGTH,
+} from '~~/server/utils/shared/security'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 
 // AUD-04: define a nova senha com o token de reset (uso único, TTL 1h).
@@ -20,6 +24,10 @@ export default defineEventHandler(async (event) => {
   // no reset (mesmo limite do register/login).
   if (body.newPassword.length > MAX_PASSWORD_LENGTH) {
     sendValidationError('Password must be at most 128 characters')
+  }
+
+  if (isWeakPassword(body.newPassword)) {
+    sendValidationError('Password is too common. Choose a stronger password.')
   }
 
   const token = typeof body?.token === 'string' && body.token ? body.token : getQuery(event).token

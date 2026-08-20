@@ -64,6 +64,17 @@ describe('POST /api/auth/reset-password (AUD-04)', () => {
     expect(mockResetPassword).not.toHaveBeenCalled()
   })
 
+  it('rejects common/breached passwords (deny-list)', async () => {
+    mockReadBody.mockResolvedValue({ token: 'reset-token', newPassword: 'password' })
+
+    const handler = await import('~~/server/api/auth/reset-password.post').then((m) => m.default)
+
+    await expect(handler({} as any)).rejects.toThrow(
+      'Password is too common. Choose a stronger password.',
+    )
+    expect(mockResetPassword).not.toHaveBeenCalled()
+  })
+
   it('rejects requests without a token', async () => {
     mockReadBody.mockResolvedValue({ newPassword: 'new-password-123' })
     mockGetQuery.mockReturnValue({})
