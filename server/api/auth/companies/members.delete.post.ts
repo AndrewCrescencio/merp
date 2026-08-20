@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('userId must be a non-empty string')
   }
 
-  const company = await companyRepository.findCompanyById(body.companyId)
+  const company = await companyRepository.findCompanyById(body.companyId, user.id)
   if (!company) {
     sendNotFoundError('Company not found')
   }

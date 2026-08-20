@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('At least one field (name, cnpj, razaoSocial) is required')
   }
 
-  const company = await companyRepository.findCompanyById(body.companyId)
+  const company = await companyRepository.findCompanyById(body.companyId, user.id)
   if (!company) {
     sendNotFoundError('Company not found')
   }

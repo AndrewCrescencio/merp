@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { and, eq, like, or, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
@@ -48,7 +49,7 @@ export interface ICompanyRepository {
     role?: string,
   ): Promise<CompanyMemberResult>
   searchCompanies(query: string, userId: string): Promise<CompanyResult[]>
-  findCompanyById(id: string): Promise<CompanyResult | null>
+  findCompanyById(id: string, userId: string): Promise<CompanyResult | null>
   findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>>
   isCompanyMember(userId: string, companyId: string): Promise<boolean>
   getCompanyMembershipRole(userId: string, companyId: string): Promise<string | null>
@@ -70,16 +71,24 @@ export interface ICompanyRepository {
 export class CompanyRepository implements ICompanyRepository {
   async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
     try {
-      const [created] = await db
-        .insert(company)
-        .values({
-          name: input.name,
-          cnpj: input.cnpj || null,
-          razaoSocial: input.razaoSocial || null,
-        })
-        .returning()
+      // AUD-20: company_select_policy agora exige membership OU tenant em
+      // contexto — o INSERT...RETURNING precisa do GUC de tenant já setado
+      // (id = get_tenant_id()), senão a row retornada é filtrada (0 rows).
+      // O id é gerado no app e o tenant GUC aponta para ele antes do insert.
+      const companyId = randomUUID()
+      return await withTenant(companyId, null, async (tx) => {
+        const [created] = await tx
+          .insert(company)
+          .values({
+            id: companyId,
+            name: input.name,
+            cnpj: input.cnpj || null,
+            razaoSocial: input.razaoSocial || null,
+          })
+          .returning()
 
-      return created!
+        return created!
+      })
     } catch (error: any) {
       if (error?.code === '23505') {
         throw createError({
@@ -100,28 +109,37 @@ export class CompanyRepository implements ICompanyRepository {
     ownerUserId: string,
   ): Promise<CompanyResult> {
     try {
+      // AUD-20: o INSERT de company precisa do tenant GUC setado ANTES do
+      // insert (policy: id = get_tenant_id()) — o id agora é gerado no app e
+      // o withTenant envolve todo o fluxo (company + member) na transação.
       return await db.transaction(async (tx) => {
-        const [created] = await tx
-          .insert(company)
-          .values({ name: data.name, cnpj: data.cnpj, razaoSocial: data.razaoSocial })
-          .returning()
-
-        await withTenant(
-          created!.id,
+        const companyId = randomUUID()
+        const created = await withTenant(
+          companyId,
           ownerUserId,
           async (ctxTx) => {
             // AUD-01/AUD-11: cm_insert_policy (0014) só permite self-insert
             // role='owner' com este flag (bootstrap do fundador); role='member'
             // exige o flag de member (createCompanyMember) ou token de convite.
             await ctxTx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
+            const [row] = await ctxTx
+              .insert(company)
+              .values({
+                id: companyId,
+                name: data.name,
+                cnpj: data.cnpj,
+                razaoSocial: data.razaoSocial,
+              })
+              .returning()
             await ctxTx
               .insert(companyMember)
-              .values({ companyId: created!.id, userId: ownerUserId, role: 'owner' })
+              .values({ companyId, userId: ownerUserId, role: 'owner' })
+            return row!
           },
           tx,
         )
 
-        return created!
+        return created
       })
     } catch (error: any) {
       if (getPostgresErrorCode(error) === '23505') {
@@ -217,15 +235,21 @@ export class CompanyRepository implements ICompanyRepository {
     }
   }
 
-  async findCompanyById(id: string): Promise<CompanyResult | null> {
+  // AUD-20: rodar com withTenant(null, userId) — o tenant GUC fica vazio e a
+  // company_select_policy (0016) exige membership real (EXISTS em
+  // company_member com get_user_id()). Outsider → 0 rows → null (404 nos
+  // handlers), mesmo sem check explícito no app.
+  async findCompanyById(id: string, userId: string): Promise<CompanyResult | null> {
     try {
-      const [found] = await db
-        .select()
-        .from(company)
-        .where(and(eq(company.id, id), eq(company.isDeleted, false)))
-        .limit(1)
+      return await withTenant(null, userId, async (tx) => {
+        const [found] = await tx
+          .select()
+          .from(company)
+          .where(and(eq(company.id, id), eq(company.isDeleted, false)))
+          .limit(1)
 
-      return found || null
+        return found || null
+      })
     } catch (error) {
       return handleDatabaseError(error)
     }

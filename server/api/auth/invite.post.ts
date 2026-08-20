@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('A valid email is required')
   }
 
-  const company = await companyRepository.findCompanyById(body.companyId)
+  const company = await companyRepository.findCompanyById(body.companyId, user.id)
   if (!company) {
     sendNotFoundError('Company not found')
   }

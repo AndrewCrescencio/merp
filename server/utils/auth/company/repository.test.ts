@@ -79,7 +79,24 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       )
 
       expect(updated).toHaveLength(0)
-      expect(await repo.findCompanyById(companyB.id)).toMatchObject({ name: 'Upd Company B' })
+      expect(await repo.findCompanyById(companyB.id, userB.id)).toMatchObject({
+        name: 'Upd Company B',
+      })
+    })
+
+    it('AUD-20: an outsider cannot read a company by id (0 rows → null)', async () => {
+      const emailA = `iso-find-a-${Date.now()}@example.com`
+      const emailB = `iso-find-b-${Date.now()}@example.com`
+
+      const userA = await registerUser(emailA, 'Find A')
+      const userB = await registerUser(emailB, 'Find B')
+
+      const companyB = await repo.createCompanyWithOwner({ name: 'Find Company B' }, userB.id)
+
+      expect(await repo.findCompanyById(companyB.id, userA.id)).toBeNull()
+      expect(await repo.findCompanyById(companyB.id, userB.id)).toMatchObject({
+        id: companyB.id,
+      })
     })
 
     it('AUD-10: search is scoped to the user membership', async () => {
@@ -257,7 +274,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const result = await repo.softDeleteCompany(company.id, owner.id)
 
       expect(result).toMatchObject({ id: company.id, isDeleted: true })
-      expect(await repo.findCompanyById(company.id)).toBeNull()
+      expect(await repo.findCompanyById(company.id, owner.id)).toBeNull()
       expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
       expect(await repo.getCompanyMembershipRole(owner.id, company.id)).toBeNull()
     })
@@ -272,7 +289,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         statusCode: 404,
       })
 
-      expect(await repo.findCompanyById(company.id)).toMatchObject({ id: company.id })
+      expect(await repo.findCompanyById(company.id, owner.id)).toMatchObject({ id: company.id })
       expect(await repo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
     })
   })
@@ -328,7 +345,9 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         repo.updateCompany(company.id, member.id, { name: 'Hacked Name' }),
       ).rejects.toMatchObject({ statusCode: 404 })
 
-      expect(await repo.findCompanyById(company.id)).toMatchObject({ name: 'Upd TOC Company' })
+      expect(await repo.findCompanyById(company.id, owner.id)).toMatchObject({
+        name: 'Upd TOC Company',
+      })
     })
   })
 
