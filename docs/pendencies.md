@@ -877,3 +877,26 @@ relatório (AUD-24).
 Health público ilimitado (1 SELECT/request) — aceito para health checks de
 orquestrador; revisitar se virar problema de carga. Decisão registrada no
 relatório (AUD-25).
+
+---
+
+### 36. `env_file: .env` no compose prod, fallbacks silenciosos, no-store fora da ordem (AUD-26) ✅ RESOLVIDO
+
+**Arquivos:** `docker-compose.prod.yml`, `.env.example`, `server/middleware/00-no-store.ts`
+
+Revisão completa do repositório (2026-08-20) — três resíduos:
+(a) `env_file: .env` re-injetava `DATABASE_URL`/`DB_PASSWORD` (owner) no
+container do app (anulava o AUD-19); (b) `BETTER_AUTH_URL:-localhost:3000`
+fallback silencioso + `.env.example` com defaults de dev — produção subiria
+com links/trustedOrigins quebrados; (c) `no-store` rodava depois do `auth`
+(401/429 sem header).
+
+**Correção (2026-08-20):** `env_file` removido — `environment` explícito com
+`${VAR:?}` para obrigatórias e fallback vazio para opcionais (verificado com
+`docker compose config`: owner ausente do container); `BETTER_AUTH_URL` e
+`CORS_ORIGIN` obrigatórias (sem fallback); `.env.example` reescrito com
+valores de produção; middleware renomeado para `00-no-store.ts` (ordem
+alfabética do Nitro garante execução antes do `auth`).
+
+**Status (2026-08-20):** Resolvido — 337 testes verdes, lint limpo. Detalhes
+no relatório (AUD-26).

@@ -5,14 +5,29 @@ services:
       target: production
       args:
         - CORS_ORIGIN=${CORS_ORIGIN:?CORS_ORIGIN obrigatória no build (baked no Nitro, AUD-05)}
-    env_file:
-      - .env
+    # AUD-26: SEM env_file — o `.env` inteiro (incl. DATABASE_URL owner,
+    # DB_PASSWORD) vazava para o container por esse caminho, anulando o
+    # AUD-19. Só o que está declarado abaixo entra no container; tudo que é
+    # obrigatório usa `${VAR:?}` (fail-closed no compose, mesmo padrão do
+    # validate-env no boot).
     environment:
       # AUD-19: DATABASE_URL (credencial de owner) NÃO entra no container —
       # o app usa apenas APP_DATABASE_URL (role merp_app) em produção.
       - APP_DATABASE_URL=${APP_DATABASE_URL?Variable not set - role de app (nao-dona) obrigatoria para RLS vigorar}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET?Variable not set}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
+      # AUD-26: sem fallback silencioso — localhost:3000 passaria no
+      # validate-env (presença ≠ valor) e geraria links de verificação/reset
+      # quebrados + redirect de reset para localhost.
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL?Variable not set}
+      # AUD-26: também em runtime (trustedOrigins do better-auth em
+      # shared/auth.ts) — não só baked no build (nuxt.config.ts routeRules).
+      - CORS_ORIGIN=${CORS_ORIGIN?Variable not set}
+      # Emails transacionais (Resend) — opcionais; sem chave, o envio é
+      # pulado com warn (server/utils/shared/email.ts). Declarados com
+      # fallback vazio para o container ficar sem a var quando não usada.
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM=${RESEND_FROM:-}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       # O nginx do projeto proxy para app:3000 (infra/nginx/nginx.conf) —
       # .env/.env.example usam PORT=5173 (dev), que quebraria o proxy.
       - PORT=3000

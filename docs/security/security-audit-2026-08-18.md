@@ -180,6 +180,28 @@
 
 ---
 
+### AUD-26 — `env_file: .env` re-injetava `DATABASE_URL` (owner) no container; fallbacks silenciosos no compose; no-store fora da ordem
+
+- **Categoria:** superfície de credencial / configuração / cache
+- **Severidade:** média (AUD-26a) + baixa (AUD-26b/c)
+- **Data:** 2026-08-20
+- **Localização:** `docker-compose.prod.yml` (`env_file: .env`, `BETTER_AUTH_URL:-` fallback), `.env.example` (defaults de dev), `server/middleware/no-store.ts` (ordem)
+- **Descrição:** revisão completa do repositório após AUD-25 encontrou três resíduos:
+  - **(a)** o AUD-19 removeu `DATABASE_URL` do bloco `environment`, mas `env_file: .env` continuava injetando o `.env` inteiro no container — verificado com `docker compose config`: `DATABASE_URL=postgres://merp:merp@...` + `DB_USER`/`DB_PASSWORD` (credenciais de owner) chegavam ao app. Container comprometido → credencial owner → DDL/takeover (RLS FORCE não protege contra DDL).
+  - **(b)** `BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}` — fallback silencioso que passa no validate-env (presença ≠ valor): produção subiria com links de verificação/reset apontando para localhost e redirect de reset para localhost. Agravado pelo `.env.example` documentar defaults de dev (`localhost:5173`, secret placeholder) — operador que copiasse o template subiria produção com `trustedOrigins`/links quebrados.
+  - **(c)** middleware `no-store.ts` roda DEPOIS de `auth.ts` (ordem alfabética do Nitro) — 401/429 lançados pelo auth curto-circuitavam antes do header `Cache-Control` (sem PII nesses corpos, mas regra não universal).
+- **Impacto / exploração:** (a) exfiltração de credencial em container comprometido; (b) links de recovery forjados para localhost + mismatch de trustedOrigins; (c) cache de respostas de erro (impacto ~nulo).
+- **Status:** resolvido (2026-08-20)
+
+**Resolução (2026-08-20):**
+
+- **(a)** `env_file` removido do serviço `app`; `environment` declara explicitamente apenas o necessário, com `${VAR:?}` fail-closed para obrigatórias (`APP_DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`) e fallback vazio para opcionais (`RESEND_API_KEY`, `RESEND_FROM`, `LOG_LEVEL`). Verificado com `docker compose config`: `DATABASE_URL`/`DB_USER`/`DB_PASSWORD` ausentes do container.
+- **(b)** fallback de `BETTER_AUTH_URL` removido (vira `${VAR:?}`); `CORS_ORIGIN` declarada também em runtime (trustedOrigins do better-auth lê em `shared/auth.ts`, não só o bake do build); `.env.example` reescrito com valores de produção (`https://app.merp.com.br`, notas de obrigatoriedade).
+- **(c)** `server/middleware/no-store.ts` → `00-no-store.ts` (ordem alfabética do Nitro: roda antes de `auth.ts` e `pii-audit.ts`); spec renomeado junto.
+- **Testes:** `pnpm test` 337 verdes; `pnpm lint` limpo; `docker compose config` validado.
+
+---
+
 ## Observações (não são achados ativos)
 
 - **`cm_insert_policy` permite owner inserir outro owner** (`drizzle/0014_bootstrap_role_split.sql`) — decisão da 0008, por design; nenhum endpoint expõe "add member com role" hoje (a única via é convite com role fixa `member`). Mina adormecida: nunca expor role variável nesse caminho.

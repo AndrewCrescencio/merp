@@ -20,7 +20,7 @@ describe('No-store middleware', () => {
   it('AUD-17: sets no-store on /api/ paths', async () => {
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/me'))
 
-    const handler = await import('~~/server/middleware/no-store').then((m) => m.default)
+    const handler = await import('~~/server/middleware/00-no-store').then((m) => m.default)
     const event = { resHeaders: {} } as any
 
     await handler(event)
@@ -31,7 +31,7 @@ describe('No-store middleware', () => {
   it('AUD-17: does not set no-store on non-/api/ paths', async () => {
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/'))
 
-    const handler = await import('~~/server/middleware/no-store').then((m) => m.default)
+    const handler = await import('~~/server/middleware/00-no-store').then((m) => m.default)
     const event = { resHeaders: {} } as any
 
     await handler(event)
@@ -42,7 +42,7 @@ describe('No-store middleware', () => {
   it('AUD-17: headers stay on the event when the handler throws', async () => {
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/me'))
 
-    const handler = await import('~~/server/middleware/no-store').then((m) => m.default)
+    const handler = await import('~~/server/middleware/00-no-store').then((m) => m.default)
     const event = { resHeaders: {} } as any
 
     await handler(event)
