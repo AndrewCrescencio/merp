@@ -802,35 +802,39 @@ e tokens de sessão (risco é a classe "banco comprometido").
 
 ---
 
-### 31. Role `merp_app` e grants core fora de migração (AUD-19) ⏳ PENDENTE
+### 31. Role `merp_app` e grants core fora de migração (AUD-19) ✅ RESOLVIDO
 
-**Arquivos:** `drizzle/0015_app_role_grants.sql`, `docker-compose.prod.yml`
+**Arquivos:** `drizzle/0017_app_role_core_grants.sql`, `docker-compose.prod.yml`, `server/utils/test-setup.ts`
 
 Criação da role e grants em `user`/`session`/`account`/`verification`/
 `company`/`company_member` só em test-setup e docs (passo manual em prod);
 `DATABASE_URL` (owner) injetada no container do app sem uso em runtime.
 
-**Correção planejada:** migração SQL idempotente com grants core; remover
-`DATABASE_URL` do compose prod.
+**Correção (prompt 36):** migração idempotente com `CREATE ROLE`-equivalente
+(DO block) + `GRANT USAGE ON SCHEMA` + DML em `ALL TABLES`/`ALL SEQUENCES`;
+`DATABASE_URL` removida do compose prod (app usa só `APP_DATABASE_URL`);
+test-setup passa a só garantir a senha de teste (ALTER ROLE idempotente).
 
-**Status (2026-08-18):** Pendente — operacional, registrado no relatório
-(AUD-19).
+**Status (2026-08-19):** Resolvido — relatório (AUD-19) atualizado.
 
 ---
 
-### 32. `company_select_policy` aberta / `findCompanyById` sem membership (AUD-20) ⏳ PENDENTE
+### 32. `company_select_policy` aberta / `findCompanyById` sem membership (AUD-20) ✅ RESOLVIDO
 
-**Arquivos:** `drizzle/0004`, `server/utils/auth/company/repository.ts`
+**Arquivos:** `drizzle/0016_company_select_membership.sql`, `server/utils/auth/company/repository.ts`, handlers `/api/auth/*`
 
-Qualquer autenticado tem oráculo de existência de empresa por ID; a policy no
-banco permite leitura de todas as empresas não-deletadas — ponto onde um
-endpoint futuro vazaria dados. Endpoints atuais não vazam dados (IDs UUIDv4,
-obtidos apenas por membros).
+Qualquer autenticado tinha oráculo de existência de empresa por ID; a policy
+no banco permitia leitura de todas as empresas não-deletadas — ponto onde um
+endpoint futuro vazaria dados.
 
-**Correção planejada:** restringir policy (membership via `EXISTS`) ou
-membership check no `findCompanyById`; revisar fluxos legítimos.
+**Correção (prompt 36):** policy restrita a `id = get_tenant_id()` OU
+`EXISTS(membership em company_member com get_user_id())`; `findCompanyById`
+agora roda com `withTenant(null, userId)` (outsider → null); `createCompany`
+/`createCompanyWithOwner` geram o id no app e setam o tenant GUC antes do
+`INSERT...RETURNING` (a policy filtra rows retornadas).
 
-**Status (2026-08-18):** Pendente — registrado no relatório (AUD-20).
+**Status (2026-08-19):** Resolvido — teste de integração de outsider
+adicionado; relatório (AUD-20) atualizado.
 
 ---
 

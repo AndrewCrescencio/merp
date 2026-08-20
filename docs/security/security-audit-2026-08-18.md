@@ -79,8 +79,12 @@
 - **Localização:** `drizzle/0015_app_role_grants.sql` (só cobre `auth_security_state`, `auth_event`, `invite`); `docker-compose.prod.yml:11` (`DATABASE_URL` injetada no container); criação da role/grants core só em `server/utils/test-setup.ts:81-94` e prompts/docs
 - **Descrição:** A criação da role `merp_app` e os grants DML em `user`, `session`, `account`, `verification`, `company`, `company_member` não existem em nenhuma migração — vivem em `test-setup.ts` (testes) e na documentação de operação. Em produção, o operador precisa replicar manualmente. Além disso, o compose injeta `DATABASE_URL` (credencial do role **owner**) no container do app, que em runtime só usa `APP_DATABASE_URL` — a credencial owner fica exposta dentro do container sem necessidade.
 - **Impacto / exploração:** (a) deploy sem os grants → `permission denied` → 500 em todos os endpoints; (b) container do app comprometido expõe a credencial owner do banco (role que burla FORCE RLS se usada para conectar — embora o app conecte com `APP_DATABASE_URL`, a credencial owner na env é um vetor extra).
-- **Status:** pendente — operacional (registrado em `docs/pendencies.md`, item 31). Exige migração SQL idempotente com `CREATE ROLE`-equivalente + grants core (padrão `apply-custom-sql`) e remoção de `DATABASE_URL` do compose prod.
-- **Correção planejada:** migração de grants recomendada (idempotente); remover `DATABASE_URL` do compose prod (ou documentar o uso).
+- **Status:** resolvido (prompt 36, commit `fix(security): role/grants core em migração e DATABASE_URL fora do container (AUD-19)`)
+
+**Resolução (2026-08-19):**
+
+- **Correção aplicada:** `drizzle/0017_app_role_core_grants.sql` — migração idempotente (padrão `apply-custom-sql`): DO block cria a role `merp_app` se ausente (sem senha — segredo de operação via `APP_DATABASE_URL`) + `GRANT USAGE ON SCHEMA public` + DML em `ALL TABLES`/`ALL SEQUENCES`. `docker-compose.prod.yml` — `DATABASE_URL` (owner) removida do container do app (runtime usa só `APP_DATABASE_URL`, já exigida no boot). `server/utils/test-setup.ts` — `ensureAppRole` reduzida a garantir a senha de teste (`ALTER ROLE` idempotente); grants agora vêm da migração.
+- **Testes:** suíte de integração roda contra a migração 0017 (role criada sem senha → ALTER ROLE do test-setup) — `pnpm test`.
 
 ---
 
@@ -91,8 +95,12 @@
 - **Localização:** `drizzle/0004_military_rocket_raccoon.sql` (`company_select_policy`: `is_deleted = false OR id = get_tenant_id()`); `server/utils/auth/company/repository.ts:220-232` (`findCompanyById` sem `withTenant`)
 - **Descrição:** A policy permite a qualquer role (com `SELECT` na tabela) ler **todas** as empresas não-deletadas. O app roda `findCompanyById` sem contexto de tenant → qualquer usuário autenticado tem oráculo de existência de empresa por ID (200/404) via `switch`/`update`/`delete`/`invite`/`invites`. Os handlers atuais não devolvem a row para não-membros, mas a policy é o único gate no banco — remover o check de app em um endpoint futuro vazaria `name`/`cnpj`/`razaoSocial` de qualquer empresa.
 - **Impacto / exploração:** confirmação de existência/status (deletada) de empresas por ID; sem vazamento de dados hoje (IDs são UUIDv4, obtidos apenas por membros).
-- **Status:** pendente (registrado em `docs/pendencies.md`, item 32). Oráculo de existência por ID; os endpoints atuais não vazam dados.
-- **Correção planejada:** restringir a policy (ex.: exigir membership via `EXISTS` em `company_member` com `get_user_id()`) ou adicionar membership check no `findCompanyById` do app; revisar impacto nos fluxos legítimos (busca por membros).
+- **Status:** resolvido (prompt 36, commit `fix(security): company_select_policy restrita a membership e findCompanyById com userId (AUD-20)`)
+
+**Resolução (2026-08-19):**
+
+- **Correção aplicada:** `drizzle/0016_company_select_membership.sql` — policy restrita a `id = get_tenant_id()` OU `EXISTS (SELECT 1 FROM company_member cm WHERE cm.company_id = company.id AND cm.user_id = get_user_id())` (o escape por tenant preserva os `UPDATE/DELETE ... RETURNING` do soft-delete/update, que rodam com `withTenant`). `server/utils/auth/company/repository.ts` — `findCompanyById(id, userId)` roda com `withTenant(null, userId)`: outsider → 0 rows → `null` → 404 nos handlers; `createCompany`/`createCompanyWithOwner` geram o id no app (`randomUUID()`) e setam o tenant GUC antes do `INSERT ... RETURNING` (a SELECT policy filtra rows retornadas — sem GUC, o RETURNING viria vazio). 6 handlers passam `user.id`.
+- **Testes:** `repository.test.ts` — novo caso `AUD-20: an outsider cannot read a company by id` (outsider → null, owner → row); chamadas existentes de `findCompanyById` ajustadas para o owner; suíte completa rodando com a policy restrita.
 
 ---
 
@@ -184,8 +192,8 @@
 
 1. **AUD-15 + AUD-16** (alta, prompts/33) — disponibilidade/DoS. ✅ resolvidos
 2. **AUD-17** (média, prompts/34) — PII em cache. ✅ resolvido
-3. **AUD-19** (média, prompts/35) — processo de deploy / superfície de credencial. ⏳ pendente (operacional)
-4. **AUD-18 / AUD-20** (média) — risco aceito documentado / defesa em profundidade. ⏳ pendentes (registrados)
+3. **AUD-19** (média, prompts/36) — processo de deploy / superfície de credencial. ✅ resolvido
+4. **AUD-18 / AUD-20** (média) — risco aceito documentado / defesa em profundidade. AUD-18 ⏳ aceito; AUD-20 ✅ resolvido (prompts/36)
 5. **AUD-21 a AUD-24** (baixa, prompts/34 e 35) — robustez. ✅ resolvidos
 
 ## Verificação
