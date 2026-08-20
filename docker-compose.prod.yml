@@ -8,7 +8,8 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=${DATABASE_URL?Variable not set}
+      # AUD-19: DATABASE_URL (credencial de owner) NÃO entra no container —
+      # o app usa apenas APP_DATABASE_URL (role merp_app) em produção.
       - APP_DATABASE_URL=${APP_DATABASE_URL?Variable not set - role de app (nao-dona) obrigatoria para RLS vigorar}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET?Variable not set}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}

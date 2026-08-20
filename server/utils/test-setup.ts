@@ -79,16 +79,18 @@ export async function setup(): Promise<void> {
 }
 
 function ensureAppRole(): void {
+  // AUD-19: a migração 0017 cria a role + grants (idempotente); este passo
+  // garante a SENHA de teste (a migração não fixa senha — é segredo de
+  // operação em produção). ALTER ROLE torna idempotente.
   run(
     `docker compose -f "${COMPOSE_FILE}" exec -T postgres psql -U merp -d merp_test -v ON_ERROR_STOP=1 <<'SQL'
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merp_app') THEN
     CREATE ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
+  ELSE
+    ALTER ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
   END IF;
 END $$;
-GRANT USAGE ON SCHEMA public TO merp_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO merp_app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO merp_app;
 SQL`,
   )
 }
