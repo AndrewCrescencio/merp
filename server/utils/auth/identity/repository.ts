@@ -248,6 +248,14 @@ export class IdentityRepository implements IIdentityRepository {
       }
 
       const authInstance = await this.resolveAuth()
+
+      // Session fixation protection: revoke all OTHER sessions for this user
+      // BEFORE creating the new one, so the new session becomes the only valid one.
+      const existingUser = await this.findByEmail(input.email)
+      if (existingUser) {
+        await this.terminateUserSessions(existingUser.id)
+      }
+
       const result = await withTimeout(
         authInstance.api.signInEmail({
           body: {
@@ -266,6 +274,7 @@ export class IdentityRepository implements IIdentityRepository {
       // signInEmail retorna apenas o token da sessão (sem o objeto session),
       // então o sessionId é resolvido via validateSession em background.
       const sessionToken = result.response.token
+
       void this.validateSession(sessionToken)
         .then((validated) => {
           if (!validated) return

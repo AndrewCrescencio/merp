@@ -12,6 +12,7 @@ export const user = pgTable(
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),
     isActive: boolean('is_active').notNull().default(true),
+    twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
     consentTermsVersion: text('consent_terms_version'),
     consentTermsAcceptedAt: timestamp('consent_terms_accepted_at', { withTimezone: true }),
     consentWithdrawnAt: timestamp('consent_withdrawn_at', { withTimezone: true }),

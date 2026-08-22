@@ -21,6 +21,7 @@ export default defineNuxtConfig({
     },
     scheduledTasks: {
       '0 0 * * *': ['purge-sessions', 'purge-security-state', 'purge-auth-events'],
+      '*/5 * * * *': ['process-email-queue'],
     },
   },
 

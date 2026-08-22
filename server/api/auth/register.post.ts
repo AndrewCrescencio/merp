@@ -11,6 +11,7 @@ import {
   normalizeEmail,
   isWeakPassword,
 } from '~~/server/utils/shared/security'
+import { checkPasswordBreach } from '~~/server/utils/shared/hibp'
 import { sendValidationError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
@@ -49,6 +50,14 @@ export default defineEventHandler(async (event) => {
 
   if (isWeakPassword(body.password)) {
     sendValidationError('Password is too common. Choose a stronger password.')
+  }
+
+  // NIST 800-63B: check against breached passwords (HIBP k-anonymity)
+  const breach = await checkPasswordBreach(body.password)
+  if (breach.breached) {
+    sendValidationError(
+      'This password has appeared in data breaches. Please choose a different password.',
+    )
   }
 
   if (!body?.name || typeof body.name !== 'string' || body.name.trim().length === 0) {

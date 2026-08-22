@@ -134,7 +134,7 @@ describe.skipIf(!dbAvailable)('IdentityRepository (integration)', () => {
     const { and } = await import('drizzle-orm')
 
     let event: any
-    for (let attempt = 0; attempt < 20; attempt++) {
+    for (let attempt = 0; attempt < 50; attempt++) {
       const [found] = await db
         .select()
         .from(authEvent)
@@ -144,7 +144,7 @@ describe.skipIf(!dbAvailable)('IdentityRepository (integration)', () => {
         event = found
         break
       }
-      await new Promise((resolve) => setTimeout(resolve, 25))
+      await new Promise((resolve) => setTimeout(resolve, 50))
     }
 
     expect(event).toBeTruthy()

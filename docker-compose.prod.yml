@@ -22,6 +22,8 @@ services:
       # AUD-26: também em runtime (trustedOrigins do better-auth em
       # shared/auth.ts) — não só baked no build (nuxt.config.ts routeRules).
       - CORS_ORIGIN=${CORS_ORIGIN?Variable not set}
+      # CSRF — obrigatório em produção (fail-closed)
+      - CSRF_SECRET=${CSRF_SECRET?Variable not set}
       # Emails transacionais (Resend) — opcionais; sem chave, o envio é
       # pulado com warn (server/utils/shared/email.ts). Declarados com
       # fallback vazio para o container ficar sem a var quando não usada.

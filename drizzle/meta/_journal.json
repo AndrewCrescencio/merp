@@ -85,6 +85,20 @@
       "when": 1786299567587,
       "tag": "0011_sliding_window_rate_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787412079994,
+      "tag": "0012_dry_vanisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787416176420,
+      "tag": "0013_noisy_mimic",
+      "breakpoints": true
     }
   ]
 }

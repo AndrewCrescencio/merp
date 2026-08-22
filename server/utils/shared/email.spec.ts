@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { logger } from '#shared/logger'
+import { db } from '~~/server/utils/db'
+import { emailQueue } from '~~/server/utils/schema'
+import { eq } from 'drizzle-orm'
 import {
   appVerificationLink,
   sendDeactivationNotice,
@@ -7,70 +10,50 @@ import {
   sendVerificationEmailLink,
 } from './email'
 
-const fetchMock = vi.fn()
 const loggerErrorSpy = vi.spyOn(logger, 'error')
 const loggerWarnSpy = vi.spyOn(logger, 'warn')
+const dbInsertSpy = vi.spyOn(db, 'insert')
 
 describe('sendDeactivationNotice', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', fetchMock)
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-    vi.unstubAllEnvs()
     vi.clearAllMocks()
-  })
-
-  it('sends the deactivation notice via Resend with the correct payload', async () => {
-    vi.stubEnv('RESEND_API_KEY', 're_test_key')
-    vi.stubEnv('RESEND_FROM', 'no-reply@merp.example.com')
-    fetchMock.mockResolvedValue({ ok: true, status: 200, text: async () => '' })
-
-    await sendDeactivationNotice('inactive@example.com')
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.resend.com/emails',
-      expect.objectContaining({
-        method: 'POST',
-        headers: { Authorization: 'Bearer re_test_key', 'Content-Type': 'application/json' },
-        signal: expect.any(AbortSignal),
-      }),
-    )
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
-    expect(body).toMatchObject({
-      from: 'no-reply@merp.example.com',
-      to: 'inactive@example.com',
-      subject: 'Your account has been deactivated',
+    dbInsertSpy.mockReturnValue({
+      values: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([{ id: 'test-id' }]),
     })
   })
 
-  it('skips sending without RESEND_API_KEY/RESEND_FROM', async () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('queues the deactivation notice with correct payload', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test_key')
+    vi.stubEnv('RESEND_FROM', 'no-reply@merp.example.com')
+
+    await sendDeactivationNotice('inactive@example.com')
+
+    expect(dbInsertSpy).toHaveBeenCalledWith(emailQueue)
+    const valuesCall = dbInsertSpy.mock.results[0].value.values
+    expect(valuesCall).toHaveBeenCalled()
+    const payload = valuesCall.mock.calls[0][0]
+    expect(payload).toMatchObject({
+      to: 'inactive@example.com',
+      subject: 'Your account has been deactivated',
+    })
+    expect(payload.html).toContain('deactivated')
+    expect(payload.maxAttempts).toBe(3)
+    expect(payload.status).toBe('pending')
+  })
+
+  it('skips queueing without RESEND_API_KEY/RESEND_FROM', async () => {
     vi.stubEnv('RESEND_API_KEY', '')
     vi.stubEnv('RESEND_FROM', '')
 
     await sendDeactivationNotice('inactive@example.com')
 
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(dbInsertSpy).not.toHaveBeenCalled()
     expect(loggerWarnSpy).toHaveBeenCalled()
-  })
-
-  it('resolves (does not throw) when the Resend call fails', async () => {
-    vi.stubEnv('RESEND_API_KEY', 're_test_key')
-    vi.stubEnv('RESEND_FROM', 'no-reply@merp.example.com')
-    fetchMock.mockRejectedValue(new Error('network down'))
-
-    await expect(sendDeactivationNotice('inactive@example.com')).resolves.toBeUndefined()
-    expect(loggerErrorSpy).toHaveBeenCalled()
-  })
-
-  it('resolves (does not throw) when Resend rejects the request', async () => {
-    vi.stubEnv('RESEND_API_KEY', 're_test_key')
-    vi.stubEnv('RESEND_FROM', 'no-reply@merp.example.com')
-    fetchMock.mockResolvedValue({ ok: false, status: 500, text: async () => 'boom' })
-
-    await expect(sendDeactivationNotice('inactive@example.com')).resolves.toBeUndefined()
-    expect(loggerErrorSpy).toHaveBeenCalled()
   })
 })
 
@@ -80,46 +63,54 @@ describe('AUD-04 email link handling (better-auth URLs → app endpoints)', () =
 
     expect(appVerificationLink(url)).toBe('https://app.merp.com.br/api/auth/verify-email?token=abc')
   })
+
+  it('handles malformed URLs gracefully', () => {
+    expect(appVerificationLink('not-a-url')).toBe('not-a-url')
+  })
 })
 
-describe('AUD-04 transactional email senders', () => {
+describe('AUD-04 transactional email senders (queue-based)', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', fetchMock)
+    vi.clearAllMocks()
+    dbInsertSpy.mockReturnValue({
+      values: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([{ id: 'test-id' }]),
+    })
   })
 
   afterEach(() => {
-    vi.unstubAllGlobals()
     vi.unstubAllEnvs()
-    vi.clearAllMocks()
   })
 
-  it('sendVerificationEmailLink sends the verification subject and link', async () => {
+  it('sendVerificationEmailLink queues the verification email', async () => {
     vi.stubEnv('RESEND_API_KEY', 're_test_key')
     vi.stubEnv('RESEND_FROM', 'no-reply@merp.example.com')
-    fetchMock.mockResolvedValue({ ok: true, status: 200, text: async () => '' })
 
     await sendVerificationEmailLink('new@example.com', 'https://app/api/auth/verify-email?token=x')
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
-    expect(body).toMatchObject({
+    expect(dbInsertSpy).toHaveBeenCalledWith(emailQueue)
+    const valuesCall = dbInsertSpy.mock.results[0].value.values
+    const payload = valuesCall.mock.calls[0][0]
+    expect(payload).toMatchObject({
       to: 'new@example.com',
       subject: 'Verify your email address',
     })
-    expect(body.html).toContain('/api/auth/verify-email?token=x')
+    expect(payload.html).toContain('/api/auth/verify-email?token=x')
   })
 
-  it('sendPasswordResetLink sends the reset subject and link', async () => {
+  it('sendPasswordResetLink queues the reset email', async () => {
     vi.stubEnv('RESEND_API_KEY', 're_test_key')
     vi.stubEnv('RESEND_FROM', 'no-reply@merp.example.com')
-    fetchMock.mockResolvedValue({ ok: true, status: 200, text: async () => '' })
 
     await sendPasswordResetLink('lost@example.com', 'https://app/api/auth/reset-password/tok1')
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
-    expect(body).toMatchObject({
+    expect(dbInsertSpy).toHaveBeenCalledWith(emailQueue)
+    const valuesCall = dbInsertSpy.mock.results[0].value.values
+    const payload = valuesCall.mock.calls[0][0]
+    expect(payload).toMatchObject({
       to: 'lost@example.com',
       subject: 'Reset your password',
     })
-    expect(body.html).toContain('/api/auth/reset-password/tok1')
+    expect(payload.html).toContain('/api/auth/reset-password/tok1')
   })
 })
