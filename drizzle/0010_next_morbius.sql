@@ -1,3 +1,7 @@
+-- SUPERSEDED by 0018_consolidated_auth_security_state.sql
+-- This migration is kept for history. 0018 creates auth_security_state with
+-- the window column from the start and backfills if missing.
+--
 -- Rate limiter e lockout persistentes (pendência #9): estado de segurança de
 -- autenticação fora de memória, compartilhado entre workers/instâncias.
 --

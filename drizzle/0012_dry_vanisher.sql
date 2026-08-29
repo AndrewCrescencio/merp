@@ -1,4 +1,8 @@
-CREATE TABLE "email_queue" (
+-- SUPERSEDED by 0019_consolidated_email_two_factor.sql
+-- This migration is kept for history. 0019 creates email_queue, two_factor,
+-- adds token_hash to invite, and adds two_factor_enabled to user in one file.
+--
+CREATE TABLE IF NOT EXISTS "email_queue" (
 	"id" text PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"to" text NOT NULL,
 	"subject" text NOT NULL,

@@ -1,3 +1,9 @@
+-- SUPERSEDED by 0014_bootstrap_role_split.sql
+-- This migration's cm_insert_policy is fully replaced by 0014 which splits
+-- bootstrap flags by role (allow_founder_bootstrap / allow_member_bootstrap).
+-- The invite_token_select_policy remains valid but is also included in 0014's
+-- policy logic. Kept for history.
+--
 -- AUD-01: aceite de convite por token secreto, com backstop no banco.
 -- O self-insert em company_member deixa de ser permitido incondicionalmente:
 -- só passa com (a) flag de bootstrap do fundador (app.allow_owner_bootstrap)
