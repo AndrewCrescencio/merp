@@ -1,8 +1,4 @@
 services:
-  postgres:
-    ports:
-      - '${DB_PORT:-5432}:5432'
-
   adminer:
     image: adminer:latest
     ports:

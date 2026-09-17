@@ -3,14 +3,6 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
 
-FROM base AS development
-COPY pnpm-workspace.yaml ./
-RUN pnpm install
-COPY . .
-EXPOSE 3000
-ENV NODE_ENV=development
-CMD ["pnpm", "dev"]
-
 FROM base AS build
 ARG CORS_ORIGIN
 ENV CORS_ORIGIN=${CORS_ORIGIN}

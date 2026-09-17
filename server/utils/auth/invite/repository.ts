@@ -7,7 +7,7 @@ import {
   handleDatabaseError,
   sendConflictError,
   sendNotFoundError,
-  getPostgresErrorCode,
+  isPgConflict,
 } from '../../shared/errors'
 import { withTenant } from '../tenant-context'
 
@@ -31,13 +31,6 @@ export interface CreatedInviteResult extends InviteResult {
   token: string
 }
 
-export interface IInviteRepository {
-  createInvite(input: CreateInviteInput): Promise<CreatedInviteResult>
-  findPendingInvite(companyId: string, email: string): Promise<InviteResult | null>
-  listCompanyInvites(companyId: string): Promise<InviteResult[]>
-  acceptInvite(token: string, email: string, userId: string): Promise<InviteResult>
-}
-
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
 // AUD-01: token de aceite com 256 bits de entropia; no banco só o hash
@@ -58,7 +51,7 @@ function toInviteResult(row: Row): InviteResult {
   return rest
 }
 
-export class InviteRepository implements IInviteRepository {
+export class InviteRepository {
   async createInvite(input: CreateInviteInput): Promise<CreatedInviteResult> {
     try {
       return await withTenant(input.companyId, input.invitedBy, async (tx) => {
@@ -76,7 +69,7 @@ export class InviteRepository implements IInviteRepository {
         return { ...toInviteResult(created!), token }
       })
     } catch (error: any) {
-      if (getPostgresErrorCode(error) === '23505') {
+      if (isPgConflict(error)) {
         sendConflictError('Invite already exists for this company')
       }
       return handleDatabaseError(error)
@@ -186,7 +179,7 @@ export class InviteRepository implements IInviteRepository {
         )
       })
     } catch (error: any) {
-      if (getPostgresErrorCode(error) === '23505') {
+      if (isPgConflict(error)) {
         sendConflictError('User is already a member of this company')
       }
       if (error instanceof H3Error) {
@@ -197,4 +190,4 @@ export class InviteRepository implements IInviteRepository {
   }
 }
 
-export const inviteRepository: IInviteRepository = new InviteRepository()
+export const inviteRepository = new InviteRepository()

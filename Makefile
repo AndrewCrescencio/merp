@@ -1,4 +1,4 @@
-.PHONY: help dev dev-d prod prod-down prod-logs db migrate migrate-prod seed studio
+.PHONY: help dev dev-d prod prod-down prod-logs db migrate migrate-prod studio
 
 setup: ## Install dependencies and generate Nuxt types
 	pnpm install && pnpm nuxt prepare
@@ -27,14 +27,11 @@ prod-logs: ## Tail production logs
 db: ## Start only postgres (useful when running Nuxt on host)
 	docker compose up -d postgres
 
-migrate: ## Run Drizzle migrations (dev)
-	docker compose exec app npx drizzle-kit migrate
+migrate: ## Run Drizzle migrations (dev, Nuxt on host)
+	npx drizzle-kit migrate
 
 migrate-prod: ## Run Drizzle migrations (prod)
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm app npx drizzle-kit migrate
 
-seed: ## Run database seeds
-	docker compose exec app npx tsx server/utils/seed.ts
-
-studio: ## Open Drizzle Studio
-	docker compose exec app npx drizzle-kit studio
+studio: ## Open Drizzle Studio (dev, Nuxt on host)
+	npx drizzle-kit studio

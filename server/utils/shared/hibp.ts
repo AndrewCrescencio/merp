@@ -55,7 +55,3 @@ export async function checkPasswordBreach(password: string): Promise<{
     return { breached: false, count: 0 }
   }
 }
-
-export function isPasswordBreached(password: string): Promise<boolean> {
-  return checkPasswordBreach(password).then((r) => r.breached)
-}

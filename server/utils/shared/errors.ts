@@ -69,6 +69,10 @@ export function getPostgresErrorCode(error: unknown): string | undefined {
   return undefined
 }
 
+export function isPgConflict(error: unknown): boolean {
+  return getPostgresErrorCode(error) === '23505'
+}
+
 const RLS_ERROR_CODES = new Set(['42501', 'P0001'])
 
 export function classifyDatabaseError(error: unknown): {

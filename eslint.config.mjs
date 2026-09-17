@@ -5,6 +5,6 @@ export default withNuxt(
   { name: 'merp/prettier', ...prettier },
   {
     name: 'merp/ignores',
-    ignores: ['.nuxt/', '.output/', 'node_modules/'],
+    ignores: ['.nuxt/', '.output/'],
   },
 )
