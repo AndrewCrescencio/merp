@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
-import { getCookie, setCookie, type H3Event } from 'h3'
+import { getCookie, getRequestHeader, setCookie, type H3Event } from 'h3'
 
 const CSRF_COOKIE_NAME = 'merp-csrf_token'
 const CSRF_HEADER_NAME = 'x-csrf-token'
@@ -46,15 +46,26 @@ export function validateCsrf(event: H3Event): boolean {
   const cookieToken = getCsrfToken(event)
   if (!cookieToken) return false
 
-  const headerToken = getHeader(event, CSRF_HEADER_NAME)
+  const headerToken = getRequestHeader(event, CSRF_HEADER_NAME)
   if (!headerToken) return false
 
   return timingSafeEqual(Buffer.from(cookieToken), Buffer.from(headerToken))
 }
 
-function getHeader(event: H3Event, name: string): string | undefined {
-  const headers = event.headers
-  return headers.get(name) || headers.get(name.toLowerCase()) || undefined
+const csrfExemptPaths = new Set([
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/auth/verify-email',
+  '/api/auth/reset-password',
+  '/api/auth/forget-password',
+  '/api/health',
+])
+
+const csrfExemptPrefixes = ['/api/auth/reset-password/']
+
+export function isCsrfExempt(path: string): boolean {
+  if (csrfExemptPaths.has(path)) return true
+  return csrfExemptPrefixes.some((prefix) => path.startsWith(prefix))
 }
 
 export function getOrCreateCsrfToken(event: H3Event): string {
@@ -65,6 +76,3 @@ export function getOrCreateCsrfToken(event: H3Event): string {
   }
   return token
 }
-
-export const CSRF_COOKIE_NAME_PUBLIC = CSRF_COOKIE_NAME
-export const CSRF_HEADER_NAME_PUBLIC = CSRF_HEADER_NAME

@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { db } from '../db'
 import { sql } from 'drizzle-orm'
 
-describe('withTenant', () => {
+const dbAvailable = process.env.DB_AVAILABLE === 'true'
+
+describe.skipIf(!dbAvailable)('withTenant (integration)', () => {
   it('sets app.tenant_id within transaction', async () => {
     const { withTenant } = await import('./tenant-context')
 
@@ -28,7 +30,9 @@ describe('withTenant', () => {
     const [row] = await db.execute(sql`
       SELECT current_setting('app.tenant_id', true) AS tenant_id
     `)
-    expect((row as any).tenant_id).toBe('')
+    // Fail-closed: fora da transação o GUC volta a ausente (NULL) ou vazio
+    // ('') — ambos mapeiam para NULL via NULLIF no get_tenant_id() → RLS nega.
+    expect([null, '']).toContain((row as any).tenant_id)
   })
 
   it('reuses an existing transaction when existingTx is passed', async () => {
@@ -40,9 +44,9 @@ describe('withTenant', () => {
         'outer-user',
         async (ctxTx) => {
           const [row] = await ctxTx.execute(sql`
-          SELECT current_setting('app.tenant_id', true) AS tenant_id,
-                 current_setting('app.user_id', true) AS user_id
-        `)
+            SELECT current_setting('app.tenant_id', true) AS tenant_id,
+                   current_setting('app.user_id', true) AS user_id
+          `)
           return row as { tenant_id: string; user_id: string }
         },
         tx,
@@ -75,6 +79,29 @@ describe('withTenant', () => {
     const [row] = await db.execute(sql`
       SELECT current_setting('app.tenant_id', true) AS tenant_id
     `)
-    expect((row as any).tenant_id).toBe('')
+    expect([null, '']).toContain((row as any).tenant_id)
+  })
+
+  it('clears outer tenant when nested withTenant(null) reuses the transaction', async () => {
+    const { withTenant } = await import('./tenant-context')
+
+    await db.transaction(async (tx) => {
+      await withTenant('outer-tenant', 'outer-user', async () => {}, tx)
+
+      await withTenant(
+        null,
+        'other-user',
+        async (ctxTx) => {
+          const [row] = await ctxTx.execute(sql`
+            SELECT current_setting('app.tenant_id', true) AS tenant_id,
+                   current_setting('app.user_id', true) AS user_id
+          `)
+          const r = row as { tenant_id: string | null; user_id: string | null }
+          expect([null, '']).toContain(r.tenant_id)
+          expect(r.user_id).toBe('other-user')
+        },
+        tx,
+      )
+    })
   })
 })

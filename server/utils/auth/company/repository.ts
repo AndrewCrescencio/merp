@@ -8,7 +8,7 @@ import {
   sendConflictError,
   sendForbiddenError,
   sendNotFoundError,
-  getPostgresErrorCode,
+  isPgConflict,
 } from '../../shared/errors'
 import { withTenant } from '../tenant-context'
 
@@ -40,35 +40,7 @@ export interface CompanyMemberResult {
   createdAt: Date
 }
 
-export interface ICompanyRepository {
-  createCompany(input: CreateCompanyInput): Promise<CompanyResult>
-  createCompanyWithOwner(data: CreateCompanyInput, ownerUserId: string): Promise<CompanyResult>
-  createCompanyMember(
-    companyId: string,
-    userId: string,
-    role?: string,
-  ): Promise<CompanyMemberResult>
-  searchCompanies(query: string, userId: string): Promise<CompanyResult[]>
-  findCompanyById(id: string, userId: string): Promise<CompanyResult | null>
-  findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>>
-  isCompanyMember(userId: string, companyId: string): Promise<boolean>
-  getCompanyMembershipRole(userId: string, companyId: string): Promise<string | null>
-  removeCompanyMember(
-    companyId: string,
-    executedByUserId: string,
-    targetUserId: string,
-  ): Promise<void>
-  setActiveCompany(sessionId: string, companyId: string | null, userId: string): Promise<void>
-  getActiveCompany(sessionId: string): Promise<string | null>
-  softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult>
-  updateCompany(
-    companyId: string,
-    userId: string,
-    input: Partial<CreateCompanyInput>,
-  ): Promise<CompanyResult>
-}
-
-export class CompanyRepository implements ICompanyRepository {
+export class CompanyRepository {
   async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
     try {
       // AUD-20: company_select_policy agora exige membership OU tenant em
@@ -90,7 +62,7 @@ export class CompanyRepository implements ICompanyRepository {
         return created!
       })
     } catch (error: any) {
-      if (error?.code === '23505') {
+      if (isPgConflict(error)) {
         throw createError({
           status: 409,
           statusText: '409',
@@ -142,7 +114,7 @@ export class CompanyRepository implements ICompanyRepository {
         return created
       })
     } catch (error: any) {
-      if (getPostgresErrorCode(error) === '23505') {
+      if (isPgConflict(error)) {
         throw createError({
           status: 409,
           statusText: '409',
@@ -187,7 +159,7 @@ export class CompanyRepository implements ICompanyRepository {
         return created!
       })
     } catch (error: any) {
-      if (getPostgresErrorCode(error) === '23505') {
+      if (isPgConflict(error)) {
         throw createError({
           status: 409,
           statusText: '409',
@@ -459,7 +431,7 @@ export class CompanyRepository implements ICompanyRepository {
         return updated!
       })
     } catch (error: any) {
-      if (getPostgresErrorCode(error) === '23505') {
+      if (isPgConflict(error)) {
         sendConflictError('CNPJ already registered')
       }
       if (error instanceof H3Error) {
@@ -470,4 +442,4 @@ export class CompanyRepository implements ICompanyRepository {
   }
 }
 
-export const companyRepository: ICompanyRepository = new CompanyRepository()
+export const companyRepository = new CompanyRepository()

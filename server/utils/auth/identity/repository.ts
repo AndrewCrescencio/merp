@@ -1,5 +1,5 @@
 import { and, eq, gt } from 'drizzle-orm'
-import { randomBytes } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { db } from '../../db'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
@@ -30,23 +30,11 @@ export interface SignInInput {
   rememberMe?: boolean
 }
 
-const USER_ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-
-// AUD-03: id sintético no mesmo formato do better-auth (32 chars
-// alfanuméricos) para o caminho de "email já registrado". Rejection sampling:
-// bytes >= maxValid são descartados — `% 62` direto teria viés de módulo
-// (256/62 não é exato) favorecendo chars iniciais do alfabeto.
+// AUD-03: id sintético de 32 chars hex para o caminho de "email já
+// registrado" (resposta genérica anti-enumeração) — entropia de 122 bits;
+// viés de módulo é irrelevante aqui, então uuid puro basta.
 export function generateUserId(): string {
-  const alphabetLength = USER_ID_ALPHABET.length
-  const maxValid = 256 - (256 % alphabetLength)
-  const chars: string[] = []
-  while (chars.length < 32) {
-    for (const byte of randomBytes(32)) {
-      if (chars.length >= 32) break
-      if (byte < maxValid) chars.push(USER_ID_ALPHABET[byte % alphabetLength])
-    }
-  }
-  return chars.join('')
+  return randomUUID().replace(/-/g, '')
 }
 
 export interface UserResult {
@@ -88,38 +76,12 @@ export interface UpdateUserInput {
   consentWithdrawnAt: Date
 }
 
-export interface IIdentityRepository {
-  register(input: RegisterInput): Promise<UserResult | null>
-  signIn(input: SignInInput, headers?: Headers): Promise<SignInResult>
-  findByEmail(email: string): Promise<UserResult | null>
-  findById(id: string): Promise<UserResult | null>
-  createSession(
-    userId: string,
-    token: string,
-    expiresAt: Date,
-    rememberMe: boolean,
-  ): Promise<SessionResult>
-  validateSession(token: string): Promise<SessionWithUser | null>
-  terminateSession(token: string): Promise<void>
-  terminateUserSessions(userId: string): Promise<void>
-  updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult>
-  isEmailTaken(email: string): Promise<boolean>
-  withdrawConsent(userId: string): Promise<UserResult>
-  deactivateUser(userId: string): Promise<UserResult>
-  getUserSessions(userId: string): Promise<Array<{ id: string; createdAt: Date; expiresAt: Date }>>
-  sendVerificationEmail(email: string): Promise<void>
-  verifyEmail(token: string): Promise<void>
-  requestPasswordReset(email: string): Promise<void>
-  resetPassword(token: string, newPassword: string): Promise<void>
-  validateResetToken(token: string): Promise<boolean>
-}
-
 // AUD-07: senha-pad do caminho de conta desativada — constante impossível de
 // acertar (o verify de scrypt é determinístico), usada para igualar o custo
 // de timing do signIn sem jamais criar sessão.
 const TIMING_PAD_PASSWORD = '__aud07_timing_pad__'
 
-export class IdentityRepository implements IIdentityRepository {
+export class IdentityRepository {
   // FR-025: a instância do Better Auth é resolvida de forma lazy; se a
   // inicialização falhar (shared/auth.ts), os endpoints retornam 503
   // auth_unavailable em vez de crashar no import.
@@ -601,4 +563,4 @@ export class IdentityRepository implements IIdentityRepository {
   }
 }
 
-export const identityRepository: IIdentityRepository = new IdentityRepository()
+export const identityRepository = new IdentityRepository()

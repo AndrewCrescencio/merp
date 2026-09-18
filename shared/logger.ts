@@ -4,35 +4,17 @@ type LogLevel = keyof typeof LOG_LEVELS
 
 const currentLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'info'
 
-function shouldLog(level: LogLevel): boolean {
-  return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel]
-}
-
-function formatMessage(level: LogLevel, message: string, meta?: Record<string, unknown>): string {
-  const timestamp = new Date().toISOString()
-  const metaStr = meta ? ` ${JSON.stringify(meta)}` : ''
-  return `[${timestamp}] [${level.toUpperCase()}] ${message}${metaStr}`
+function log(level: LogLevel, message: string, meta?: Record<string, unknown>) {
+  if (LOG_LEVELS[level] >= LOG_LEVELS[currentLevel]) {
+    console[level](
+      `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`,
+    )
+  }
 }
 
 export const logger = {
-  debug(message: string, meta?: Record<string, unknown>) {
-    if (shouldLog('debug')) {
-      console.debug(formatMessage('debug', message, meta))
-    }
-  },
-  info(message: string, meta?: Record<string, unknown>) {
-    if (shouldLog('info')) {
-      console.info(formatMessage('info', message, meta))
-    }
-  },
-  warn(message: string, meta?: Record<string, unknown>) {
-    if (shouldLog('warn')) {
-      console.warn(formatMessage('warn', message, meta))
-    }
-  },
-  error(message: string, meta?: Record<string, unknown>) {
-    if (shouldLog('error')) {
-      console.error(formatMessage('error', message, meta))
-    }
-  },
+  debug: (message: string, meta?: Record<string, unknown>) => log('debug', message, meta),
+  info: (message: string, meta?: Record<string, unknown>) => log('info', message, meta),
+  warn: (message: string, meta?: Record<string, unknown>) => log('warn', message, meta),
+  error: (message: string, meta?: Record<string, unknown>) => log('error', message, meta),
 }

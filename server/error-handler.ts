@@ -1,11 +1,7 @@
 import { defineNitroErrorHandler } from 'nitropack/runtime'
 import { send, setResponseHeaders, setResponseStatus } from 'h3'
 import { logger } from '#shared/logger'
-
-export interface ApiError {
-  error: string
-  message: string
-}
+import type { ApiError } from './utils/shared/errors'
 
 export interface NormalizedError {
   status: number
