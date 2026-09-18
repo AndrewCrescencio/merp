@@ -46,6 +46,6 @@
     "lint-staged": "^17.0.7",
     "nitropack": "2.13.4",
     "prettier": "^3.8.4",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
