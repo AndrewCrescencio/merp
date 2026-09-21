@@ -66,7 +66,7 @@ function createAuth() {
       sendOnSignIn: true,
       expiresIn: 3600,
     },
-    // FR-010: TTL fixo — rememberMe=7d (expiresIn), sem rememberMe=24h
+    // FR-009: TTL fixo — rememberMe=7d (expiresIn), sem rememberMe=24h
     // (better-auth usa 24h quando dontRememberMe). disableSessionRefresh
     // evita que o refresh promova sessões de 24h para 7d no primeiro request.
     session: {

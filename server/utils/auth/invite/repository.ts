@@ -51,7 +51,13 @@ function toInviteResult(row: Row): InviteResult {
   return rest
 }
 
+/** Invite repository — tokens carry 256-bit entropy; only the SHA-256 hash is stored. */
 export class InviteRepository {
+  /**
+   * Creates an invite (7d TTL). Returns the accept token exactly once —
+   * callers must not persist or re-expose it. 409 when an invite for the
+   * company already exists.
+   */
   async createInvite(input: CreateInviteInput): Promise<CreatedInviteResult> {
     try {
       return await withTenant(input.companyId, input.invitedBy, async (tx) => {
@@ -76,6 +82,7 @@ export class InviteRepository {
     }
   }
 
+  /** Finds a non-expired, unaccepted invite for (company, email), or null. */
   async findPendingInvite(companyId: string, email: string): Promise<InviteResult | null> {
     try {
       return await withTenant(companyId, null, async (tx) => {
@@ -98,6 +105,7 @@ export class InviteRepository {
     }
   }
 
+  /** Lists a company's invites as metadata (never tokens). */
   async listCompanyInvites(companyId: string): Promise<InviteResult[]> {
     try {
       return await withTenant(companyId, null, async (tx) => {
@@ -115,6 +123,12 @@ export class InviteRepository {
   // token e o INSERT de member pelo backstop cm_insert_policy (que valida o
   // hash + email da sessão no banco). Token reutilizado ou expirado → 404
   // genérico; membro já existente → 409 (rollback, token não é consumido).
+  /**
+   * Claims an invite by secret token and creates the membership as `member`.
+   * Single-use and race-safe (conditional claim UPDATE). 404 for
+   * invalid/expired/consumed tokens or email mismatch; 409 when the user is
+   * already a member (token is NOT consumed on 409).
+   */
   async acceptInvite(token: string, email: string, userId: string): Promise<InviteResult> {
     try {
       const tokenHash = hashToken(token)

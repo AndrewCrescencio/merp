@@ -81,6 +81,7 @@ export interface UpdateUserInput {
 // de timing do signIn sem jamais criar sessão.
 const TIMING_PAD_PASSWORD = '__aud07_timing_pad__'
 
+/** Identity/account repository — Better Auth calls wrapped in 5s timeouts (FR-024) with contract-shaped errors. */
 export class IdentityRepository {
   // FR-025: a instância do Better Auth é resolvida de forma lazy; se a
   // inicialização falhar (shared/auth.ts), os endpoints retornam 503
@@ -96,6 +97,10 @@ export class IdentityRepository {
 
   // FR-024: chamadas OAuth futuras (auth.api.signInOAuth etc.) devem usar
   // withTimeout(..., 10_000) — nenhum provider OAuth está configurado ainda.
+  /**
+   * Registers a user (no session — FR-001) and stamps LGPD consent.
+   * Returns null for duplicate emails (anti-enumeration, AUD-03) — never 409.
+   */
   async register(input: RegisterInput): Promise<UserResult | null> {
     try {
       const authInstance = await this.resolveAuth()
@@ -157,6 +162,13 @@ export class IdentityRepository {
     }
   }
 
+  /**
+   * Signs in with timing-equalized paths (AUD-07): deactivated accounts pay
+   * the same scrypt cost before 401 `account_deactivated`. Revokes other
+   * sessions first (fixation protection). 401 invalid credentials, 403
+   * `email_not_verified` (correct password proven), 503 on timeout.
+   * The returned `setCookie` must be forwarded or no session is established.
+   */
   async signIn(input: SignInInput, headers?: Headers): Promise<UserResult> {
     try {
       const existing = await this.findByEmail(input.email)
@@ -298,6 +310,7 @@ export class IdentityRepository {
   // {status:true} para qualquer email (existente ou não) com piso de 500ms —
   // anti-enumeração embutida; o envio real só ocorre para conta existente
   // não-verificada.
+  /** Resends the verification link — identical outcome for any email (anti-enumeration). */
   async sendVerificationEmail(email: string): Promise<void> {
     try {
       const authInstance = await this.resolveAuth()
@@ -316,6 +329,7 @@ export class IdentityRepository {
   // AUD-04: destino do link de verificação (GET). O token é um JWT assinado
   // com TTL de 1h (expiresIn do emailVerification); idempotente — verificar
   // email já verificado retorna sucesso.
+  /** Verifies email ownership via signed JWT (1h TTL, idempotent). 400 on invalid/expired token. */
   async verifyEmail(token: string): Promise<void> {
     try {
       const authInstance = await this.resolveAuth()
@@ -341,6 +355,7 @@ export class IdentityRepository {
   // caminho inexistente — anti-enumeração embutida). O redirectTo é a
   // origem do app: o link de reset aponta para GET /api/auth/reset-password/
   // <token>?callbackURL=<origin>, que valida e redireciona para o frontend.
+  /** Starts password recovery — identical outcome for any email (anti-enumeration). */
   async requestPasswordReset(email: string): Promise<void> {
     try {
       const authInstance = await this.resolveAuth()
@@ -364,6 +379,7 @@ export class IdentityRepository {
   // (consumeVerificationValue do better-auth), TTL de 1h; com
   // revokeSessionsOnPasswordReset, todas as sessões do usuário são
   // revogadas. Token inválido/consumido/expirado → 400 genérico.
+  /** Sets a new password via single-use reset token; revokes all sessions. 400 on invalid/consumed/expired token. */
   async resetPassword(token: string, newPassword: string): Promise<void> {
     try {
       const authInstance = await this.resolveAuth()
@@ -389,6 +405,7 @@ export class IdentityRepository {
   // reset-password/<token>). NÃO consome — o consumo de uso único acontece
   // no POST /reset-password. Acoplamento documentado: identifier no formato
   // interno do better-auth (`reset-password:${token}` na tabela verification).
+  /** Checks a reset token without consuming it (click-time validation). */
   async validateResetToken(token: string): Promise<boolean> {
     try {
       const [found] = await db
@@ -407,6 +424,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Finds a user by email, or null. */
   async findByEmail(email: string): Promise<UserResult | null> {
     try {
       const [found] = await db.select().from(user).where(eq(user.email, email)).limit(1)
@@ -417,6 +435,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Finds a user by id, or null. */
   async findById(id: string): Promise<UserResult | null> {
     try {
       const [found] = await db.select().from(user).where(eq(user.id, id)).limit(1)
@@ -427,6 +446,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Persists a session row directly (used by tests/fixtures — handlers use Better Auth sign-in). */
   async createSession(
     userId: string,
     token: string,
@@ -445,6 +465,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Validates a session token (unexpired + active user), or null. */
   async validateSession(token: string): Promise<SessionWithUser | null> {
     try {
       const [found] = await db
@@ -468,6 +489,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Deletes one session by token. */
   async terminateSession(token: string): Promise<void> {
     try {
       await db.delete(session).where(eq(session.token, token))
@@ -476,6 +498,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Deletes all sessions of a user. */
   async terminateUserSessions(userId: string): Promise<void> {
     try {
       await db.delete(session).where(eq(session.userId, userId))
@@ -484,6 +507,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Partially updates a user row (always bumps `updatedAt`). */
   async updateUser(id: string, data: Partial<UpdateUserInput>): Promise<UserResult> {
     try {
       const [updated] = await db
@@ -498,6 +522,7 @@ export class IdentityRepository {
     }
   }
 
+  /** True when the email is already registered. */
   async isEmailTaken(email: string): Promise<boolean> {
     try {
       const [found] = await db
@@ -512,6 +537,11 @@ export class IdentityRepository {
     }
   }
 
+  /**
+   * Withdraws LGPD consent (FR-021): stamps `consentWithdrawnAt`, deactivates
+   * the account and terminates all sessions atomically. The PII
+   * deletion/anonymization queue is deferred (out of scope).
+   */
   async withdrawConsent(userId: string): Promise<UserResult> {
     try {
       // FR-021: retirada de consentimento desativa a conta imediatamente e
@@ -533,6 +563,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Deactivates a user (soft delete, FR-017) and terminates all sessions. Data is preserved. */
   async deactivateUser(userId: string): Promise<UserResult> {
     try {
       await db.delete(session).where(eq(session.userId, userId))
@@ -549,6 +580,7 @@ export class IdentityRepository {
     }
   }
 
+  /** Lists a user's sessions (id + timestamps — no tokens, FR-020 export). */
   async getUserSessions(
     userId: string,
   ): Promise<Array<{ id: string; createdAt: Date; expiresAt: Date }>> {

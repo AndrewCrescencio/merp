@@ -3,6 +3,12 @@ import { sql } from 'drizzle-orm'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
+/**
+ * Mandatory entry point for tenant-scoped queries: sets `app.tenant_id` /
+ * `app.user_id` GUCs (transaction-local) so RLS policies enforce isolation.
+ * `null` clears the GUC (fail-closed) instead of inheriting outer values.
+ * Accepts an existing transaction for nesting.
+ */
 export async function withTenant<T>(
   tenantId: string | null,
   userId: string | null,

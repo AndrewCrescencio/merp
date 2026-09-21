@@ -203,6 +203,7 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
 
 // FR-010 + hardening: sliding window per IP (20/min). Roda ANTES do
 // readBody nas rotas públicas: bloqueia corpos grandes sem parseá-los.
+/** Sliding-window rate limit per IP (20/min). No-op without a socket IP. Throws 429 with `Retry-After` headers. */
 export async function checkIpRateLimit(event: H3Event): Promise<void> {
   let ip: string | null = null
   try {
@@ -219,12 +220,14 @@ export async function checkIpRateLimit(event: H3Event): Promise<void> {
 
 // FR-010: sliding window per email (5/min), so brute force rotating emails
 // from one IP is also throttled (em conjunto com checkIpRateLimit).
+/** Sliding-window rate limit per email (5/min). Throws 429. Call after size caps (AUD-14). */
 export async function checkEmailRateLimit(event: H3Event, email: string): Promise<void> {
   await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
 }
 
 // AUD-16: sliding window per user (60/min) nas rotas autenticadas — cobre o
 // que o rate limit por IP do nginx/app não vê (IPs rotativos, NAT).
+/** Sliding-window rate limit per authenticated user (60/min). Throws 429. */
 export async function checkUserRateLimit(event: H3Event, userId: string): Promise<void> {
   await checkRateLimitKey(event, `rate:user:${userId}`, MAX_REQUESTS_PER_USER)
 }
@@ -276,6 +279,7 @@ async function incrementLockout(
   })
 }
 
+/** Throws generic 401 `account_locked` when the (email) or (email+IP) lockout is active. */
 export async function checkAccountLockout(email: string, ip?: string | null): Promise<void> {
   const now = new Date()
   const keys = [`lockout:${email}`]
@@ -294,6 +298,7 @@ export async function checkAccountLockout(email: string, ip?: string | null): Pr
   }
 }
 
+/** Records a failed login on both lockout tiers (global 50 + pair 10). Call only for `invalid_credentials`. */
 export async function recordFailedAttempt(email: string, ip?: string | null): Promise<void> {
   const now = new Date()
 
@@ -311,6 +316,7 @@ export async function recordFailedAttempt(email: string, ip?: string | null): Pr
   }
 }
 
+/** Clears both lockout tiers after a successful login (best-effort — callers must not fail the login on error). */
 export async function resetFailedAttempts(email: string, ip?: string | null): Promise<void> {
   const keys = [`lockout:${email}`]
   const pairKey = pairLockoutKey(email, ip)

@@ -40,7 +40,12 @@ export interface CompanyMemberResult {
   createdAt: Date
 }
 
+/** Tenant/membership repository — every query runs under {@link withTenant} (RLS backstop). */
 export class CompanyRepository {
+  /**
+   * Creates a company row without members (low-level; prefer
+   * {@link createCompanyWithOwner}). 409 when the CNPJ is taken.
+   */
   async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
     try {
       // AUD-20: company_select_policy agora exige membership OU tenant em
@@ -76,6 +81,10 @@ export class CompanyRepository {
     }
   }
 
+  /**
+   * Creates a company and its first member (`owner`) in one transaction
+   * (founder bootstrap). 409 when the CNPJ is taken.
+   */
   async createCompanyWithOwner(
     data: CreateCompanyInput,
     ownerUserId: string,
@@ -128,6 +137,12 @@ export class CompanyRepository {
     }
   }
 
+  /**
+   * Self-adds a user as `member` (test fixtures / future self-join flows).
+   * `role` must be `"member"` — owner bootstrap uses
+   * {@link createCompanyWithOwner}; invite acceptance never uses this method.
+   * 409 when the membership already exists.
+   */
   async createCompanyMember(
     companyId: string,
     userId: string,
@@ -177,6 +192,10 @@ export class CompanyRepository {
   // member aparecem (antes: qualquer autenticado enumerava nome+CNPJ de tudo).
   // O join roda com withTenant(null, userId): a cm_select_policy (0005) só
   // expõe linhas de company_member com user_id = get_user_id().
+  /**
+   * Searches non-deleted companies the user belongs to (max 20, LIKE on
+   * name/CNPJ with escaped wildcards).
+   */
   async searchCompanies(query: string, userId: string): Promise<CompanyResult[]> {
     try {
       const pattern = `%${escapeLikePattern(query)}%`
@@ -211,6 +230,7 @@ export class CompanyRepository {
   // company_select_policy (0016) exige membership real (EXISTS em
   // company_member com get_user_id()). Outsider → 0 rows → null (404 nos
   // handlers), mesmo sem check explícito no app.
+  /** Finds a non-deleted company visible to the user, or null (RLS outsiders get null). */
   async findCompanyById(id: string, userId: string): Promise<CompanyResult | null> {
     try {
       return await withTenant(null, userId, async (tx) => {
@@ -227,6 +247,7 @@ export class CompanyRepository {
     }
   }
 
+  /** Lists non-deleted companies the user belongs to, each with its membership role. */
   async findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>> {
     try {
       return await withTenant(null, userId, async (tx) => {
@@ -250,6 +271,7 @@ export class CompanyRepository {
     }
   }
 
+  /** True when the user is a member of the company. */
   async isCompanyMember(userId: string, companyId: string): Promise<boolean> {
     try {
       return await withTenant(companyId, userId, async (tx) => {
@@ -265,6 +287,7 @@ export class CompanyRepository {
     }
   }
 
+  /** Returns the membership role (`owner`|`member`) or null for non-members. */
   async getCompanyMembershipRole(userId: string, companyId: string): Promise<string | null> {
     try {
       return await withTenant(companyId, userId, async (tx) => {
@@ -280,6 +303,12 @@ export class CompanyRepository {
     }
   }
 
+  /**
+   * Removes a member. `executedByUserId` drives the RLS authorization
+   * (owner removes anyone; a member removes only itself) — never pass the
+   * target as executor. Detaches the removed user's sessions from the
+   * company. 404 when RLS denies or the membership does not exist.
+   */
   async removeCompanyMember(
     companyId: string,
     executedByUserId: string,
@@ -317,6 +346,10 @@ export class CompanyRepository {
     }
   }
 
+  /**
+   * Points a session at a company (`null` clears it). Membership is
+   * re-validated in the same transaction (TOCTOU-safe). 403 for non-members.
+   */
   async setActiveCompany(
     sessionId: string,
     companyId: string | null,
@@ -355,6 +388,7 @@ export class CompanyRepository {
     }
   }
 
+  /** Returns the session's active company id, or null. */
   async getActiveCompany(sessionId: string): Promise<string | null> {
     try {
       const [found] = await db
@@ -369,6 +403,10 @@ export class CompanyRepository {
     }
   }
 
+  /**
+   * Soft-deletes a company: flags `is_deleted`, purges memberships and
+   * detaches sessions pointing at it. 404 when RLS denies or already deleted.
+   */
   async softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult> {
     try {
       return await withTenant(companyId, userId, async (tx) => {
@@ -404,6 +442,11 @@ export class CompanyRepository {
     }
   }
 
+  /**
+   * Partially updates a company (only defined fields; empty cnpj/razaoSocial
+   * clears the column). 404 when RLS denies or the company is deleted;
+   * 409 on duplicate CNPJ.
+   */
   async updateCompany(
     companyId: string,
     userId: string,
