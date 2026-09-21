@@ -76,8 +76,8 @@ shared/
    precisa — repositório, DTOs, helpers, testes. Nada de importar a feature
    do vizinho.
 2. **API pública explícita**: cada feature exporta apenas o necessário
-   (ex.: `identity.repository.ts` exporta `IIdentityRepository`,
-   `DrizzleIdentityRepository`, `identityRepository` e os DTOs). O resto
+   (ex.: `identity/repository.ts` exporta `identityRepository`, a classe
+   `IdentityRepository` e os DTOs/interfaces). O resto
    fica privado ao diretório.
 3. **Sem "god objects"**: se um repositório tem mais de ~8–10 métodos ou
    toca mais de 3 tabelas, é sinal de que há mais de uma feature ali dentro.
@@ -105,9 +105,14 @@ shared/
 server/
 ├── api/
 │   ├── health.get.ts                          # público (infra)
-│   └── auth/                                  # ← ROTAS: permanecem flat
+│   ├── metrics.get.ts                         # público, Prometheus sem PII
+│   ├── .well-known/security.txt.get.ts        # público (RFC 9116)
+│   └── auth/                                  # ← ROTAS: permanecem flat (21 handlers)
 │       ├── register.post.ts  login.post.ts  logout.post.ts  me.get.ts
 │       ├── deactivate.post.ts  export.get.ts
+│       ├── verify-email.get.ts  send-verification-email.post.ts
+│       ├── forget-password.post.ts  reset-password.post.ts
+│       ├── reset-password/[token].get.ts
 │       ├── companies.post.ts  companies.get.ts  companies.switch.post.ts
 │       ├── companies.update.post.ts  companies.delete.post.ts
 │       ├── companies/members.delete.post.ts
@@ -131,13 +136,19 @@ server/
     │   └── security.ts                          # auth_security_state
     ├── shared/                                  # infra + cross-feature do servidor
     │   ├── audit.ts                             # createAuthEvent (auth_event)
+    │   ├── auth-context.ts                      # tipos de event.context (h3 augmentation)
+    │   ├── background.ts                        # fire-and-forget com waitUntil (FR-023)
+    │   ├── csrf.ts                              # double-submit + isCsrfExempt
+    │   ├── email.ts                             # fila Resend (queueEmail)
     │   ├── errors.ts                            # sendXxxError + normalize
+    │   ├── hibp.ts                              # breach check (k-anonymity)
     │   ├── ip.ts                                # getClientIp (TRUST_PROXY)
-    │   ├── security.ts                          # rate limit + lockout (auth_security_state)
-    │   └── tenant-context.ts                    # withTenant
+    │   ├── purge.ts                             # corpo compartilhado das purge tasks
+    │   └── security.ts                          # rate limit + lockout + CNPJ (auth_security_state)
     └── auth/                                    # ← VERTICAL SLICES
+        ├── tenant-context.ts                    # withTenant (infra de tenant, usado pelas features)
         ├── identity/                            # FEATURE: conta + sessão
-        │   ├── repository.ts                    # IIdentityRepository + DrizzleIdentityRepository
+        │   ├── repository.ts                    # IdentityRepository + identityRepository
         │   └── repository.test.ts               # integração (DB real)
         ├── company/                             # FEATURE: tenant/membership
         │   ├── repository.ts
@@ -152,13 +163,22 @@ shared/                                        # infra do app (inalterado)
 
 ### 3.2 Mapa feature → endpoints → tabelas → métodos atuais
 
-| Feature      | Endpoints (handlers)                                              | Tabelas                                            | Métodos do `IAuthRepository` de hoje                                                                                                                                                                                             |
-| ------------ | ----------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **identity** | register, login, logout, me, deactivate, export, consent/withdraw | user, session, account, verification               | register, signIn, findByEmail, findById, createSession, validateSession, terminateSession, terminateUserSessions, updateUser, isEmailTaken, setActiveCompany, getActiveCompany, getUserSessions, withdrawConsent, deactivateUser |
-| **company**  | companies.\*, companies/members.delete                            | company, company_member, session (activeCompanyId) | createCompany, createCompanyWithOwner, createCompanyMember, searchCompanies, findCompanyById, findUserCompanies, isCompanyMember, getCompanyMembershipRole, removeCompanyMember, softDeleteCompany, updateCompany                |
-| **invite**   | invite, invites.get, invites.accept                               | invite                                             | createInvite, findPendingInvite, listCompanyInvites, acceptInvite                                                                                                                                                                |
-| **security** | (usado por register/login)                                        | auth_security_state                                | — (helpers: checkRateLimit, lockout)                                                                                                                                                                                             |
-| **audit**    | (usado por middleware + handlers)                                 | auth_event                                         | createAuthEvent + emitSessionEvent (hoje no middleware)                                                                                                                                                                          |
+> Estado real (2026-09-21 — sem interfaces `I*Repository` nem classes
+> `Drizzle*`: uma classe concreta + singleton por feature).
+
+| Feature      | Endpoints (handlers)                                                                                                                      | Tabelas                                                              | Métodos atuais                                                                                                                                                                                                                                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **identity** | register, login, logout, me, deactivate, export, consent/withdraw, verify-email, send-verification-email, forget-password, reset-password | user, session, account, verification, auth_event (leitura p/ export) | register, signIn, sendVerificationEmail, verifyEmail, requestPasswordReset, resetPassword, validateResetToken, findByEmail, findById, createSession, validateSession, terminateSession, terminateUserSessions, updateUser, isEmailTaken, withdrawConsent, deactivateUser, getUserSessions, listUserAuthEvents (19) |
+| **company**  | companies.\*, companies/members.delete                                                                                                    | company, company_member, session (activeCompanyId)                   | createCompany, createCompanyWithOwner, createCompanyMember, searchCompanies, findCompanyById, findUserCompanies, isCompanyMember, getCompanyMembershipRole, removeCompanyMember, setActiveCompany, getActiveCompany, softDeleteCompany, updateCompany (13)                                                         |
+| **invite**   | invite, invites.get, invites.accept                                                                                                       | invite                                                               | createInvite, findPendingInvite, listCompanyInvites, acceptInvite (4)                                                                                                                                                                                                                                              |
+| **security** | (usado por register/login)                                                                                                                | auth_security_state                                                  | checkIpRateLimit, checkEmailRateLimit, checkUserRateLimit, checkAccountLockout, recordFailedAttempt, resetFailedAttempts (+ puras: evaluateRateLimit, evaluateLockout)                                                                                                                                             |
+| **audit**    | (usado por middleware + handlers)                                                                                                         | auth_event                                                           | createAuthEvent (+ `background()` p/ fire-and-forget com `waitUntil`)                                                                                                                                                                                                                                              |
+
+> Nota sobre a regra 3 (§3.3, >10 métodos): `identity` (19) e `company` (13)
+> excedem o teto. Justificativa registrada: a divisão por subdomínio
+> (identidade/sessão/consentimento vs. tenant/membership) já foi feita; fatiar
+> mais (ex.: `session/` separado) fica deferido até um segundo contexto
+> (`fiscal`, `financeiro`) forçar o padrão.
 
 ### 3.3 Regras de ouro (convenções a registrar na constituição)
 
@@ -179,7 +199,9 @@ shared/                                        # infra do app (inalterado)
 
 **Progresso real** (2026-08-09): Fases 1–3 e a parte de middleware da Fase 4
 concluídas. Desvios do plano: sem `dto.ts` por feature (os DTOs ficaram no
-próprio `repository.ts`); `db.ts`, `tenant-context.ts`, `apply-custom-sql.ts`
+próprio `repository.ts`); sem interfaces `I*Repository` nem classes
+`Drizzle*` (classe concreta + singleton por feature); `db.ts`,
+`tenant-context.ts`, `apply-custom-sql.ts`
 e `test-setup.ts` permaneceram em `server/utils/` (não movidos para
 `shared/`); `security` e `audit` foram para `server/utils/shared/` (D3).
 Pendente: Fase 5 (verificação final) e Fase 6 (governança).
@@ -208,8 +230,8 @@ Pendente: Fase 5 (verificação final) e Fase 6 (governança).
 
 ### Fase 2 — Dividir o god repository
 
-- Criar `auth/identity/repository.ts` (12 métodos), `auth/company/repository.ts`
-  (11), `auth/invite/repository.ts` (4) — copiando implementações atuais.
+- Criar `auth/identity/repository.ts` (19 métodos), `auth/company/repository.ts`
+  (13), `auth/invite/repository.ts` (4) — copiando implementações atuais.
 - Mover DTOs para `dto.ts` de cada feature.
 - Extrair `security/security.ts` (rate limit + lockout) e `audit/audit.ts`
   (createAuthEvent + emitSessionEvent) dos helpers.
