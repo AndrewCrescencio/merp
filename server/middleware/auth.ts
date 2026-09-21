@@ -13,7 +13,15 @@ const publicRoutes = [
   '/api/auth/reset-password',
   // AUD-04: inicia o fluxo de recuperação — sempre deslogado por definição.
   '/api/auth/forget-password',
+  // FR-029: reenvio do link de verificação — conta não-verificada não tem
+  // sessão (login devolve 403); exigir sessão criaria deadlock no onboarding.
+  '/api/auth/send-verification-email',
   '/api/health',
+  // Infra: Prometheus scrape sem sessão (sem PII — só uptime + readiness).
+  '/api/metrics',
+  // RFC 9116: scanners de segurança buscam anonimamente — exigir sessão
+  // quebraria o propósito do arquivo.
+  '/api/.well-known/security.txt',
   '/',
 ]
 
