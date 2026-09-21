@@ -19,10 +19,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const [fullUser, companies, sessions] = await Promise.all([
+  const [fullUser, companies, sessions, authEvents] = await Promise.all([
     identityRepository.findById(user.id),
     companyRepository.findUserCompanies(user.id),
     identityRepository.getUserSessions(user.id),
+    identityRepository.listUserAuthEvents(user.id),
   ])
 
   return {
@@ -43,6 +44,12 @@ export default defineEventHandler(async (event) => {
       id: s.id,
       createdAt: s.createdAt,
       expiresAt: s.expiresAt,
+    })),
+    authEvents: authEvents.map((e) => ({
+      id: e.id,
+      eventType: e.eventType,
+      ipAddress: e.ipAddress,
+      createdAt: e.createdAt,
     })),
   }
 })

@@ -373,4 +373,29 @@ describe.skipIf(!dbAvailable)('IdentityRepository (integration)', () => {
       )
     })
   })
+
+  describe('FR-020: LGPD export event listing', () => {
+    it('lists only the user’s own events (excludes other users and user-less rows)', async () => {
+      const { createAuthEvent } = await import('~~/server/utils/shared/audit')
+      const stamp = Date.now()
+      const emailA = `export-a-${stamp}@example.com`
+      const emailB = `export-b-${stamp}@example.com`
+      const userA = await repo.register({ email: emailA, password: testPassword, name: 'A' })
+      const userB = await repo.register({ email: emailB, password: testPassword, name: 'B' })
+
+      await createAuthEvent({ userId: userA.id, email: emailA, eventType: 'login' })
+      await createAuthEvent({ userId: userA.id, email: emailA, eventType: 'logout' })
+      await createAuthEvent({ userId: userB.id, email: emailB, eventType: 'login' })
+      await createAuthEvent({ userId: null, email: emailA, eventType: 'failed_login' })
+
+      const events = await repo.listUserAuthEvents(userA.id)
+
+      expect(events).toHaveLength(2)
+      expect(events.map((e: any) => e.eventType).sort()).toEqual(['login', 'logout'])
+      for (const e of events) {
+        expect(e.id).toBeTruthy()
+        expect(e.createdAt).toBeInstanceOf(Date)
+      }
+    })
+  })
 })

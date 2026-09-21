@@ -1,10 +1,10 @@
-import { and, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, gt } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { db } from '../../db'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
-import { user, session, verification } from '../../schema'
+import { authEvent, user, session, verification } from '../../schema'
 import { createError, H3Error } from 'h3'
 import {
   handleDatabaseError,
@@ -557,6 +557,32 @@ export class IdentityRepository {
         .select({ id: session.id, createdAt: session.createdAt, expiresAt: session.expiresAt })
         .from(session)
         .where(eq(session.userId, userId))
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  /**
+   * Lists audit events linked to a user, newest first (FR-020 LGPD export).
+   * Only rows with `userId` set are returned — events recorded without a
+   * user id (e.g. failed logins for unknown emails) never leak into
+   * another user's export. Metadata is excluded: it can reference other
+   * entities (company ids, invited emails) outside the export scope.
+   */
+  async listUserAuthEvents(
+    userId: string,
+  ): Promise<Array<{ id: string; eventType: string; ipAddress: string | null; createdAt: Date }>> {
+    try {
+      return await db
+        .select({
+          id: authEvent.id,
+          eventType: authEvent.eventType,
+          ipAddress: authEvent.ipAddress,
+          createdAt: authEvent.createdAt,
+        })
+        .from(authEvent)
+        .where(eq(authEvent.userId, userId))
+        .orderBy(desc(authEvent.createdAt))
     } catch (error) {
       return handleDatabaseError(error)
     }
