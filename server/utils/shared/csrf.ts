@@ -3,7 +3,10 @@ import { getCookie, getRequestHeader, setCookie, type H3Event } from 'h3'
 
 const CSRF_COOKIE_NAME = 'merp-csrf_token'
 const CSRF_HEADER_NAME = 'x-csrf-token'
-const CSRF_SECRET = process.env.CSRF_SECRET || 'dev-csrf-secret-change-in-production'
+if (!process.env.CSRF_SECRET) {
+  throw new Error('CSRF_SECRET é obrigatório em produção. Gere um valor de >= 32 caracteres.')
+}
+const CSRF_SECRET = process.env.CSRF_SECRET
 const CSRF_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 
 function generateToken(): string {
