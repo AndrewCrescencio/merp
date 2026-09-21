@@ -3,10 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockCreateCompanyWithOwner = vi.fn()
 const mockReadBody = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
+const mockSetResponseStatus = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
+  setResponseStatus: mockSetResponseStatus,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -123,12 +125,13 @@ describe('POST /api/auth/companies', () => {
     expect(mockCreateCompanyWithOwner).toHaveBeenCalledWith(
       {
         name: 'Test Company',
-        cnpj: '12345678901234',
+        cnpj: '11222333000181',
         razaoSocial: undefined,
       },
       'user-1',
     )
     expect(result).toEqual({ id: 'company-1', name: 'Test Company' })
+    expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 201)
   })
 
   it('trims company name', async () => {

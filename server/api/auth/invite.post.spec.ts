@@ -6,10 +6,12 @@ const mockCreateInvite = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
+const mockSetResponseStatus = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
+  setResponseStatus: mockSetResponseStatus,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -134,7 +136,8 @@ describe('POST /api/auth/invite', () => {
     })
 
     const handler = await import('~~/server/api/auth/invite.post').then((m) => m.default)
-    const result = await handler(eventWithUser())
+    const event = eventWithUser()
+    const result = await handler(event)
 
     expect(mockCreateInvite).toHaveBeenCalledWith({
       companyId: 'company-1',
@@ -155,5 +158,6 @@ describe('POST /api/auth/invite', () => {
       expiresAt: expect.any(Date),
       token: 'tok-1',
     })
+    expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 201)
   })
 })

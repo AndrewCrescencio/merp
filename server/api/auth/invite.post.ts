@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, createError } from 'h3'
+import { defineEventHandler, readBody, createError, setResponseStatus } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
@@ -74,6 +74,7 @@ export default defineEventHandler(async (event) => {
     metadata: { companyId: body.companyId, invitedEmail: email },
   })
 
+  setResponseStatus(event, 201)
   return {
     id: created.id,
     companyId: created.companyId,
