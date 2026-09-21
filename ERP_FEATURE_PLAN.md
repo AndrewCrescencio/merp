@@ -27,18 +27,18 @@ This plan covers building **ERP-specific features** on top of this foundation.
 | **Authentication flows** | Sign up, login, email verification, password reset, deactivate, session management                          | ✅ Complete         |
 | **Security**             | Rate limiting (sliding window per email/IP/user), CSRF double-submit, nginx security headers, audit logging | ✅ Complete         |
 | **Middleware pipeline**  | `00-no-store` → `01-csrf-token` → `02-csrf-validate` → `auth.ts`                                            | ✅ Complete         |
-| **Test coverage**        | 276 tests across 35 test files                                                                              | ✅ Good coverage    |
+| **Test coverage**        | 291 tests across 43 files (38 unit + 5 Docker-gated integration)                                            | ✅ Good coverage    |
 | **Scheduled tasks**      | Email queue, session purge, security state purge, email processing                                          | ✅ Complete         |
 
 ### 📁 Key Files (SaaS Foundation)
 
-- `server/shared/auth.ts` - Better Auth configuration
+- `shared/auth.ts` - Better Auth configuration
 - `server/utils/auth/identity/repository.ts` - Auth repository (signIn, register, etc.)
 - `server/utils/auth/company/repository.ts` - Company management
 - `server/utils/auth/tenant-context.ts` - Per-tenant DB context
 - `server/middleware/` - CSRF + no-store middleware
 - `server/utils/shared/security.ts` - Rate limiting, lockout, password validation
-- `server/nginx/nginx.conf` - Reverse proxy with rate limiting & security headers
+- `infra/nginx/nginx.conf` - Reverse proxy with rate limiting & security headers
 - `drizzle/0018_consolidated_auth_security_state.sql` - Security state table
 
 ---
@@ -85,6 +85,13 @@ The following ERP modules are **not yet implemented** and need to be built. Prio
 ---
 
 ## 3. Database Schema Extensions
+
+> ⚠️ The SQL below is **draft pseudo-DDL, not runnable migrations**: `status
+'active' | 'inactive'` is not valid PostgreSQL (use `text` + `CHECK`
+> constraint), and the duplicated `sales_order_item` definition (§3.2) still
+> needs a decision (single `id` PK recommended). Convert to Drizzle table
+> definitions in `server/utils/schema/<domain>.ts` and generate with
+> `drizzle-kit generate` — see the migration warning in Sprint 0.
 
 ### Existing Tables (Keep/Extend)
 
@@ -308,18 +315,18 @@ CREATE TABLE contact_person (
 
 ### Authentication (Already Implemented - Reference)
 
-| Endpoint                            | Method   | Description                               |
-| ----------------------------------- | -------- | ----------------------------------------- |
-| `/api/auth/register`                | POST     | Register new user                         |
-| `/api/auth/login`                   | POST     | Login with email/password                 |
-| `/api/auth/verify-email`            | GET      | Verify email with token                   |
-| `/api/auth/reset-password`          | POST     | Request password reset link               |
-| `/api/auth/reset-password/[token]`  | GET      | Validate reset token                      |
-| `/api/auth/forget-password`         | POST     | Request password reset (anti-enumération) |
-| `/api/auth/logout`                  | POST     | Logout and revoke sessions                |
-| `/api/auth/me`                      | GET      | Current user profile                      |
-| `/api/auth/send-verification-email` | POST     | Resend verification email                 |
-| `/api/auth/two-factor`              | POST/GET | 2FA setup flows                           |
+| Endpoint                            | Method | Description                                   |
+| ----------------------------------- | ------ | --------------------------------------------- |
+| `/api/auth/register`                | POST   | Register new user                             |
+| `/api/auth/login`                   | POST   | Login with email/password                     |
+| `/api/auth/verify-email`            | GET    | Verify email with token                       |
+| `/api/auth/reset-password`          | POST   | Request password reset link                   |
+| `/api/auth/reset-password/[token]`  | GET    | Validate reset token                          |
+| `/api/auth/forget-password`         | POST   | Request password reset (anti-enumération)     |
+| `/api/auth/logout`                  | POST   | Logout and revoke sessions                    |
+| `/api/auth/me`                      | GET    | Current user profile                          |
+| `/api/auth/send-verification-email` | POST   | Resend verification email                     |
+| `/api/auth/two-factor/*`            | \*     | Better Auth plugin routes (no custom handler) |
 
 ### ERP API Patterns (To Be Created)
 
@@ -397,7 +404,7 @@ Error handling via `error-handler.ts` normalizes all errors to JSON contract wit
 1. **User signs up** → `/api/auth/register` → Better Auth creates user + sends verification
 2. **Email verified** → User can login
 3. **First login** → `auth.ts` middleware validates session
-4. **Company creation** → POST `/api/companies` (already implemented in `companies.post.ts`)
+4. **Company creation** → POST `/api/auth/companies` (already implemented in `companies.post.ts`)
 5. **User becomes company owner** → Automatically added to `company_member` with `role=owner`
 
 ### 5.2 ERP Feature Access Control
@@ -507,13 +514,13 @@ vitest.config.ts              → Test environment config
 
 ### 7.2 ERP Test Categories
 
-| Category          | Example                                                    | Test Type                      |
-| ----------------- | ---------------------------------------------------------- | ------------------------------ |
-| **Unit**          | `isWeakPassword()`, `normalizeEmail()`                     | `vitest run` fast feedback     |
-| **Repository**    | `findByEmail()`, `createCompanyWithOwner()`                | Integration with db mock       |
-| **API endpoints** | `GET /api/products`, `POST /invoices`                      | `supertest` or Nuxt test utils |
-| **Integration**   | Full user flow: register → create company → create product | End-to-end                     |
-| **Security**      | Rate limit breach, CSRF failure, RLS bypass                | Security test suite            |
+| Category          | Example                                                    | Test Type                                |
+| ----------------- | ---------------------------------------------------------- | ---------------------------------------- |
+| **Unit**          | `isWeakPassword()`, `normalizeEmail()`                     | `vitest run` fast feedback               |
+| **Repository**    | `findByEmail()`, `createCompanyWithOwner()`                | Integration with db mock                 |
+| **API endpoints** | `GET /api/products`, `POST /invoices`                      | Vitest + @nuxt/test-utils (repo pattern) |
+| **Integration**   | Full user flow: register → create company → create product | End-to-end                               |
+| **Security**      | Rate limit breach, CSRF failure, RLS bypass                | Security test suite                      |
 
 ### 7.3 Test Data Factories
 
@@ -540,8 +547,8 @@ const testProduct = (overrides = {}) => ({
 
 ### 7.4 CI/CD Considerations
 
-- All ERP tests must pass on `npm test`
-- Lint must pass on `npm run lint`
+- All ERP tests must pass on `pnpm test`
+- Lint must pass on `pnpm lint`
 - Typecheck via `nuxt build` (fails on type errors)
 - Docker compose for integration tests (skip if no Docker available - as current setup)
 
@@ -558,6 +565,14 @@ const testProduct = (overrides = {}) => ({
 | Add company_id to all new tables + RLS policies        | Dev      | Updated drizzle migrations                                     |
 | Update auth middleware with ERP-specific rate limiting | Dev      | `security.ts` additions                                        |
 | Write foundational tests                               | QA       | Product/customer/repository tests                              |
+
+> ⚠️ Migration flow (repo reality): `drizzle-kit migrate` / `make migrate`
+> applies **only** the 14 journaled migrations (`drizzle/meta/_journal.json`).
+> Do NOT hand-write `drizzle/0020_*.sql` files — they would be silently
+> ignored. New tables go in `server/utils/schema/<domain>.ts` +
+> `drizzle-kit generate` (which journals them); RLS/policy SQL outside the
+> journal goes through `server/utils/apply-custom-sql.ts`. See README runbook
+> ("Banco novo do zero").
 
 ### Sprint 1: Core ERP (2 weeks)
 
@@ -642,8 +657,8 @@ Before implementation starts, confirm:
 - [ ] Decide on payment integration strategy
 - [ ] Create database migration branch
 - [ ] Set up feature branch: `git checkout -b feat/erp-planning`
-- [ ] Ensure all 276 existing tests pass: `npm test`
-- [ ] Verify lint: `npm run lint`
+- [ ] Ensure all existing tests pass: `pnpm test` (291 unit; integration needs Docker)
+- [ ] Verify lint: `pnpm lint`
 - [ ] Document any existing .env secrets needed (better-auth secret, CSRF secret, etc.)
 
 ### Day 1 Sprint 0:
