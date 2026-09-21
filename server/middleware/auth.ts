@@ -1,9 +1,11 @@
 import { defineEventHandler, getCookie, getRequestURL, appendResponseHeaders } from 'h3'
+import type { H3Event } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
 import { sendAuthError, sendAuthUnavailableError } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { background } from '~~/server/utils/shared/background'
 import { checkUserRateLimit } from '~~/server/utils/shared/security'
 
 const publicRoutes = [
@@ -35,28 +37,30 @@ const publicRoutePrefixes = ['/api/auth/reset-password/']
 // FR-023: eventos de ciclo de vida da sessão. O registro do evento é
 // fire-and-forget — falha na auditoria não pode bloquear nem falhar a
 // requisição (nem adicionar latência a cada request validado).
-function emitSessionEvent(input: {
-  sessionId: string | null
-  userId: string | null
-  email: string
-  tenantId: string | null
-  eventType: 'session_validated' | 'session_expired'
-}): void {
-  void createAuthEvent({
-    userId: input.userId,
-    email: input.email,
-    eventType: input.eventType,
-    metadata: {
-      sessionId: input.sessionId,
+function emitSessionEvent(
+  event: H3Event,
+  input: {
+    sessionId: string | null
+    userId: string | null
+    email: string
+    tenantId: string | null
+    eventType: 'session_validated' | 'session_expired'
+  },
+): void {
+  background(
+    event,
+    createAuthEvent({
       userId: input.userId,
-      tenantId: input.tenantId,
-    },
-  }).catch((error: unknown) => {
-    logger.warn('Failed to emit auth event', {
+      email: input.email,
       eventType: input.eventType,
-      error: error instanceof Error ? error.message : String(error),
-    })
-  })
+      metadata: {
+        sessionId: input.sessionId,
+        userId: input.userId,
+        tenantId: input.tenantId,
+      },
+    }),
+    `session:${input.eventType}`,
+  )
 }
 
 export default defineEventHandler(async (event) => {
@@ -107,7 +111,7 @@ export default defineEventHandler(async (event) => {
       // FR-023: session_expired. O cookie de sessão expirado não permite
       // resolver userId/sessionId (o getSession já retornou null) — email
       // 'unknown' documenta a limitação da coluna NOT NULL.
-      emitSessionEvent({
+      emitSessionEvent(event, {
         sessionId: null,
         userId: null,
         email: 'unknown',
@@ -126,7 +130,7 @@ export default defineEventHandler(async (event) => {
   // em auth_event) e não avançam o contexto.
   await checkUserRateLimit(event, session.user.id)
 
-  emitSessionEvent({
+  emitSessionEvent(event, {
     sessionId: session.session.id,
     userId: session.user.id,
     email: session.user.email,

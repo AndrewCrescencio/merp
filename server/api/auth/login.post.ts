@@ -17,6 +17,7 @@ import {
   sendValidationError,
 } from '~~/server/utils/shared/errors'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
+import { background } from '~~/server/utils/shared/background'
 import { sendDeactivationNotice } from '~~/server/utils/shared/email'
 import { getClientIp } from '~~/server/utils/shared/ip'
 
@@ -131,17 +132,16 @@ export default defineEventHandler(async (event) => {
     // AUD-13: fire-and-forget (padrão FR-023) — o Set-Cookie de sessão já foi
     // anexado; se a auditoria falhasse com await, o cliente receberia 503 com
     // sessão válida criada (estado inconsistente + sessões órfãs em retries).
-    void createAuthEvent({
-      userId: user.id,
-      email: user.email,
-      eventType: 'login',
-      ipAddress: ip,
-    }).catch((error: unknown) => {
-      logger.warn('Failed to emit login auth event', {
+    background(
+      event,
+      createAuthEvent({
         userId: user.id,
-        error: error instanceof Error ? error.message : String(error),
-      })
-    })
+        email: user.email,
+        eventType: 'login',
+        ipAddress: ip,
+      }),
+      'login',
+    )
 
     return {
       id: user.id,
@@ -171,8 +171,8 @@ export default defineEventHandler(async (event) => {
       // caminho desativado, reintroduzindo o oráculo de timing). Premissa: o
       // processo Node persiste vivo o suficiente para concluir o fetch
       // pendente após a resposta ser enviada — NÃO é seguro em presets
-      // serverless/edge.
-      void sendDeactivationNotice(email)
+      // serverless/edge (sem waitUntil disponível).
+      background(event, sendDeactivationNotice(email), 'deactivation-notice')
       sendUnauthorizedError('Invalid email or password')
     }
 
