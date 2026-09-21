@@ -11,6 +11,9 @@ import {
 } from '~~/server/utils/shared/email'
 
 const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000'
+if (process.env.NODE_ENV === 'production' && corsOrigin === 'http://localhost:3000') {
+  throw new Error('CORS_ORIGIN é obrigatória em produção (sem fallback localhost).')
+}
 
 function createAuth() {
   return betterAuth({
