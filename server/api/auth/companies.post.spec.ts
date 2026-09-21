@@ -113,8 +113,18 @@ describe('POST /api/auth/companies', () => {
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
   })
 
+  it('rejects cnpj with invalid check digits', async () => {
+    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '12345678000190' })
+
+    const handler = await import('~~/server/api/auth/companies.post').then((m) => m.default)
+    const event = { context: { user: { id: 'user-1' } } } as any
+
+    await expect(handler(event)).rejects.toThrow('cnpj is invalid')
+    expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
+  })
+
   it('creates company and makes user first member as owner', async () => {
-    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '12345678901234' })
+    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '11222333000181' })
     mockCreateCompanyWithOwner.mockResolvedValue({ id: 'company-1', name: 'Test Company' })
 
     const handler = await import('~~/server/api/auth/companies.post').then((m) => m.default)

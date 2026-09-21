@@ -3,6 +3,7 @@ import {
   MAX_REQUESTS_PER_USER,
   evaluateLockout,
   evaluateRateLimit,
+  isValidCnpj,
   isWeakPassword,
   normalizeEmail,
 } from './security'
@@ -25,6 +26,25 @@ describe('isWeakPassword', () => {
 
   it('accepts non-common passwords', () => {
     expect(isWeakPassword('Str0ngP@ssw0rd!2026')).toBe(false)
+  })
+})
+
+describe('isValidCnpj', () => {
+  it('accepts a valid CNPJ with and without mask', () => {
+    expect(isValidCnpj('11222333000181')).toBe(true)
+    expect(isValidCnpj('11.222.333/0001-81')).toBe(true)
+  })
+
+  it('rejects wrong check digits', () => {
+    expect(isValidCnpj('12345678000190')).toBe(false)
+    expect(isValidCnpj('12345678901234')).toBe(false)
+  })
+
+  it('rejects wrong length and repeated digits', () => {
+    expect(isValidCnpj('123')).toBe(false)
+    expect(isValidCnpj('')).toBe(false)
+    expect(isValidCnpj('00000000000000')).toBe(false)
+    expect(isValidCnpj('11.222.333/0001-8')).toBe(false)
   })
 })
 

@@ -3,6 +3,7 @@ import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { createAuthEvent } from '~~/server/utils/shared/audit'
 import { getClientIp } from '~~/server/utils/shared/ip'
 import {
+  isValidCnpj,
   MAX_CNPJ_LENGTH,
   MAX_COMPANY_NAME_LENGTH,
   MAX_RAZAO_SOCIAL_LENGTH,
@@ -52,6 +53,9 @@ export default defineEventHandler(async (event) => {
     const cnpj = body.cnpj.trim() || undefined
     if (cnpj && cnpj.length > MAX_CNPJ_LENGTH) {
       sendValidationError('cnpj must be at most 30 characters')
+    }
+    if (cnpj && !isValidCnpj(cnpj)) {
+      sendValidationError('cnpj is invalid')
     }
     input.cnpj = cnpj
   }

@@ -33,6 +33,26 @@ export const MAX_RAZAO_SOCIAL_LENGTH = 200
 // é a linha de frente barata antes do costoso check do better-auth.
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Validação de CNPJ pelos dígitos verificadores (Receita Federal).
+// Aceita com ou sem máscara; exige 14 dígitos, rejeita sequências repetidas
+// ('00000000000000') e confere os dois dígitos pelo módulo 11.
+export function isValidCnpj(input: string): boolean {
+  const digits = input.replace(/\D/g, '')
+  if (digits.length !== 14 || /^(\d)\1{13}$/.test(digits)) return false
+
+  const checkDigit = (base: string, weights: number[]): number => {
+    let sum = 0
+    for (let i = 0; i < weights.length; i++) sum += Number(base[i]) * weights[i]
+    const remainder = sum % 11
+    return remainder < 2 ? 0 : 11 - remainder
+  }
+
+  return (
+    checkDigit(digits.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(digits[12]) &&
+    checkDigit(digits.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(digits[13])
+  )
+}
+
 // OWASP Authentication Cheat Sheet / NIST SP 800-63B: senhas NOVAS são
 // comparadas contra valores comuns/comprometidos (deny-list top de leaks).
 // Aplicada só em register/reset-password — login nunca rejeita (conta

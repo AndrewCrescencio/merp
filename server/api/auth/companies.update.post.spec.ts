@@ -149,7 +149,7 @@ describe('POST /api/auth/companies/update', () => {
     mockReadBody.mockResolvedValue({
       companyId: 'company-1',
       name: '  New Name  ',
-      cnpj: ' 12345678000190 ',
+      cnpj: ' 11222333000181 ',
       razaoSocial: ' New Razao ',
     })
     mockFindCompanyById.mockResolvedValue({ id: 'company-1', name: 'Test Co' })
@@ -157,7 +157,7 @@ describe('POST /api/auth/companies/update', () => {
     mockUpdateCompany.mockResolvedValue({
       id: 'company-1',
       name: 'New Name',
-      cnpj: '12345678000190',
+      cnpj: '11222333000181',
       razaoSocial: 'New Razao',
     })
 
@@ -173,12 +173,12 @@ describe('POST /api/auth/companies/update', () => {
     expect(result).toMatchObject({
       id: 'company-1',
       name: 'New Name',
-      cnpj: '12345678000190',
+      cnpj: '11222333000181',
       razaoSocial: 'New Razao',
     })
     expect(mockUpdateCompany).toHaveBeenCalledWith('company-1', 'user-1', {
       name: 'New Name',
-      cnpj: '12345678000190',
+      cnpj: '11222333000181',
       razaoSocial: 'New Razao',
     })
     expect(mockCreateAuthEvent).toHaveBeenCalledWith({
@@ -188,5 +188,16 @@ describe('POST /api/auth/companies/update', () => {
       ipAddress: null,
       metadata: { companyId: 'company-1' },
     })
+  })
+
+  it('rejects cnpj with invalid check digits', async () => {
+    mockReadBody.mockResolvedValue({ companyId: 'company-1', cnpj: '12345678000190' })
+
+    const handler = await loadHandler()
+
+    const event = { context: { user: { id: 'user-1', email: 'user@example.com' } } } as any
+
+    await expect(handler(event)).rejects.toThrow('cnpj is invalid')
+    expect(mockUpdateCompany).not.toHaveBeenCalled()
   })
 })
