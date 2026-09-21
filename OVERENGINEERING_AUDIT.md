@@ -4,6 +4,18 @@
 **Date:** 2026-09-08
 **Scope:** Full repository scan (excluding node_modules, .git, build, .output)
 
+> **Errata (2026-09-21):** re-verified against the code. Findings 1, 3 and 5
+> were already resolved before this audit's fixes landed: no `I*Repository`
+> interfaces or `Drizzle*` classes exist (single concrete class + singleton per
+> feature), `isCsrfExempt` already lives in `server/utils/shared/csrf.ts` (both
+> middlewares import it), and `generateUserId()` is already
+> `randomUUID().replace(/-/g, '')`. Finding 4 (purge tasks) was unified via
+> `server/utils/shared/purge.ts` (`runPurgeTask`). Finding 2 (`withTimeout` /
+> `TimeoutError`) was deliberately kept: it is 12 lines, covered by
+> `errors.spec.ts` (`instanceof TimeoutError` assertions), and the proposed
+> `Promise.withResolvers()` replacement is not shorter once the error type is
+> preserved. Net effect: audit closed, no remaining items.
+
 ---
 
 ## Executive Summary

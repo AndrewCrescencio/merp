@@ -13,7 +13,7 @@
 | Feature                         | Implementation Details                                                                                                                              |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Email/password registration** | Consent terms version (LGPD), HIBP breach check, weak password deny-list, anti-enumeration (identical 201 for new/existing email)                   |
-| **Email/password login**        | Timing-safe for deactivated accounts (AUD-07), session fixation protection (revokes other sessions), rememberMe toggle (7d/24h)                     |
+| **Email/password login**        | Timing-safe for deactivated accounts (AUD-07), session fixation protection (revokes other sessions), fixed 7d session TTL (FR-009)                  |
 | **Email verification**          | Sent on sign-up & sign-in (`requireEmailVerification`), JWT token TTL 1h, idempotent verify                                                         |
 | **Password reset ("forget")**   | Anti-enumeration (generic response), token TTL 1h, revokes all sessions on reset                                                                    |
 | **Password reset (set new)**    | Validates token, HIBP check, weak password check, revokes sessions                                                                                  |
@@ -22,7 +22,7 @@
 | **2FA (TOTP + backup codes)**   | Via `better-auth/plugins/twoFactor`, issuer `merp`, 6-digit/30s, 10 backup codes, trust device 30d                                                  |
 | **Consent withdrawal**          | Immediate deactivation + session termination, `consent_withdrawal` audit event                                                                      |
 | **Account deactivation**        | Sets `isActive=false`, terminates sessions, sends deactivation notice email                                                                         |
-| **Session export (GDPR)**       | `/api/auth/export` endpoint                                                                                                                         |
+| **Session export (GDPR)**       | `/api/auth/export` endpoint (profile, companies, sessions, auth events)                                                                             |
 
 ### 1.2 Multi-Tenancy / Companies (`server/utils/auth/company/`, `server/api/auth/companies*.ts`)
 
@@ -55,7 +55,7 @@
 | **PII audit logging**               | All auth events to `auth_event` table — `server/utils/shared/audit.ts`                                   |
 | **Email queue (Resend)**            | Async queue with retry/backoff — `server/utils/shared/email.ts`, `server/tasks/process-email-queue.ts`   |
 | **Scheduled cleanup tasks**         | Purge sessions, security state, auth events (daily); process email queue (5min) — `nitro.scheduledTasks` |
-| **RLS policies (PostgreSQL)**       | 19 migrations in `drizzle/` enforcing tenant isolation at DB level                                       |
+| **RLS policies (PostgreSQL)**       | 24 migrations in `drizzle/` enforcing tenant isolation at DB level                                       |
 
 ---
 
@@ -147,6 +147,7 @@ POST   /api/auth/companies/members/delete
 
 ```
 GET    /api/health
+GET    /api/metrics                        (Prometheus, no PII)
 GET    /api/.well-known/security.txt
 ```
 
@@ -268,18 +269,29 @@ DELETE /api/restaurant/tables/:id/session
 
 - Materialized views for sales reports
 - Scheduled aggregation tasks
-- Admin dashboard API (cross-company for super-admin)
+- Admin dashboard API (cross-company; requires a platform role — no `super_admin` exists yet)
 
 ---
 
 ## 6. Technical Debt to Address
 
-1. **RLS migrations not in repo** — Ensure all 19 SQL files are applied to target DB
-2. **No integration tests** — Add Vitest + testcontainers for PostgreSQL
-3. **Serverless/edge caveats** — Fire-and-forget `void` calls (audit, email) unsafe for edge; wrap in `waitUntil()` or move to queue
+1. **RLS migrations split in two flows** — `drizzle/meta/_journal.json` covers 14
+   migrations (`drizzle-kit migrate` / `make migrate`); 10 RLS/policy files
+   (≥ `0010`, incl. `0014_bootstrap_role_split`, `0016_company_select_membership`,
+   `0017/0018/0019`) are outside the journal and applied only by the idempotent
+   applier `server/utils/apply-custom-sql.ts` (test setup). A fresh DB via
+   `make migrate` alone boots **without RLS policies** — see README runbook.
+   Fix before any deploy with real data (e.g. a `make migrate-full`).
+2. **Integration tests use a real DB** — `*.test.ts` beside repositories run against
+   PostgreSQL (no testcontainers); document the required `DATABASE_URL` for CI.
+3. **Serverless/edge caveats (partially addressed)** — fire-and-forget audit/email
+   now goes through `background(event, promise)` (`server/utils/shared/background.ts`),
+   which uses `event.waitUntil` when the runtime provides it; pure `void` calls
+   without an event (Better Auth email callbacks) remain Node-only.
 4. **Resend optional** — Make email config required or add fallback (nodemailer)
 5. **Backup codes regeneration** — Add `/api/auth/2fa/backup-codes/regenerate`
-6. **No API versioning** — Add `/api/v1/` prefix before public release
+6. **No API versioning (deferred)** — no `/api/v1/` prefix until the first public
+   API consumer exists; see `specs/001-auth-context/contracts/auth-api.md`.
 
 ---
 
