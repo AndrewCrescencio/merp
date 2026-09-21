@@ -50,8 +50,8 @@
 
 ### Implementation for User Story 1
 
-- [x] T017 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), rejects duplicates with 409 (FR-003), returns 201 without creating session (FR-001, FR-013)
-- [x] T018 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with 24h/7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
+- [x] T017 [P] [US1] Implement `POST /api/auth/register` in `server/api/auth/register.post.ts` — validates email/password (FR-002), returns generic 201 for new AND duplicate emails, never 409 (anti-enumeration AUD-03; FR-003 = no duplicate row created), returns 201 without creating session (FR-001, FR-013)
+- [x] T018 [P] [US1] Implement `POST /api/auth/login` in `server/api/auth/login.post.ts` — authenticates credentials, creates session with fixed 7d TTL (FR-005, FR-009), handles account lockout (FR-016), returns 401 on invalid credentials
 - [x] T019 [P] [US1] Implement `GET /api/auth/me` in `server/api/auth/me.get.ts` — returns current user info and company memberships, requires valid session (FR-007)
 - [x] T020 [US1] Implement account lockout logic in `server/utils/auth/helpers.ts` — count failed attempts, lock after 10 (any window), auto-unlock after 30 min (FR-016)
 - [x] T021 [US1] Wire rate limiting to register and login endpoints per FR-010
@@ -90,7 +90,7 @@
 - [x] T028 Generate and apply Drizzle migration for `Company` + `CompanyMember` tables via `drizzle-kit generate && drizzle-kit migrate`
 - [x] T029 [P] [US3] Implement `POST /api/auth/companies` in `server/api/auth/companies.post.ts` — creates company, makes requesting user first member (FR-014)
 - [x] T030 [P] [US3] Implement `GET /api/auth/companies` in `server/api/auth/companies.get.ts` — search companies by name/CNPJ (FR-015)
-- [x] T031 [P] [US3] Implement `POST /api/auth/companies/join` in `server/api/auth/companies.join.post.ts` — join an existing company by ID, creates CompanyMember (FR-015)
+- [x] T031 [P] [US3] ~~Implement `POST /api/auth/companies/join` in `server/api/auth/companies.join.post.ts` — join an existing company by ID, creates CompanyMember (FR-015)~~ — SUPERSEDED: no join-by-ID endpoint was built; joining happens via invite acceptance (`POST /api/auth/invites/accept`, AUD-01). FR-015 is covered by search (`GET /api/auth/companies`) + invite/accept.
 - [x] T032 [P] [US3] Implement `POST /api/auth/companies/switch` in `server/api/auth/companies.switch.post.ts` — switch active company context
 - [x] T033 [US3] Update `GET /api/auth/me` to include `activeCompanyId` and `companies` list per contracts/auth-api.md
 - [x] T034 [US3] Implement `withTenant(tenantId, fn)` helper in `server/utils/auth/helpers.ts` per constitution (set `app.tenant_id` session variable, RLS enforcement)

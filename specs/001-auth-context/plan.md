@@ -6,7 +6,7 @@
 
 ## Summary
 
-Implement email/password authentication with session management (24h/7d TTL), multi-tenant company membership, and security controls (rate limiting sliding window, account lockout, consistent error handling) using Better Auth + Drizzle ORM on Nuxt 4/Nitro. Registration creates an account without starting a session; login creates a session. Multi-tenant membership flows (create/join company) build on top of auth identity.
+Implement email/password authentication with session management (fixed 7d TTL, no refresh), multi-tenant company membership, and security controls (rate limiting sliding window, account lockout, consistent error handling) using Better Auth + Drizzle ORM on Nuxt 4/Nitro. Registration creates an account without starting a session; login creates a session. Multi-tenant membership flows (create company, invite/accept) build on top of auth identity.
 
 ## Technical Context
 
@@ -16,7 +16,7 @@ Implement email/password authentication with session management (24h/7d TTL), mu
 
 **Storage**: PostgreSQL — sessions, users, companies, company_members tables
 
-**Testing**: Vitest — unit tests with mocked `IAuthRepository`, integration tests with real PostgreSQL + RLS
+**Testing**: Vitest — unit tests with mocked feature repositories, integration tests with real PostgreSQL + RLS
 
 **Target Platform**: Linux server (Docker container)
 
@@ -67,27 +67,42 @@ specs/001-auth-context/
 
 ```text
 server/
-├── api/auth/
-│   ├── register.post.ts        # POST /api/auth/register
-│   ├── login.post.ts            # POST /api/auth/login
-│   ├── logout.post.ts           # POST /api/auth/logout
-│   ├── me.get.ts                # GET /api/auth/me (session check)
-│   ├── companies.post.ts        # POST /api/auth/companies (create)
-│   ├── companies.get.ts         # GET /api/auth/companies (search)
-│   ├── companies.join.post.ts   # POST /api/auth/companies/join
-│   ├── companies.switch.post.ts # POST /api/auth/companies/switch
-│   └── deactivate.post.ts       # POST /api/auth/deactivate
+├── api/auth/                        # 21 handlers (flat — URLs fixas); ver contratos em
+│   ├── register.post.ts             # contracts/auth-api.md (fonte da verdade p/ rotas)
+│   ├── login.post.ts
+│   ├── logout.post.ts
+│   ├── me.get.ts
+│   ├── verify-email.get.ts
+│   ├── send-verification-email.post.ts
+│   ├── forget-password.post.ts
+│   ├── reset-password.post.ts
+│   ├── reset-password/[token].get.ts
+│   ├── deactivate.post.ts
+│   ├── consent/withdraw.post.ts
+│   ├── export.get.ts
+│   ├── companies.post.ts
+│   ├── companies.get.ts
+│   ├── companies.switch.post.ts
+│   ├── companies.update.post.ts
+│   ├── companies.delete.post.ts
+│   ├── companies/members.delete.post.ts
+│   ├── invite.post.ts
+│   ├── invites.get.ts
+│   └── invites.accept.post.ts        # aceite de convite (não existe `companies.join`)
 ├── middleware/
-│   └── auth.ts                  # Session validation + tenant context
+│   └── auth.ts                      # Session validation + tenant context
 ├── utils/
-│   ├── schema.ts                # Drizzle tables (users, sessions, companies, etc.)
-│   ├── db.ts                    # Database connection
+│   ├── schema/                      # Drizzle tables por feature + index.ts (registry)
+│   ├── db.ts                        # Database connection
+│   ├── shared/                      # errors, security, audit, csrf, ip, email, purge…
 │   └── auth/
-│       ├── repository.ts        # IAuthRepository + DrizzleAuthRepository
-│       └── helpers.ts           # Auth utilities (when extracted)
+│       ├── identity/repository.ts   # IdentityRepository + identityRepository
+│       ├── company/repository.ts    # CompanyRepository + companyRepository
+│       ├── invite/repository.ts     # InviteRepository + inviteRepository
+│       └── tenant-context.ts        # withTenant
 shared/
-├── auth.ts                      # Better Auth instance initialization
-└── logger.ts                    # Shared logger
+├── auth.ts                          # Better Auth instance initialization
+└── logger.ts                        # Shared logger
 ```
 
 ## Complexity Tracking

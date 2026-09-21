@@ -6,7 +6,7 @@
 
 - **Decision**: Use Better Auth with Drizzle adapter for email/password authentication
 - **Rationale**: Constitution mandates Better Auth (technology stack). Drizzle adapter provides native PostgreSQL integration without additional ORM mapping.
-- **Implementation**: Initialize Better Auth in `shared/auth.ts` with `better-auth` + drizzle adapter. Configure email/password provider, session TTL (24h default, 7d remember-me), and rate limiting.
+- **Implementation**: Initialize Better Auth in `shared/auth.ts` with `better-auth` + drizzle adapter. Configure email/password provider, fixed session TTL (7d, no refresh), and rate limiting.
 - **Alternatives considered**: Lucia (deprecated), next-auth (React-focused, Nuxt integration less mature)
 
 ### Session Strategy

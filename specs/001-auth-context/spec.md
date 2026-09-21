@@ -24,8 +24,10 @@ Auth is the gate — every interaction flows through it.
 
 ### Session 2026-06-11
 
-- Q: What are the session expiry TTL values? → A: 24h default, 7d with
-  remember-me.
+- Q: What are the session expiry TTL values? → A: Fixed 7d TTL from
+  creation (`expiresIn: 7d`, `disableSessionRefresh: true` — no sliding
+  refresh). `rememberMe: true` persists the cookie for 7d; without it the
+  cookie is session-scoped. The DB row always expires 7d after creation.
 - Q: How are companies created and users assigned to them? → A:
   Self-service: after registration, the user can create a new company
   (becoming its first member) or search for an existing company to join.
@@ -53,7 +55,8 @@ Auth is the gate — every interaction flows through it.
 - Q: Should registration have explicit idempotency key support to
   prevent duplicate accounts on network retry? → A: No — email
   uniqueness (FR-003) already prevents duplicates. Same-email retries
-  return 409 Conflict.
+  return the same generic `201 Created` as a new registration
+  (anti-enumeration, AUD-03) — never `409 Conflict`.
 - Q: What should happen when an unexpected 500 error occurs in an
   auth endpoint? → A: Return 500 with
   `{ "error": "internal_error", "message": "An unexpected error occurred." }`,
@@ -111,7 +114,7 @@ authenticated request and receive an access-denied error.
    **Then** the session is terminated.
 2. **Given** no active session, **When** the user accesses a protected
    resource, **Then** the system denies access.
-3. **Given** an active session past its 24h expiry, **When** the user
+3. **Given** an active session past its 7d TTL, **When** the user
    makes a request, **Then** the system denies access.
 
 ---
@@ -176,8 +179,10 @@ authenticated requests carry the correct tenant context.
   resources.
 - **FR-008**: System MUST protect stored passwords against compromise
   (e.g., hashing).
-- **FR-009**: Sessions MUST expire after 24h by default. Sessions with
-  a "remember me" flag expire after 7d.
+- **FR-009**: Sessions MUST expire 7d after creation (fixed TTL:
+  `expiresIn: 7d` with `disableSessionRefresh: true` — no sliding refresh).
+  The `rememberMe` flag controls cookie persistence only (7d persistent vs
+  session-scoped cookie); the server-side row always expires 7d after creation.
 - **FR-010**: Login attempts MUST be rate-limited to mitigate brute-force
   attacks. Rate limiting uses a **sliding window** of 5 requests per 1 minute per
   email address. When the limit is exceeded, the server
@@ -207,18 +212,21 @@ authenticated requests carry the correct tenant context.
 - **FR-012**: System MUST support multiple active sessions per user
   (different devices/browsers).
 - **FR-019**: System MUST support company deletion. Only company owners
-  and super_admin can delete. Deletion is a soft-delete (`is_deleted`
+  can delete (no platform `super_admin` role exists — deferred). Deletion is a soft-delete (`is_deleted`
   flag) to preserve referential integrity for fiscal records. Cascade
   behavior: all CompanyMember rows purged, all pending invites purged,
   company no longer selectable as tenant context. Active sessions for
   the user's other tenants remain valid.
 - **FR-020**: System MUST provide a data export endpoint returning all
-  user personal data (email, name, memberships, auth events) in JSON
-  format, fulfilling LGPD data portability rights (Art. 18).
+  user personal data (profile, memberships, sessions, auth events) in JSON
+  format, fulfilling LGPD data portability rights (Art. 18). Only events
+  linked to the requesting user are included.
 - **FR-021**: System MUST record user consent at registration
   (acceptance of terms and data processing) with timestamp and version.
-  Consent withdrawal MUST trigger account deactivation and enqueue a
-  data deletion request.
+  Consent withdrawal MUST trigger immediate account deactivation and
+  session termination. An automated PII deletion/anonymization queue is
+  deferred (out of scope) — withdrawal is recorded as a
+  `consent_withdrawal` audit event.
 - **FR-022**: System MUST log all access to PII data (email, name) in
   the audit log — who accessed it, when, and for what purpose. PII
   access logs are retained for 5 years.

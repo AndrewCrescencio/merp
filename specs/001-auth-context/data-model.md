@@ -27,7 +27,7 @@
 | id          | UUID        | PK                                                 |
 | user_id     | UUID        | NOT NULL, FK → User.id                             |
 | token       | TEXT        | NOT NULL, UNIQUE — session token (httpOnly cookie) |
-| expires_at  | TIMESTAMPTZ | NOT NULL — 24h default, 7d with remember-me        |
+| expires_at  | TIMESTAMPTZ | NOT NULL — fixed 7d TTL from creation (no refresh) |
 | remember_me | BOOLEAN     | NOT NULL, DEFAULT false                            |
 | created_at  | TIMESTAMPTZ | NOT NULL, DEFAULT now()                            |
 | updated_at  | TIMESTAMPTZ | NOT NULL, DEFAULT now()                            |
