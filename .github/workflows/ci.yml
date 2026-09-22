@@ -1,0 +1,209 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+env:
+  DATABASE_URL: postgres://merp:merp@localhost:5432/merp_test
+  APP_DATABASE_URL: postgres://merp_app:merp_app@localhost:5432/merp_test
+  DB_AVAILABLE: 'true'
+  NODE_ENV: test
+
+jobs:
+  # GATE B: Canary runs FIRST, required check
+  rls-canary:
+    name: RLS Canary (required)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: merp
+          POSTGRES_PASSWORD: merp
+          POSTGRES_DB: merp_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U merp -d merp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if pg_isready -U merp -d merp_test -h localhost -p 5432; then
+              echo "Postgres ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres not ready after 30s"
+          exit 1
+
+      - name: Create test database
+        run: createdb -h localhost -U merp merp_test || true
+
+      - name: Run Drizzle migrations (owner)
+        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm exec drizzle-kit migrate
+
+      - name: Apply custom SQL (RLS, policies)
+        run: |
+          node --experimental-strip-types server/utils/apply-custom-sql.ts
+
+      - name: Ensure merp_app role exists
+        run: |
+          psql -U merp -d merp_test -h localhost -c "
+            DO \$\$ BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merp_app') THEN
+                CREATE ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
+              ELSE
+                ALTER ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
+              END IF;
+            END \$\$;
+          "
+
+      - name: Run RLS Canary (GATE B - blocks if RLS bypassed)
+        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test -- server/utils/00-rls-canary.test.ts
+
+  # Main test suite - runs AFTER canary passes
+  test:
+    name: Test Suite (merp_app)
+    needs: rls-canary
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: merp
+          POSTGRES_PASSWORD: merp
+          POSTGRES_DB: merp_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U merp -d merp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if pg_isready -U merp -d merp_test -h localhost -p 5432; then
+              echo "Postgres ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres not ready after 30s"
+          exit 1
+
+      - name: Create test database
+        run: createdb -h localhost -U merp merp_test || true
+
+      - name: Run Drizzle migrations (owner)
+        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm exec drizzle-kit migrate
+
+      - name: Apply custom SQL (RLS, policies)
+        run: |
+          node --experimental-strip-types server/utils/apply-custom-sql.ts
+
+      - name: Ensure merp_app role exists
+        run: |
+          psql -U merp -d merp_test -h localhost -c "
+            DO \$\$ BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merp_app') THEN
+                CREATE ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
+              ELSE
+                ALTER ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
+              END IF;
+            END \$\$;
+          "
+
+      - name: Run full test suite (merp_app)
+        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test
+
+      - name: Run grants parity test
+        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test -- server/utils/grants-parity.test.ts
+
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Check format
+        run: pnpm format:check
+
+  typecheck:
+    name: TypeCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run typecheck
+        run: npx tsc --noEmit

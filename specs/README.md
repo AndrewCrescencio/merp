@@ -13,7 +13,7 @@
 - [x] **GATE A** — `createOwnerDb` renamed to `createOwnerDbForSetupOnly`, restricted to setup/fixtures, ESLint rule active
 - [x] **GATE B** — Canary runs first (`00-rls-canary.test.ts`), vitest `sequence.shuffle: false` + `fileParallelism: false`, CI required check
 - [x] **GATE C** — Migration 0020 (DEFAULT PRIVILEGES) applied, `grants-parity.test.ts` passes (4/4), runbook at `docs/runbooks/grants.md`
-- [ ] **GATE D** — CI exports APP_DATABASE_URL, runs integration with Docker, canary is required check
+- [x] **GATE D** — `.github/workflows/ci.yml` created: canary job (required) → test job (needs canary) → lint/typecheck; Postgres service container; APP_DATABASE_URL explicit
 
 ## Phase 1 — Product Decision (Core + Packs) ⏳ PENDING
 

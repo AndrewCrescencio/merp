@@ -54,7 +54,20 @@ The integration test suite MUST run as the `merp_app` role (non-superuser, `NOBY
   - Verifica: todas as sequences têm USAGE/SELECT para merp_app
   - Verifica: DEFAULT PRIVILEGES existem em pg_default_acl
   - Verifica: nova tabela criada pelo owner herda grants automaticamente
-- **Runbook**: `docs/runbooks/grants.md` (a criar) documenta aplicação em dev/CI/staging/prod
+- **Runbook**: `docs/runbooks/grants.md` documenta aplicação em dev/CI/staging/prod
+
+### CI com Docker + APP_DATABASE_URL (GATE D)
+
+- **Workflow**: `.github/workflows/ci.yml` — GitHub Actions
+- **Jobs** (ordem de execução):
+  1. `rls-canary` — roda PRIMEIRO, required check, falha = pipeline para
+  2. `test` — `needs: rls-canary`, roda suíte completa (372 testes) como `merp_app`
+  3. `lint` / `typecheck` — paralelos, não dependem de DB
+- **Secrets necessários** (repo settings → Secrets):
+  - `DATABASE_URL` — owner (merp) para migrações
+  - `APP_DATABASE_URL` — app (merp_app) para testes
+- **Service container**: Postgres 16-alpine com healthcheck
+- **Verificação**: `APP_DATABASE_URL` exportado explicitamente no step de teste; se não estiver setado, `db.ts` cairia no owner e testes passariam vacuamente — pipeline falharia no canário
 
 ## Verification
 
