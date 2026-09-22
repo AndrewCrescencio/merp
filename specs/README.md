@@ -8,6 +8,13 @@
 - [x] 0.4 Concurrency test created (`server/utils/tenant-isolation-concurrent.test.ts`) — 100 iterations, zero leakage
 - [x] 0.5 ADR-007 recorded: "Test suite runs as merp_app"
 
+### Phase 0 Gates Status
+
+- [x] **GATE A** — `createOwnerDb` renamed to `createOwnerDbForSetupOnly`, restricted to setup/fixtures, ESLint rule active
+- [ ] **GATE B** — Canary runs first, is required check, pipeline stops if it fails
+- [ ] **GATE C** — DEFAULT PRIVILEGES migration applied, grants parity test passes in CI
+- [ ] **GATE D** — CI exports APP_DATABASE_URL, runs integration with Docker, canary is required check
+
 ## Phase 1 — Product Decision (Core + Packs) ⏳ PENDING
 
 - [ ] ADR-001: Vertical strategy (Core + Packs)

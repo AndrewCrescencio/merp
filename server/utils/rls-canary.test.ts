@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { db, createOwnerDb } from './db'
+import { db, createOwnerDbForSetupOnly } from './db'
 import { sql } from 'drizzle-orm'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('RLS Canary — MUST fail if suite runs as owner/superuser', () => {
-  const ownerDb = createOwnerDb()
+  const ownerDb = createOwnerDbForSetupOnly()
 
   it('prevents cross-tenant read: tenant A cannot read tenant B data', async () => {
     const companyA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'

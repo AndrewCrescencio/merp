@@ -26,7 +26,9 @@ export const db = drizzle(postgres(withRequiredSsl(appConnectionString)), { sche
 
 // Owner role (bypasses RLS) — ONLY for test setup / migrations / seeding
 // NEVER use this in application code paths
-export function createOwnerDb() {
+// PROIBIDO em asserções. Se um teste falha porque precisa disso, o teste
+// está medindo a coisa errada.
+export function createOwnerDbForSetupOnly() {
   const ownerConnectionString = process.env.DATABASE_URL!
   return drizzle(postgres(withRequiredSsl(ownerConnectionString)), { schema })
 }

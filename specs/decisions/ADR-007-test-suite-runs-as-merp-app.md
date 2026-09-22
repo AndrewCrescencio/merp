@@ -36,7 +36,30 @@ SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname IN ('merp','m
 -- Expected: merp (t,t), merp_app (f,f)
 ```
 
+## Consequences
+
+- Any new table MUST have explicit `GRANT` to `merp_app` (handled by migration 0017 + default privileges)
+- Test setup code that seeds data must use `createOwnerDbForSetupOnly()` to bypass RLS
+- Canary test (`rls-canary.test.ts`) fails fast if suite accidentally runs as owner
+
+### Regra do `createOwnerDbForSetupOnly`
+
+- **Permitido**: setup/teardown/fixtures (beforeAll, beforeEach, test-setup.ts, seed scripts)
+- **Proibido**: asserção (expect), corpo de teste (it), código de produção (server/routes, plugins, middleware)
+- **Enforcement**:
+  - ESLint rule `no-restricted-imports` bloqueia import fora de `*.test-setup.ts` e `*.test.ts` em contexto de setup
+  - PR review verifica uso correto
+  - Grep CI: `grep -r "createOwnerDbForSetupOnly" --include="*.ts" | grep -v "test-setup\|.test.ts" || true` deve retornar vazio
+
+## Verification
+
+```sql
+SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname IN ('merp','merp_app');
+-- Expected: merp (t,t), merp_app (f,f)
+```
+
 ## References
 
 - Phase 0 Security Gate specification
 - Migration 0017: `app_role_core_grants.sql`
+- `eslint.config.mjs`: `no-restricted-imports` rule
