@@ -51,12 +51,16 @@ The following ERP modules are **not yet implemented** and need to be built. Prio
 
 ### Phase 1: Core Module (Essential for any ERP)
 
+> Detalhamento: `specs/003-erp-catalog/plan.md` (produtos/estoque) e `specs/006-erp-crm/plan.md` (clientes base).
+
 | Module               | Description                                                | Key Entities                                    |
 | -------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
 | **Products/Catalog** | Product inventory management with categories, SKU, pricing | `product`, `category`, `product_image`          |
 | **Inventory**        | Stock tracking, warehouse locations, stock movements       | `stock_quantity`, `stock_movement`, `warehouse` |
 
 ### Phase 2: Sales & Procurement
+
+> Detalhamento: `specs/004-erp-sales/plan.md`.
 
 | Module              | Description                                   | Key Entities                                      |
 | ------------------- | --------------------------------------------- | ------------------------------------------------- |
@@ -65,6 +69,8 @@ The following ERP modules are **not yet implemented** and need to be built. Prio
 
 ### Phase 3: Finance & Accounting
 
+> Detalhamento: `specs/005-erp-finance/plan.md`.
+
 | Module        | Description                                         | Key Entities                            |
 | ------------- | --------------------------------------------------- | --------------------------------------- |
 | **Invoicing** | Generate invoices, track payments, partial payments | `invoice`, `invoice_line`, `payment`    |
@@ -72,12 +78,16 @@ The following ERP modules are **not yet implemented** and need to be built. Prio
 
 ### Phase 4: CRM & Relations
 
+> Detalhamento: `specs/006-erp-crm/plan.md`.
+
 | Module        | Description                                  | Key Entities                 |
 | ------------- | -------------------------------------------- | ---------------------------- |
 | **Customers** | Customer profile, contact info, segmentation | `customer`, `contact_person` |
 | **Vendors**   | Vendor profile, contracts, performance       | `vendor`, `vendor_contact`   |
 
 ### Phase 5: Reporting & Administration
+
+> Detalhamento: `specs/007-erp-admin/plan.md`.
 
 | Module            | Description                         | Key Entities                      |
 | ----------------- | ----------------------------------- | --------------------------------- |
@@ -111,206 +121,22 @@ The following ERP modules are **not yet implemented** and need to be built. Prio
 
 #### 3.1 Products & Inventory
 
-```sql
--- Products table
-CREATE TABLE product (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  slug text UNIQUE,
-  description text,
-  price numeric(12,2) NOT NULL,
-  compare_at_price numeric(12,2), -- Sale price
-  cost numeric(12,2), -- Cost price
-  sku text UNIQUE,
-  barcode text,
-  track_inventory boolean DEFAULT true,
-  inventory_quantity integer DEFAULT 0,
-  min_stock_level integer DEFAULT 5,
-  max_stock_level integer DEFAULT 1000,
-  sold_count integer DEFAULT 0,
-  is_active boolean DEFAULT true,
-  category_id text REFERENCES category(id),
-  company_id text NOT NULL REFERENCES company(id),
-  created_at timestamp WITH time zone DEFAULT now(),
-  updated_at timestamp WITH time zone DEFAULT now()
-);
-
--- Categories table
-CREATE TABLE category (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  slug text UNIQUE,
-  parent_id text REFERENCES category(id), -- Self-referential for hierarchy
-  company_id text NOT NULL REFERENCES company(id),
-  is_active boolean DEFAULT true,
-  created_at timestamp WITH time zone DEFAULT now()
-);
-
--- Product images
-CREATE TABLE product_image (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id text NOT NULL REFERENCES product(id) ON DELETE CASCADE,
-  url text NOT NULL, -- Storage URL (Supabase/S3 path)
-  alt_text text,
-  is_primary boolean DEFAULT false,
-  sort_order integer DEFAULT 0,
-  created_at timestamp WITH time zone DEFAULT now()
-);
-```
+> Movido para `specs/003-erp-catalog/plan.md` (DDL + notas de tenant/RLS).
+> Regra: tabelas novas entram em `server/utils/schema/<domínio>.ts` +
+> `drizzle-kit generate` — nunca SQL avulso (ver aviso no Sprint 0).
 
 #### 3.2 Sales & Procurement
 
-```sql
--- Customers
-CREATE TABLE customer (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  email text,
-  phone text,
-  cnpj_cpf text, -- Brazilian tax ID
-  address text,
-  city text,
-  state text,
-  zip_code text,
-  country text DEFAULT 'BR',
-  status 'active' | 'inactive' DEFAULT 'active',
-  tags jsonb DEFAULT '[]',
-  company_id text NOT NULL REFERENCES company(id),
-  created_at timestamp WITH time zone DEFAULT now(),
-  updated_at timestamp WITH time zone DEFAULT now()
-);
-
--- Vendors
-CREATE TABLE vendor (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  email text,
-  phone text,
-  cnpj text, -- Brazilian tax ID
-  address text,
-  city text,
-  state text,
-  zip_code text,
-  country text DEFAULT 'BR',
-  status 'active' | 'inactive' DEFAULT 'active',
-  tags jsonb DEFAULT '[]',
-  company_id text NOT NULL REFERENCES company(id),
-  created_at timestamp WITH time zone DEFAULT now(),
-  updated_at timestamp WITH time zone DEFAULT now()
-);
-
--- Sales Orders
-CREATE TABLE sales_order (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  number text NOT NULL, -- Human-readable order number
-  customer_id text NOT NULL REFERENCES customer(id),
-  status 'draft' | 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' DEFAULT 'draft',
-  payment_method 'credit_card' | 'bank_transfer' | 'pix' | 'cash' DEFAULT 'credit_card',
-  subtotal numeric(12,2) DEFAULT 0,
-  discount_percent numeric(5,2) DEFAULT 0,
-  discount_amount numeric(12,2) DEFAULT 0,
-  shipping_cost numeric(12,2) DEFAULT 0,
-  total numeric(12,2) NOT NULL,
-  notes text,
-  company_id text NOT NULL REFERENCES company(id),
-  created_at timestamp WITH time zone DEFAULT now(),
-  updated_at timestamp WITH time zone DEFAULT now()
-);
-
--- Sales Order Items
-CREATE TABLE sales_order_item (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  sales_order_id text NOT NULL REFERENCES sales_order(id) ON DELETE CASCADE,
-  product_id text REFERENCES product(id),
-  description text, -- Free text if product not in order
-  quantity integer NOT NULL DEFAULT 1,
-  unit_price numeric(12,2) NOT NULL, -- Price at time of order
-  total_price numeric(12,2) NOT NULL, -- quantity * unit_price
-  discount_percent numeric(5,2) DEFAULT 0,
-  discount_amount numeric(12,2) DEFAULT 0,
-  PRIMARY KEY (id, sales_order_id) -- Composite? No, just id PK
-);
-
--- Actually, let me reconsider the schema:
-CREATE TABLE sales_order_item (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  sales_order_id text NOT NULL REFERENCES sales_order(id) ON DELETE CASCADE,
-  product_id text REFERENCES product(id),
-  quantity integer NOT NULL DEFAULT 1,
-  unit_price numeric(12,2) NOT NULL,
-  total_price numeric(12,2) NOT NULL,
-  created_at timestamp WITH time zone DEFAULT now()
-);
-```
+> Movido: sales orders → `specs/004-erp-sales/plan.md`; customers/vendors →
+> `specs/006-erp-crm/plan.md`.
 
 #### 3.3 Finance
 
-```sql
--- Invoices
-CREATE TABLE invoice (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  number text NOT NULL,
-  customer_id text NOT NULL REFERENCES customer(id),
-  sales_order_id text REFERENCES sales_order(id), -- Link to source order
-  status 'draft' | 'open' | 'paid' | 'partial' | 'overdue' | 'cancelled' DEFAULT 'draft',
-  issue_date date DEFAULT CURRENT_DATE,
-  due_date date,
-  subtotal numeric(12,2) DEFAULT 0,
-  discount_percent numeric(5,2) DEFAULT 0,
-  discount_amount numeric(12,2) DEFAULT 0,
-  tax_percent numeric(5,2) DEFAULT 0,
-  tax_amount numeric(12,2) DEFAULT 0,
-  total numeric(12,2) NOT NULL,
-  amount_paid numeric(12,2) DEFAULT 0,
-  amount_remaining numeric(12,2) DEFAULT 0,
-  notes text,
-  company_id text NOT NULL REFERENCES company(id),
-  created_at timestamp WITH time zone DEFAULT now(),
-  updated_at timestamp WITH time zone DEFAULT now()
-);
-
--- Invoice Lines
-CREATE TABLE invoice_line (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  invoice_id text NOT NULL REFERENCES invoice(id) ON DELETE CASCADE,
-  description text NOT NULL,
-  quantity integer NOT NULL DEFAULT 1,
-  unit_price numeric(12,2) NOT NULL,
-  total_price numeric(12,2) NOT NULL,
-  created_at timestamp WITH time zone DEFAULT now()
-);
-
--- Payments
-CREATE TABLE payment (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  invoice_id text NOT NULL REFERENCES invoice(id),
-  amount numeric(12,2) NOT NULL,
-  payment_method 'credit_card' | 'bank_transfer' | 'pix' | 'cash' | 'check' DEFAULT 'credit_card',
-  status 'pending' | 'completed' | 'failed' | 'refunded' DEFAULT 'pending',
-  transaction_id text, -- External payment gateway ref
-  paid_at timestamp WITH time zone,
-  company_id text NOT NULL REFERENCES company(id),
-  created_at timestamp WITH time zone DEFAULT now()
-);
-```
+> Movido para `specs/005-erp-finance/plan.md` (DDL + idempotência do `pay` + decisão de gateway).
 
 #### 3.4 CRM
 
-```sql
--- Contact persons (for customers/vendors)
-CREATE TABLE contact_person (
-  id text PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  email text,
-  phone text,
-  role 'primary' | 'commercial' | 'admin' | 'finance' | 'technical' DEFAULT 'primary',
-  is_primary boolean DEFAULT true,
-  customer_id text REFERENCES customer(id) ON DELETE SET NULL,
-  vendor_id text REFERENCES vendor(id) ON DELETE SET NULL,
-  company_id text NOT NULL REFERENCES company(id),
-  created_at timestamp WITH time zone DEFAULT now()
-);
-```
+> Movido para `specs/006-erp-crm/plan.md` (inclui validação CNPJ/CPF e notas de PII).
 
 ---
 
@@ -337,47 +163,19 @@ All ERP endpoints **require authentication** (middleware `auth.ts`) and **compan
 
 #### 4.1 Products API
 
-| Endpoint                       | Method    | Auth | Description                               |
-| ------------------------------ | --------- | ---- | ----------------------------------------- |
-| `/api/products`                | GET       | ✅   | List products with pagination/filter      |
-| `/api/products`                | POST      | ✅   | Create product                            |
-| `/api/products/[id]`           | GET       | ✅   | Get product by ID                         |
-| `/api/products/[id]`           | PUT/PATCH | ✅   | Update product                            |
-| `/api/products/[id]`           | DELETE    | ✅   | Soft-delete product (set is_active=false) |
-| `/api/products/[id]/inventory` | GET       | ✅   | Check current stock                       |
-| `/api/products/[id]/image`     | POST      | ✅   | Upload product image                      |
+> Movido para `specs/003-erp-catalog/plan.md`.
 
 #### 4.2 Customers API
 
-| Endpoint                      | Method    | Auth | Description                 |
-| ----------------------------- | --------- | ---- | --------------------------- |
-| `/api/customers`              | GET       | ✅   | List customers with filters |
-| `/api/customers`              | POST      | ✅   | Create customer             |
-| `/api/customers/[id]`         | GET       | ✅   | Get customer detail         |
-| `/api/customers/[id]`         | PUT/PATCH | ✅   | Update customer             |
-| `/api/customers/[id]/contact` | POST      | ✅   | Add contact person          |
-| `/api/customers/[id]`         | DELETE    | ✅   | Soft-delete customer        |
+> Movido para `specs/006-erp-crm/plan.md`.
 
 #### 4.3 Sales Orders API
 
-| Endpoint                       | Method    | Auth | Description                       |
-| ------------------------------ | --------- | ---- | --------------------------------- |
-| `/api/sales-orders`            | GET       | ✅   | List sales orders with pagination |
-| `/api/sales-orders`            | POST      | ✅   | Create sales order                |
-| `/api/sales-orders/[id]`       | GET       | ✅   | Get sales order with items        |
-| `/api/sales-orders/[id]`       | PUT/PATCH | ✅   | Update sales order status         |
-| `/api/sales-orders/[id]/items` | POST      | ✅   | Add item to order                 |
-| `/api/sales-orders/[id]`       | DELETE    | ✅   | Cancel order                      |
+> Movido para `specs/004-erp-sales/plan.md`.
 
 #### 4.4 Invoices API
 
-| Endpoint                 | Method    | Auth | Description                                        |
-| ------------------------ | --------- | ---- | -------------------------------------------------- |
-| `/api/invoices`          | GET       | ✅   | List invoices with filter (status, customer, date) |
-| `/api/invoices`          | POST      | ✅   | Create invoice (from sales order or standalone)    |
-| `/api/invoices/[id]`     | GET       | ✅   | Get invoice with lines and payments                |
-| `/api/invoices/[id]/pay` | POST      | ✅   | Record payment against invoice                     |
-| `/api/invoices/[id]`     | PUT/PATCH | ✅   | Mark invoice as paid/partial/overdue               |
+> Movido para `specs/005-erp-finance/plan.md`.
 
 #### 4.5 Shared Patterns
 
