@@ -9,13 +9,17 @@
 | id                        | UUID        | PK, default `gen_random_uuid()`                     |
 | email                     | TEXT        | NOT NULL, UNIQUE, validated format (RFC 5321)       |
 | name                      | TEXT        | NULLABLE, PII                                       |
-| hashed_password           | TEXT        | NOT NULL, bcrypt (cost 10+)                         |
+| email_verified            | BOOLEAN     | NOT NULL, DEFAULT false                             |
+| image                     | TEXT        | NULLABLE                                            |
 | is_active                 | BOOLEAN     | NOT NULL, DEFAULT true — soft delete flag           |
+| two_factor_enabled        | BOOLEAN     | NOT NULL, DEFAULT false                             |
 | consent_terms_version     | TEXT        | NULLABLE — LGPD consent tracking                    |
 | consent_terms_accepted_at | TIMESTAMPTZ | NULLABLE                                            |
 | consent_withdrawn_at      | TIMESTAMPTZ | NULLABLE — triggers deactivation + deletion request |
 | created_at                | TIMESTAMPTZ | NOT NULL, DEFAULT now()                             |
 | updated_at                | TIMESTAMPTZ | NOT NULL, DEFAULT now()                             |
+
+> **Note**: `hashed_password` is NOT in the `user` table — it is managed by Better Auth in the `account` table (column `password`).
 
 **Unique constraints**: email (UNIQUE index)
 **Indexes**: email (for login lookup), is_active (for deactivation queries)
@@ -90,6 +94,84 @@
 **Unique constraints**: (company_id, email) — one pending invite per email per company
 **Indexes**: email + accepted_at IS NULL (lookup pending invites)
 
+### Account (OAuth / Better Auth)
+
+| Field                    | Type        | Constraints                                      |
+| ------------------------ | ----------- | ------------------------------------------------ |
+| id                       | UUID        | PK, default `gen_random_uuid()`                  |
+| user_id                  | UUID        | NOT NULL, FK → User.id                           |
+| account_id               | TEXT        | NOT NULL                                         |
+| provider_id              | TEXT        | NOT NULL                                         |
+| access_token             | TEXT        | NULLABLE                                         |
+| refresh_token            | TEXT        | NULLABLE                                         |
+| access_token_expires_at  | TIMESTAMPTZ | NULLABLE                                         |
+| refresh_token_expires_at | TIMESTAMPTZ | NULLABLE                                         |
+| scope                    | TEXT        | NULLABLE                                         |
+| id_token                 | TEXT        | NULLABLE                                         |
+| password                 | TEXT        | NULLABLE — hashed password (Better Auth managed) |
+| created_at               | TIMESTAMPTZ | NOT NULL, DEFAULT now()                          |
+| updated_at               | TIMESTAMPTZ | NOT NULL, DEFAULT now()                          |
+
+**Indexes**: user_id (user's accounts)
+
+### Verification (Email/Password Reset Tokens)
+
+| Field      | Type        | Constraints                     |
+| ---------- | ----------- | ------------------------------- |
+| id         | UUID        | PK, default `gen_random_uuid()` |
+| identifier | TEXT        | NOT NULL — email or phone       |
+| value      | TEXT        | NOT NULL — token hash           |
+| expires_at | TIMESTAMPTZ | NOT NULL                        |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now()         |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now()         |
+
+**Indexes**: identifier (lookup by email)
+
+### TwoFactor (2FA TOTP + Backup Codes)
+
+| Field        | Type        | Constraints                           |
+| ------------ | ----------- | ------------------------------------- |
+| id           | UUID        | PK, default `gen_random_uuid()`       |
+| secret       | TEXT        | NOT NULL — TOTP secret                |
+| backup_codes | TEXT        | NOT NULL — JSON array of backup codes |
+| user_id      | UUID        | NOT NULL, FK → User.id                |
+| created_at   | TIMESTAMPTZ | NOT NULL, DEFAULT now()               |
+| updated_at   | TIMESTAMPTZ | NOT NULL, DEFAULT now()               |
+
+**Indexes**: user_id (user's 2FA config)
+
+### EmailQueue (Async Email Delivery)
+
+| Field        | Type        | Constraints                                       |
+| ------------ | ----------- | ------------------------------------------------- |
+| id           | UUID        | PK, default `gen_random_uuid()`                   |
+| to           | TEXT        | NOT NULL                                          |
+| subject      | TEXT        | NOT NULL                                          |
+| html         | TEXT        | NOT NULL                                          |
+| attempts     | INTEGER     | NOT NULL, DEFAULT 0                               |
+| max_attempts | INTEGER     | NOT NULL, DEFAULT 3                               |
+| status       | TEXT        | NOT NULL, DEFAULT 'pending' — pending/sent/failed |
+| last_error   | TEXT        | NULLABLE                                          |
+| scheduled_at | TIMESTAMPTZ | NOT NULL, DEFAULT now()                           |
+| sent_at      | TIMESTAMPTZ | NULLABLE                                          |
+| created_at   | TIMESTAMPTZ | NOT NULL, DEFAULT now()                           |
+| updated_at   | TIMESTAMPTZ | NOT NULL, DEFAULT now()                           |
+
+**Indexes**: status, scheduled_at (queue processing)
+
+### AuthSecurityState (Rate Limiting + Lockout)
+
+| Field        | Type        | Constraints                                         |
+| ------------ | ----------- | --------------------------------------------------- |
+| key          | TEXT        | PK — format: `rate:email`, `lockout:email:ip`, etc. |
+| count        | INTEGER     | NOT NULL, DEFAULT 0                                 |
+| locked_until | TIMESTAMPTZ | NULLABLE                                            |
+| reset_at     | TIMESTAMPTZ | NULLABLE                                            |
+| window       | JSONB       | NOT NULL, DEFAULT '[]' — ISO timestamps in window   |
+| updated_at   | TIMESTAMPTZ | NOT NULL, DEFAULT now()                             |
+
+**Indexes**: reset_at (purge expired)
+
 ## Relationships
 
 ```
@@ -97,6 +179,9 @@ User 1──N Session
 User 1──N CompanyMember N──1 Company
 User 1──N AuthEvent
 User 1──N Invite (as inviter)
+User 1──N Account
+User 1──N Verification
+User 1──1 TwoFactor
 Company 1──N CompanyMember
 Company 1──N Invite
 ```
@@ -128,5 +213,7 @@ Company 1──N Invite
 - `Company` table: RLS by company_id (owner/global access)
 - `CompanyMember` table: RLS by company_id
 - `Invite` table: RLS by company_id
-- `User` + `Session`: Global tables (no tenant_id) — auth is cross-tenant
+- `User` + `Session` + `Account` + `Verification` + `TwoFactor`: Global tables (no tenant_id) — auth is cross-tenant
 - `AuthEvent`: Global table — audit is cross-tenant
+- `EmailQueue`: Global table — `merp_app` role has full DML
+- `AuthSecurityState`: Global table — `merp_app` role has full DML

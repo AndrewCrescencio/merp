@@ -27,7 +27,7 @@ This plan covers building **ERP-specific features** on top of this foundation.
 | **Authentication flows** | Sign up, login, email verification, password reset, deactivate, session management                          | ✅ Complete         |
 | **Security**             | Rate limiting (sliding window per email/IP/user), CSRF double-submit, nginx security headers, audit logging | ✅ Complete         |
 | **Middleware pipeline**  | `00-no-store` → `01-csrf-token` → `02-csrf-validate` → `auth.ts`                                            | ✅ Complete         |
-| **Test coverage**        | 291 tests across 43 files (38 unit + 5 Docker-gated integration)                                            | ✅ Good coverage    |
+| **Test coverage**        | 364 tests across 44 files (38 unit passed + 6 skipped, 291 passed + 73 integration gated)                   | ✅ Good coverage    |
 | **Scheduled tasks**      | Email queue, session purge, security state purge, email processing                                          | ✅ Complete         |
 
 ### 📁 Key Files (SaaS Foundation)
@@ -38,12 +38,14 @@ This plan covers building **ERP-specific features** on top of this foundation.
 - `server/utils/auth/tenant-context.ts` - Per-tenant DB context
 - `server/middleware/` - CSRF + no-store middleware
 - `server/utils/shared/security.ts` - Rate limiting, lockout, password validation
-- `infra/nginx/nginx.conf` - Reverse proxy with rate limiting & security headers
+- `server/middleware/00-no-store.ts` - PII no-store header middleware
 - `drizzle/0018_consolidated_auth_security_state.sql` - Security state table
 
 ---
 
-## 2. ERP Modules to Implement
+## 2. ERP Modules to Implement (ASPIRACIONAL — Not Implemented)
+
+> ⚠️ **This entire section describes planned features that do not exist in the codebase.** No ERP tables, endpoints, or repositories have been created yet. The SQL in §3 is **pseudo-DDL for design discussion only** — not valid PostgreSQL (uses `status 'a' | 'b'` syntax). Convert to Drizzle schema in `server/utils/schema/<domain>.ts` and generate migrations via `drizzle-kit generate`.
 
 The following ERP modules are **not yet implemented** and need to be built. Priority order reflects typical ERP deployment sequence.
 
@@ -86,12 +88,13 @@ The following ERP modules are **not yet implemented** and need to be built. Prio
 
 ## 3. Database Schema Extensions
 
-> ⚠️ The SQL below is **draft pseudo-DDL, not runnable migrations**: `status
-'active' | 'inactive'` is not valid PostgreSQL (use `text` + `CHECK`
-> constraint), and the duplicated `sales_order_item` definition (§3.2) still
-> needs a decision (single `id` PK recommended). Convert to Drizzle table
-> definitions in `server/utils/schema/<domain>.ts` and generate with
-> `drizzle-kit generate` — see the migration warning in Sprint 0.
+> ⚠️ **The SQL below is DESIGN-ONLY pseudo-DDL — NOT valid PostgreSQL and NOT runnable.**
+>
+> - `status 'active' | 'inactive'` syntax is invalid (use `text` + `CHECK` constraint)
+> - `payment_method 'credit_card' | 'bank_transfer' | ...` syntax is invalid
+> - Duplicated `sales_order_item` definition (§3.2) needs resolution
+> - **No ERP tables exist in the codebase** — this is a design proposal only
+> - Convert to Drizzle schema in `server/utils/schema/<domain>.ts` and generate migrations via `drizzle-kit generate`
 
 ### Existing Tables (Keep/Extend)
 
@@ -442,7 +445,9 @@ const [product] = await db
   )
 ```
 
-### 5.3 Permission Matrix (To Design)
+### 5.3 Permission Matrix (ASPIRACIONAL — Not Implemented)
+
+> ⚠️ **Current code only has `owner` | `member` roles** (`server/utils/schema/company.ts:37`). The matrix below is a design proposal for future ERP roles.
 
 | Role        | Products   | Customers  | Sales Orders | Invoices       | Reports     |
 | ----------- | ---------- | ---------- | ------------ | -------------- | ----------- |
@@ -451,7 +456,7 @@ const [product] = await db
 | **Staff**   | Create own | Create own | Create own   | Create own     | None        |
 | **Viewer**  | Read-only  | Read-only  | Read-only    | Read-only      | Read-only   |
 
-_(Design this matrix early - drives RLS policies and API route protection)_
+_(Design this matrix early - drives RLS policies and API route protection. Requires extending `company_member.role` + new RLS policies.)_
 
 ---
 
@@ -657,7 +662,7 @@ Before implementation starts, confirm:
 - [ ] Decide on payment integration strategy
 - [ ] Create database migration branch
 - [ ] Set up feature branch: `git checkout -b feat/erp-planning`
-- [ ] Ensure all existing tests pass: `pnpm test` (291 unit; integration needs Docker)
+- [ ] Ensure all existing tests pass: `pnpm test` (364 tests: 291 unit passed + 73 integration gated by Docker)
 - [ ] Verify lint: `pnpm lint`
 - [ ] Document any existing .env secrets needed (better-auth secret, CSRF secret, etc.)
 
@@ -695,5 +700,5 @@ The **merp repository has a robust SaaS foundation** ready for ERP extension. Th
 ---
 
 _Plan generated: Mon Sep 21 2026_
-_Based on codebase revision: 2b9de3b (dev branch with security fixes)_
+_Based on codebase revision: adc9a46 (HEAD with security fixes)_
 _Framework: Nuxt 4.5.2 + Better Auth 1.6.26 + Drizzle ORM + PostgreSQL_

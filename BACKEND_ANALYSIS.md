@@ -46,16 +46,16 @@
 
 ### 1.4 Security & Infrastructure
 
-| Feature                             | Implementation Details                                                                                   |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Rate limiting (sliding window)**  | IP (20/min), email (5/min), user (60/min) — `server/utils/shared/security.ts`                            |
-| **Account lockout (dual-tier)**     | Pair (email+IP, 10 attempts) + global (email, 50 attempts), 30-min lock                                  |
-| **HIBP breach check (k-anonymity)** | On register & reset-password — `server/utils/shared/hibp.ts`                                             |
-| **CSRF protection**                 | Double-submit cookie pattern — `server/middleware/01-csrf-token.ts`, `02-csrf-validate.ts`               |
-| **PII audit logging**               | All auth events to `auth_event` table — `server/utils/shared/audit.ts`                                   |
-| **Email queue (Resend)**            | Async queue with retry/backoff — `server/utils/shared/email.ts`, `server/tasks/process-email-queue.ts`   |
-| **Scheduled cleanup tasks**         | Purge sessions, security state, auth events (daily); process email queue (5min) — `nitro.scheduledTasks` |
-| **RLS policies (PostgreSQL)**       | 24 migrations in `drizzle/` enforcing tenant isolation at DB level                                       |
+| Feature                             | Implementation Details                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Rate limiting (sliding window)**  | IP (20/min), email (5/min), user (60/min) — `server/utils/shared/security.ts`                                |
+| **Account lockout (dual-tier)**     | Pair (email+IP, 10 attempts) + global (email, 50 attempts), 30-min lock                                      |
+| **HIBP breach check (k-anonymity)** | On register & reset-password — `server/utils/shared/hibp.ts`                                                 |
+| **CSRF protection**                 | Double-submit cookie pattern — `server/middleware/01-csrf-token.ts`, `02-csrf-validate.ts`                   |
+| **PII audit logging**               | All auth events to `auth_event` table — `server/utils/shared/audit.ts`                                       |
+| **Email queue (Resend)**            | Async queue with retry/backoff — `server/utils/shared/email.ts`, `server/tasks/process-email-queue.ts`       |
+| **Scheduled cleanup tasks**         | Purge sessions, security state, auth events (daily); process email queue (5min) — `nitro.scheduledTasks`     |
+| **RLS policies (PostgreSQL)**       | 20 migration files in `drizzle/` (14 journaled per `_journal.json` + 6 RLS/policy via `apply-custom-sql.ts`) |
 
 ---
 
@@ -276,11 +276,12 @@ DELETE /api/restaurant/tables/:id/session
 ## 6. Technical Debt to Address
 
 1. **RLS migrations split in two flows** — `drizzle/meta/_journal.json` covers 14
-   migrations (`drizzle-kit migrate` / `make migrate`); 10 RLS/policy files
-   (≥ `0010`, incl. `0014_bootstrap_role_split`, `0016_company_select_membership`,
-   `0017/0018/0019`) are outside the journal and applied only by the idempotent
-   applier `server/utils/apply-custom-sql.ts` (test setup). A fresh DB via
-   `make migrate` alone boots **without RLS policies** — see README runbook.
+   migrations (`drizzle-kit migrate` / `make migrate`); 6 RLS/policy files
+   (≥ `0014`, incl. `0014_bootstrap_role_split`, `0016_company_select_membership`,
+   `0017_app_role_core_grants`, `0018_consolidated_auth_security_state`,
+   `0019_consolidated_email_two_factor`, `0014_app_role_ensure`) are outside the journal
+   and applied only by the idempotent applier `server/utils/apply-custom-sql.ts` (test setup).
+   A fresh DB via `make migrate` alone boots **without RLS policies** — see README runbook.
    Fix before any deploy with real data (e.g. a `make migrate-full`).
 2. **Integration tests use a real DB** — `*.test.ts` beside repositories run against
    PostgreSQL (no testcontainers); document the required `DATABASE_URL` for CI.
@@ -384,4 +385,4 @@ pnpm lint
 
 ---
 
-_Generated from codebase analysis on 2026-09-02. Source: `/home/andrew/Projects/merp`_
+_Generated from codebase analysis on 2026-09-21. Source: `/home/o/Work/merp` (HEAD `adc9a46`)_
