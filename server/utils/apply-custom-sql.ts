@@ -24,15 +24,23 @@ function toIdempotentSql(raw: string): string {
     )
 }
 
-export function applyCustomSql(dbName: string, composeFile: string): void {
-  const files = readdirSync(DRIZZLE_DIR)
+export function customSqlFiles(): string[] {
+  return readdirSync(DRIZZLE_DIR)
     .filter((f) => /^\d{4}_.+\.sql$/.test(f))
     .filter((f) => Number(f.slice(0, 4)) >= 5)
     .sort()
+}
 
-  const sql = files
+// SQL idempotente concatenado, sem depender de docker — os testes de
+// regressão de ordering aplicam o mesmo conteúdo via driver pg.
+export function buildCustomSql(): string {
+  return customSqlFiles()
     .map((f) => toIdempotentSql(readFileSync(resolve(DRIZZLE_DIR, f), 'utf-8')))
     .join('\n')
+}
+
+export function applyCustomSql(dbName: string, composeFile: string): void {
+  const sql = buildCustomSql()
 
   execSync(
     `docker compose -f "${composeFile}" exec -T postgres psql -U merp -d ${dbName} -v ON_ERROR_STOP=1`,
