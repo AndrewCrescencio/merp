@@ -20,6 +20,13 @@ export function withRequiredSsl(url: string): string {
   return parsed.toString()
 }
 
-const connectionString = process.env.APP_DATABASE_URL || process.env.DATABASE_URL!
-const queryClient = postgres(withRequiredSsl(connectionString))
-export const db = drizzle(queryClient, { schema })
+// App role (non-owner, RLS enforced) — used by application code and tests
+const appConnectionString = process.env.APP_DATABASE_URL || process.env.DATABASE_URL!
+export const db = drizzle(postgres(withRequiredSsl(appConnectionString)), { schema })
+
+// Owner role (bypasses RLS) — ONLY for test setup / migrations / seeding
+// NEVER use this in application code paths
+export function createOwnerDb() {
+  const ownerConnectionString = process.env.DATABASE_URL!
+  return drizzle(postgres(withRequiredSsl(ownerConnectionString)), { schema })
+}

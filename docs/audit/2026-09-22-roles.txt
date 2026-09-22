@@ -1,0 +1,6 @@
+ rolname  | rolsuper | rolbypassrls | rolcreaterole 
+----------+----------+--------------+---------------
+ merp     | t        | t            | t
+ merp_app | f        | f            | f
+(2 rows)
+
