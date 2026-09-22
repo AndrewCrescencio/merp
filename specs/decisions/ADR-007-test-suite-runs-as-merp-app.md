@@ -46,6 +46,16 @@ The integration test suite MUST run as the `merp_app` role (non-superuser, `NOBY
   - Se canário falhar → pipeline para; suíte geral NÃO roda
   - Motivo: se a suíte roda como owner, o resto é teatro
 
+### Grants e DEFAULT PRIVILEGES (GATE C)
+
+- **Migration**: `drizzle/0020_app_role_default_privileges.sql` — ALTER DEFAULT PRIVILEGES for tables + sequences
+- **Teste de paridade**: `server/utils/grants-parity.test.ts` — roda em CI, bloqueia merge se faltar grant
+  - Verifica: todas as tabelas user têm SELECT/INSERT/UPDATE/DELETE para merp_app
+  - Verifica: todas as sequences têm USAGE/SELECT para merp_app
+  - Verifica: DEFAULT PRIVILEGES existem em pg_default_acl
+  - Verifica: nova tabela criada pelo owner herda grants automaticamente
+- **Runbook**: `docs/runbooks/grants.md` (a criar) documenta aplicação em dev/CI/staging/prod
+
 ## Verification
 
 ```sql
