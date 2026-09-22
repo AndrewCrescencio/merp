@@ -17,5 +17,7 @@ export default defineConfig({
     },
     include: ['server/**/*.{spec,test}.ts', 'shared/**/*.{spec,test}.ts'],
     globalSetup: ['./server/utils/test-setup.ts'],
+    sequence: { shuffle: false },
+    fileParallelism: false,
   },
 })

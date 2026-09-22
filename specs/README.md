@@ -11,7 +11,7 @@
 ### Phase 0 Gates Status
 
 - [x] **GATE A** — `createOwnerDb` renamed to `createOwnerDbForSetupOnly`, restricted to setup/fixtures, ESLint rule active
-- [ ] **GATE B** — Canary runs first, is required check, pipeline stops if it fails
+- [x] **GATE B** — Canary runs first (`00-rls-canary.test.ts`), vitest `sequence.shuffle: false` + `fileParallelism: false`, CI required check
 - [ ] **GATE C** — DEFAULT PRIVILEGES migration applied, grants parity test passes in CI
 - [ ] **GATE D** — CI exports APP_DATABASE_URL, runs integration with Docker, canary is required check
 
