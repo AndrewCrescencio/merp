@@ -32,32 +32,31 @@ cp .env.example .env
 # 2. Suba infra (PostgreSQL)
 docker compose up -d postgres
 
-# 3. Rode migrações (OU make migrate)
-pnpm drizzle-kit migrate
+# 3. Rode migrações completas (Drizzle + RLS policies)
+pnpm db:migrate:full
 
 # 4. Dev server
 pnpm dev
 # → http://localhost:3000
 ```
 
-### Banco novo do zero (atenção)
+### Banco novo do zero
 
-`drizzle-kit migrate` aplica só as 14 migrações do journal
-(`drizzle/meta/_journal.json`). As 10 de RLS/políticas (≥ `0010`, fora do
-journal — `0014_bootstrap_role_split`, `0016_company_select_membership`,
+`pnpm drizzle-kit migrate` sozinho aplica só as migrações do journal
+(`drizzle/meta/_journal.json`). As migrações de RLS/políticas (≥ `0010`,
+fora do journal — `0014_bootstrap_role_split`, `0016_company_select_membership`,
 `0017/0018/0019`, etc.) são aplicadas pelo applier idempotente
-`server/utils/apply-custom-sql.ts` — hoje usado **só** pelo setup de testes
-(`merp_test`). Num banco novo de dev/staging, rode os dois na ordem:
+`scripts/apply-custom-sql.ts`.
+
+**Use sempre `pnpm db:migrate:full` em banco novo:**
 
 ```bash
-npx drizzle-kit migrate
-# + aplicar drizzle/0010_*.sql … drizzle/0019_*.sql via psql
-#   (ver server/utils/apply-custom-sql.ts — mesma transformação idempotente)
+docker compose up -d postgres
+pnpm db:migrate:full
 ```
 
-> ⚠️ Sem o passo 2 o banco sobe **sem as policies RLS** (isolamento de tenant
-> silenciosamente ausente). Não existe ainda um `make migrate-full` — gap
-> registrado antes de qualquer deploy com dados reais.
+> ⚠️ `pnpm drizzle-kit migrate` sozinho NÃO aplica as policies de RLS. Use
+> sempre `pnpm db:migrate:full` em banco novo.
 
 ## Variáveis de ambiente obrigatórias (produção)
 
@@ -145,7 +144,7 @@ pnpm drizzle-kit studio                 # Drizzle Studio
 
 - `specs/001-auth-context/spec.md` — Requisitos funcionais, threat model, LGPD, métricas
 - `specs/002-vertical-slices/architecture.md` — Arquitetura, migração, governança
-- `specs/003-erp-catalog/` … `specs/007-erp-admin/plan.md` — Planos das fases do ERP (catálogo, vendas, financeiro, CRM, admin)
+- `specs/packs/erp-b2b/` — Fases do ERP (catálogo, vendas, financeiro, CRM, admin) — **ADIADO** (ver ADR-001)
 - `ERP_FEATURE_PLAN.md` — Índice do roadmap ERP (aponta para as fases)
 - `BACKEND_ANALYSIS.md` — Análise para adaptação restaurante/pizzaria
 - `OVERENGINEERING_AUDIT.md` — Auditoria de over-engineering (5 findings)

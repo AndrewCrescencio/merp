@@ -66,8 +66,7 @@ jobs:
         run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm exec drizzle-kit migrate
 
       - name: Apply custom SQL (RLS, policies)
-        run: |
-          node --experimental-strip-types server/utils/apply-custom-sql.ts
+        run: npx tsx scripts/apply-custom-sql.ts
 
       - name: Ensure merp_app role exists
         run: |
@@ -138,8 +137,7 @@ jobs:
         run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm exec drizzle-kit migrate
 
       - name: Apply custom SQL (RLS, policies)
-        run: |
-          node --experimental-strip-types server/utils/apply-custom-sql.ts
+        run: npx tsx scripts/apply-custom-sql.ts
 
       - name: Ensure merp_app role exists
         run: |

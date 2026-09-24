@@ -90,8 +90,10 @@ same credentials, then access a protected resource successfully.
    credentials, **Then** the system starts an authenticated session.
 3. **Given** an existing account, **When** the user logs in with an
    incorrect password, **Then** the system denies access with an error.
-4. **Given** a registered email, **When** another user tries to register
-   with the same email, **Then** the system rejects with a conflict error.
+4. **Given** an email already registered, **When** another user tries to register
+   with the same email, **Then** the system responds 201 Created with body
+   identical to a new registration (AUD-03, anti-enumeration) and does not
+   create a duplicate (FR-003 = uniqueness in DB, not error code). Never 409.
 
 ---
 
@@ -122,8 +124,8 @@ authenticated request and receive an access-denied error.
 ### User Story 3 - Multi-Tenant Membership (Priority: P3)
 
 After registration, the user can create a new company (becoming its
-first member) or search for an existing company to join. Once a member
-of at least one company, the user operates within that tenant context.
+first member) or **join exclusively via invite**. Once a member of at
+least one company, the user operates within that tenant context.
 
 **Why this priority**: Merp serves multiple companies. User identity
 without tenant context is incomplete — we need to know _which company_
@@ -137,8 +139,8 @@ authenticated requests carry the correct tenant context.
 
 1. **Given** a registered user with no company, **When** the user
    creates a new company, **Then** they become its first member.
-2. **Given** a registered user, **When** they search and find an
-   existing company to join, **Then** they become a member.
+2. **Given** a registered user, **When** they accept a valid invite
+   token for a company, **Then** they become a member.
 3. **Given** a user with one company, **When** the user logs in,
    **Then** the system defaults to their company context.
 4. **Given** a user member of multiple companies, **When** the user
@@ -183,6 +185,9 @@ authenticated requests carry the correct tenant context.
   `expiresIn: 7d` with `disableSessionRefresh: true` — no sliding refresh).
   The `rememberMe` flag controls cookie persistence only (7d persistent vs
   session-scoped cookie); the server-side row always expires 7d after creation.
+  **Regra operacional atual (PDV/KDS compartilhado)**: TTL 7d + logout
+  obrigatório ao fim do turno. Evolução planejada em ADR-004 (TTL por perfil
+  - PIN de turno).
 - **FR-010**: Login attempts MUST be rate-limited to mitigate brute-force
   attacks. Rate limiting uses a **sliding window** of 5 requests per 1 minute per
   email address. When the limit is exceeded, the server
@@ -198,8 +203,8 @@ authenticated requests carry the correct tenant context.
   is a separate step after registration.
 - **FR-014**: System MUST provide an endpoint to create a new company,
   making the requesting user its first member.
-- **FR-015**: System MUST provide an endpoint to search for existing
-  companies and request to join.
+- **FR-015**: System MUST provide an endpoint to accept an invite
+  token and join a company (join exclusivamente via convite).
 - **FR-016**: System MUST lock login attempts after 10 failed attempts
   from the same IP for an email (any time window); locked (email, IP) pairs
   auto-unlock after 30 minutes. Additionally, the system MUST lock the account
@@ -256,6 +261,10 @@ authenticated requests carry the correct tenant context.
   `Access-Control-Allow-Credentials: true` for session cookie support.
   Preflight (`OPTIONS`) requests MUST respond with appropriate CORS
   headers for the configured origins.
+- **FR-028**: Request body validation MUST use **Zod** schemas named per
+  endpoint (ex.: `createOrderSchema`, `loginSchema`). Validation errors
+  return 400 with `details` per field (consistent with
+  `specs/000-foundation/endpoint-pattern.md`).
 - **FR-028**: If the database is unreachable during any auth operation,
   the system MUST return HTTP 503 with
   `{ "error": "service_unavailable", "message": "Temporary error. Please try again." }`.
@@ -299,9 +308,8 @@ authenticated requests carry the correct tenant context.
 - **SC-004**: Duplicate registration returns an error in under 500ms.
 - **SC-005**: Unauthenticated requests return an access-denied response
   in under 50ms.
-- **SC-006**: Brute-force protection kicks in within 5 login attempts
-  per email per minute (sliding window). Rate-limited responses include
-  `Retry-After`, `RateLimit-Reset`, and `RateLimit-Remaining` headers.
+- **SC-006**: a 6ª requisição no window de 60s (por email) retorna 429 com
+  header `Retry-After`. Limites completos em `specs/000-foundation/endpoint-pattern.md`.
 
 ## Assumptions
 

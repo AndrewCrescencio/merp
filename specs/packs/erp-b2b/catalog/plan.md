@@ -1,5 +1,8 @@
 # Fase 3 — Catálogo e Estoque (ERP Core)
 
+**Status: ADIADO. Não será implementado até o núcleo estar estável.**
+**Regras herdadas de specs/000-foundation/\*. Não é spec executável ainda.**
+
 **Status**: Planejado | **Origem**: extraído de `ERP_FEATURE_PLAN.md` (§2 Fase 1, §3.1, §4.1)
 **Fundação**: `specs/001-auth-context/` (auth, tenant, RLS) · `specs/002-vertical-slices/architecture.md` (slices, regras de ouro) · `specs/001-auth-context/contracts/auth-api.md` (padrões de endpoint)
 

@@ -15,26 +15,26 @@
 - [x] **GATE C** — Migration 0020 (DEFAULT PRIVILEGES) applied, `grants-parity.test.ts` passes (4/4), runbook at `docs/runbooks/grants.md`
 - [x] **GATE D** — `.github/workflows/ci.yml` created: canary job (required) → test job (needs canary) → lint/typecheck; Postgres service container; APP_DATABASE_URL explicit
 
-## Phase 1 — Product Decision (Core + Packs) ⏳ PENDING
+## Phase 1 — Product Decision (Core + Packs) ✅ COMPLETE
 
-- [ ] ADR-001: Vertical strategy (Core + Packs)
-- [ ] ADR-002: Location scope in RLS
-- [ ] Update specs: 003–007 marked as "packs/erp-b2b"
+- [x] ADR-001: Vertical strategy (Core + Packs)
+- [x] ADR-002: Location scope in RLS
+- [x] 003–007 movidos para `specs/packs/erp-b2b/` (ADIADO)
 
-## Phase 2 — Foundation Normative (Docs Only) ⏳ PENDING
+## Phase 2 — Foundation Normative (Docs Only) ✅ COMPLETE
 
-- [ ] `specs/000-foundation/rls-pattern.md`
-- [ ] `specs/000-foundation/money.md`
-- [ ] `specs/000-foundation/idempotency.md`
-- [ ] `specs/000-foundation/endpoint-pattern.md`
-- [ ] `specs/000-foundation/naming.md`
-- [ ] `specs/000-foundation/snapshot.md`
-- [ ] ADR-003 to ADR-006
+- [x] `specs/000-foundation/rls-pattern.md`
+- [x] `specs/000-foundation/money.md`
+- [x] `specs/000-foundation/idempotency.md`
+- [x] `specs/000-foundation/endpoint-pattern.md`
+- [x] `specs/000-foundation/naming.md`
+- [x] `specs/000-foundation/snapshot.md`
+- [x] ADR-003 to ADR-006
 
-## Phase 3 — Close 001 (Auth Context) ⏳ PENDING
+## Phase 3 — Close 001 (Auth Context) ✅ COMPLETE
 
-- [ ] Fix contradictions F02–F16
-- [ ] ADR-008: 2FA deferred
+- [x] Fix contradictions F02–F16
+- [x] 2FA removed from scope (see ADR-010)
 
 ## Phase 4 — Core Order (Unified) ⏳ PENDING
 
@@ -54,3 +54,9 @@
 ---
 
 **Gate Rule**: No phase starts until previous phase's acceptance criteria are green.
+
+---
+
+## Dívidas Conhecidas
+
+- **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.

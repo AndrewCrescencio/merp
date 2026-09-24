@@ -26,17 +26,18 @@
 
 ### Session
 
-| Field       | Type        | Constraints                                        |
-| ----------- | ----------- | -------------------------------------------------- |
-| id          | UUID        | PK                                                 |
-| user_id     | UUID        | NOT NULL, FK → User.id                             |
-| token       | TEXT        | NOT NULL, UNIQUE — session token (httpOnly cookie) |
-| expires_at  | TIMESTAMPTZ | NOT NULL — fixed 7d TTL from creation (no refresh) |
-| remember_me | BOOLEAN     | NOT NULL, DEFAULT false                            |
-| created_at  | TIMESTAMPTZ | NOT NULL, DEFAULT now()                            |
-| updated_at  | TIMESTAMPTZ | NOT NULL, DEFAULT now()                            |
+| Field             | Type        | Constraints                                        |
+| ----------------- | ----------- | -------------------------------------------------- |
+| id                | UUID        | PK                                                 |
+| user_id           | UUID        | NOT NULL, FK → User.id                             |
+| token             | TEXT        | NOT NULL, UNIQUE — session token (httpOnly cookie) |
+| expires_at        | TIMESTAMPTZ | NOT NULL — fixed 7d TTL from creation (no refresh) |
+| remember_me       | BOOLEAN     | NOT NULL, DEFAULT false                            |
+| active_company_id | UUID        | NULLABLE, FK → Company.id                          |
+| created_at        | TIMESTAMPTZ | NOT NULL, DEFAULT now()                            |
+| updated_at        | TIMESTAMPTZ | NOT NULL, DEFAULT now()                            |
 
-**Indexes**: token (session lookup), user_id (user sessions), expires_at (purge expired)
+**Indexes**: token (session lookup), user_id (user sessions), expires_at (purge expired), active_company_id
 
 ### Company (Tenant)
 
@@ -127,19 +128,6 @@
 
 **Indexes**: identifier (lookup by email)
 
-### TwoFactor (2FA TOTP + Backup Codes)
-
-| Field        | Type        | Constraints                           |
-| ------------ | ----------- | ------------------------------------- |
-| id           | UUID        | PK, default `gen_random_uuid()`       |
-| secret       | TEXT        | NOT NULL — TOTP secret                |
-| backup_codes | TEXT        | NOT NULL — JSON array of backup codes |
-| user_id      | UUID        | NOT NULL, FK → User.id                |
-| created_at   | TIMESTAMPTZ | NOT NULL, DEFAULT now()               |
-| updated_at   | TIMESTAMPTZ | NOT NULL, DEFAULT now()               |
-
-**Indexes**: user_id (user's 2FA config)
-
 ### EmailQueue (Async Email Delivery)
 
 | Field        | Type        | Constraints                                       |
@@ -181,7 +169,6 @@ User 1──N AuthEvent
 User 1──N Invite (as inviter)
 User 1──N Account
 User 1──N Verification
-User 1──1 TwoFactor
 Company 1──N CompanyMember
 Company 1──N Invite
 ```
@@ -210,10 +197,13 @@ Company 1──N Invite
 
 ## Tenant Isolation
 
-- `Company` table: RLS by company_id (owner/global access)
-- `CompanyMember` table: RLS by company_id
-- `Invite` table: RLS by company_id
-- `User` + `Session` + `Account` + `Verification` + `TwoFactor`: Global tables (no tenant_id) — auth is cross-tenant
-- `AuthEvent`: Global table — audit is cross-tenant
-- `EmailQueue`: Global table — `merp_app` role has full DML
-- `AuthSecurityState`: Global table — `merp_app` role has full DML
+Ver `specs/000-foundation/rls-pattern.md` — template de policy normativo, matriz
+tabela × operação × role, assinatura `withTenant`, GUCs oficiais, fail-closed,
+proibições e cross-tenant legítimo.
+
+Resumo das tabelas auth:
+
+- `Company`, `CompanyMember`, `Invite`: RLS por `company_id`
+- `User`, `Session`, `Account`, `Verification`: Tabelas globais (sem tenant_id) — auth é cross-tenant
+- `AuthEvent`: Tabela global — auditoria é cross-tenant
+- `EmailQueue`, `AuthSecurityState`: Tabelas globais — `merp_app` tem DML total

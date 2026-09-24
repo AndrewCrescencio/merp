@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format:check": "prettier . --check",
+    "db:migrate:full": "drizzle-kit migrate && tsx scripts/apply-custom-sql.ts"
   },
   "lint-staged": {
     "*.{ts,mjs,vue}": [
@@ -46,6 +47,7 @@
     "lint-staged": "^17.0.7",
     "nitropack": "2.13.4",
     "prettier": "^3.8.4",
+    "tsx": "^4.19.0",
     "vitest": "^4.1.11"
   }
 }

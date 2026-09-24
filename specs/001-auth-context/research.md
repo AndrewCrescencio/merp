@@ -12,7 +12,7 @@
 ### Session Strategy
 
 - **Decision**: Cookie-based sessions with httpOnly, Secure, SameSite=Lax
-- **Rationale**: Better Auth natively supports cookie sessions. Nuxt/Nitro handles cookie serialization. No custom JWT management needed.
+- **Rationale**: Better Auth natively supports cookie sessions. Nuxt/Nitro handles cookie serialization. No custom JWT management needed. **SameSite=Lax** (não `Strict`) para permitir links mágicos por email (verificação, reset de senha) funcionarem cross-site — o navegador envia o cookie no GET que segue o link.
 - **Session validation**: Middleware (`server/middleware/auth.ts`) reads session cookie, calls Better Auth `getSession()`, sets `event.context.user`.
 - **Concurrent sessions**: FR-012 allows multiple active sessions per user (different devices).
 

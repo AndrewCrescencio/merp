@@ -1,5 +1,8 @@
 # Fase 6 — CRM (Clientes, Fornecedores, Contatos)
 
+**Status: ADIADO. Não será implementado até o núcleo estar estável.**
+**Regras herdadas de specs/000-foundation/\*. Não é spec executável ainda.**
+
 **Status**: Planejado | **Origem**: extraído de `ERP_FEATURE_PLAN.md` (§2 Fase 4, §3.2 parcial, §3.4, §4.2)
 **Fundação**: `specs/001-auth-context/` · `specs/002-vertical-slices/architecture.md` · consumido por `specs/004-erp-sales/` e `specs/005-erp-finance/`
 

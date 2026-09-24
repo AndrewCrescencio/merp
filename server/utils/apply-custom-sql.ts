@@ -1,7 +1,9 @@
 import { execSync } from 'child_process'
 import { readdirSync, readFileSync } from 'fs'
-import { resolve } from 'path'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
 const DRIZZLE_DIR = resolve(__dirname, '../../drizzle')
 
 function toIdempotentSql(raw: string): string {

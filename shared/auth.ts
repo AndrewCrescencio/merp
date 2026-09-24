@@ -1,6 +1,5 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
-import { twoFactor } from 'better-auth/plugins'
 import { db } from '~~/server/utils/db'
 import * as schema from '~~/server/utils/schema'
 import { logger } from './logger'
@@ -24,7 +23,6 @@ function createAuth() {
         session: schema.session,
         account: schema.account,
         verification: schema.verification,
-        twoFactor: schema.twoFactor,
       },
     }),
     user: {
@@ -79,8 +77,7 @@ function createAuth() {
         session_token: {
           name: 'merp-session_token',
           attributes: {
-            sameSite:
-              process.env.NODE_ENV === 'production' ? ('strict' as const) : ('lax' as const),
+            sameSite: 'lax',
             secure: process.env.NODE_ENV === 'production',
             httpOnly: true,
           },
@@ -90,21 +87,7 @@ function createAuth() {
     baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
     trustedOrigins: [corsOrigin],
     appName: 'merp',
-    plugins: [
-      twoFactor({
-        issuer: 'merp',
-        totpOptions: {
-          digits: 6,
-          period: 30,
-        },
-        backupCodeOptions: {
-          amount: 10,
-          length: 10,
-        },
-        twoFactorCookieMaxAge: 600,
-        trustDeviceMaxAge: 30 * 24 * 60 * 60,
-      }),
-    ],
+    plugins: [],
   })
 }
 

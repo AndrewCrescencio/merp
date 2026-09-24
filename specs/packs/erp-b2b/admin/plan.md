@@ -1,5 +1,8 @@
 # Fase 7 — Relatórios e Administração
 
+**Status: ADIADO. Não será implementado até o núcleo estar estável.**
+**Regras herdadas de specs/000-foundation/\*. Não é spec executável ainda.**
+
 **Status**: Planejado | **Origem**: extraído de `ERP_FEATURE_PLAN.md` (§2 Fase 5, Sprint 4)
 **Fundação**: `specs/001-auth-context/` (PII audit, LGPD) · consome todas as fases 003–006
 

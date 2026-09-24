@@ -2,6 +2,8 @@
 
 Base path: `/api/auth`
 
+**Versionamento**: endpoints de auth permanecem em `/api/auth` (exceção deliberada — contrato estável). Novos endpoints de domínio usam `/api/v1` (ver ADR-005).
+
 All endpoints follow consistent error format:
 
 ```json
@@ -12,7 +14,7 @@ Error codes: `validation_error` (400), `unauthorized` (401), `session_expired` (
 
 ## Auth model
 
-- **Session cookie**: `merp-session_token` (httpOnly; `Secure` + `SameSite=Strict` in production).
+- **Session cookie**: `merp-session_token` (httpOnly; `Secure` + `SameSite=Lax`).
 - **Session TTL**: fixed 7d from creation (`expiresIn: 7d`, `disableSessionRefresh: true`).
   `rememberMe: true` persists the cookie for 7d; without it the cookie is session-scoped.
   The DB row always expires 7d after creation (FR-009).
