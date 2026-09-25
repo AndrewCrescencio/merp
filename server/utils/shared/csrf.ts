@@ -3,18 +3,24 @@ import { getCookie, getRequestHeader, setCookie, type H3Event } from 'h3'
 
 const CSRF_COOKIE_NAME = 'merp-csrf_token'
 const CSRF_HEADER_NAME = 'x-csrf-token'
-if (!process.env.CSRF_SECRET) {
-  throw new Error('CSRF_SECRET é obrigatório em produção. Gere um valor de >= 32 caracteres.')
-}
-const CSRF_SECRET = process.env.CSRF_SECRET
 const CSRF_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+
+function getCsrfSecret(): string {
+  if (!process.env.CSRF_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CSRF_SECRET é obrigatório em produção. Gere um valor de >= 32 caracteres.')
+    }
+    return 'test-secret-do-not-use-in-production'
+  }
+  return process.env.CSRF_SECRET
+}
 
 function generateToken(): string {
   return randomBytes(32).toString('base64url')
 }
 
 function signToken(token: string): string {
-  const hmac = createHmac('sha256', CSRF_SECRET)
+  const hmac = createHmac('sha256', getCsrfSecret())
   hmac.update(token)
   return hmac.digest('base64url')
 }
