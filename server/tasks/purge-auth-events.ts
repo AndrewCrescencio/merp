@@ -1,7 +1,7 @@
 import { db } from '~~/server/utils/db'
 import { authEvent } from '~~/server/utils/schema'
 import { lt } from 'drizzle-orm'
-import { runPurgeTask } from '~~/server/utils/shared/purge'
+import { runPurgeTask } from '~~/server/utils/shared'
 
 const RETENTION_DAYS = 90
 

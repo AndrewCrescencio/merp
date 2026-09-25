@@ -3,10 +3,13 @@ import type { H3Event } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
-import { sendAuthError, sendAuthUnavailableError } from '~~/server/utils/shared/errors'
-import { createAuthEvent } from '~~/server/utils/shared/audit'
-import { background } from '~~/server/utils/shared/background'
-import { checkUserRateLimit } from '~~/server/utils/shared/security'
+import {
+  background,
+  checkUserRateLimit,
+  createAuthEvent,
+  sendAuthError,
+  sendAuthUnavailableError,
+} from '~~/server/utils/shared'
 
 const publicRoutes = [
   '/api/auth/register',

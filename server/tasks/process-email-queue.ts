@@ -1,5 +1,5 @@
 import { logger } from '#shared/logger'
-import { processEmailQueue } from '~~/server/utils/shared/email'
+import { processEmailQueue } from '~~/server/utils/shared'
 
 export default defineTask({
   meta: {

@@ -1,5 +1,5 @@
 import { defineEventHandler, getRequestURL, getMethod } from 'h3'
-import { getOrCreateCsrfToken, isCsrfExempt } from '~~/server/utils/shared/csrf'
+import { getOrCreateCsrfToken, isCsrfExempt } from '~~/server/utils/shared'
 
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
 

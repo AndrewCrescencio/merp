@@ -1,5 +1,5 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
-import { parseTrustedProxyCidrs } from '~~/server/utils/shared/ip'
+import { parseTrustedProxyCidrs } from '~~/server/utils/shared'
 
 // AUD-05 + AUD-11 + AUD-24: fail-fast no boot (NODE_ENV=production). Sem
 // essas envs o app operaria com fallback localhost silencioso em CORS/baseURL,

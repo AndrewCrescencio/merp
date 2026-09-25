@@ -1,7 +1,7 @@
 import { db } from '~~/server/utils/db'
 import { authSecurityState } from '~~/server/utils/schema'
 import { lt } from 'drizzle-orm'
-import { runPurgeTask } from '~~/server/utils/shared/purge'
+import { runPurgeTask } from '~~/server/utils/shared'
 
 const STALE_AFTER_MS = 24 * 60 * 60 * 1000 // folga: janela 60s, lockout 30min
 
