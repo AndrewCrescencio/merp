@@ -2,24 +2,22 @@ import { defineEventHandler, readBody, appendResponseHeaders } from 'h3'
 import { logger } from '#shared/logger'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
+  background,
   checkAccountLockout,
   checkEmailRateLimit,
   checkIpRateLimit,
+  createAuthEvent,
+  getClientIp,
   MAX_EMAIL_LENGTH,
   MAX_PASSWORD_LENGTH,
   normalizeEmail,
   recordFailedAttempt,
   resetFailedAttempts,
-} from '~~/server/utils/shared/security'
-import {
   sendAuthError,
+  sendDeactivationNotice,
   sendUnauthorizedError,
   sendValidationError,
-} from '~~/server/utils/shared/errors'
-import { createAuthEvent } from '~~/server/utils/shared/audit'
-import { background } from '~~/server/utils/shared/background'
-import { sendDeactivationNotice } from '~~/server/utils/shared/email'
-import { getClientIp } from '~~/server/utils/shared/ip'
+} from '~~/server/utils/shared'
 
 // LOCKOUT_EXEMPT_ERROR_CODES marca os codes que NÃO contam para lockout
 // (conta desativada não bloqueia o dono por 30min; email não-verificado tem

@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockWithdrawConsent = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockGetClientIp = vi.fn()
+const mockReadBody = vi.fn().mockResolvedValue({})
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
+  readBody: mockReadBody,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -30,6 +32,7 @@ vi.mock('~~/server/utils/shared/audit', () => ({
 describe('POST /api/auth/consent/withdraw', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockReadBody.mockResolvedValue({})
   })
 
   it('withdraws consent and returns success', async () => {

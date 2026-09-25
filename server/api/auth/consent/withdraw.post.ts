@@ -1,25 +1,24 @@
-import { defineEventHandler, createError } from 'h3'
+import { defineEventHandler, readBody } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { createAuthEvent } from '~~/server/utils/shared/audit'
-import { getClientIp } from '~~/server/utils/shared/ip'
+import {
+  createAuthEvent,
+  getClientIp,
+  sendUnauthorizedError,
+  validateConsentWithdrawInput,
+} from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
+  validateConsentWithdrawInput(await readBody(event))
   const user = event.context.user as { id: string; email: string } | undefined
 
   if (!user) {
-    throw createError({
-      status: 401,
-      statusText: '401',
-      message: JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
-    })
+    sendUnauthorizedError('Authentication required.')
   }
 
   const result = await identityRepository.withdrawConsent(user.id)
 
   const ip = getClientIp(event)
 
-  // FR-021: consent_withdrawal — desativação imediata já feita pelo repositório;
-  // a fila de deleção/anonymização fica fora deste escopo.
   await createAuthEvent({
     userId: user.id,
     email: user.email,

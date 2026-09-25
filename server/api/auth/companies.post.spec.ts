@@ -4,6 +4,9 @@ const mockCreateCompanyWithOwner = vi.fn()
 const mockReadBody = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
 const mockSetResponseStatus = vi.fn()
+const mockSendUnauthorizedError = vi.fn()
+const mockSendValidationError = vi.fn()
+const mockIsValidCnpj = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -17,9 +20,34 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
-  ...(await importOriginal()),
+vi.mock('~~/server/utils/shared', () => ({
   checkIpRateLimit: mockCheckIpRateLimit,
+  isValidCnpj: mockIsValidCnpj,
+  sendUnauthorizedError: mockSendUnauthorizedError,
+  sendValidationError: mockSendValidationError,
+  validateCompanyCreateInput: (body: any) => {
+    if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
+      throw new Error('Company name is required')
+    }
+    if (body.name.trim().length > 200) {
+      throw new Error('Company name must be at most 200 characters')
+    }
+    if (body.cnpj !== undefined && typeof body.cnpj !== 'string') {
+      throw new Error('cnpj must be a string')
+    }
+    const cnpj = body.cnpj?.trim() || undefined
+    if (cnpj && cnpj.length > 30) {
+      throw new Error('cnpj must be at most 30 characters')
+    }
+    if (body.razaoSocial !== undefined && typeof body.razaoSocial !== 'string') {
+      throw new Error('razaoSocial must be a string')
+    }
+    const razaoSocial = body.razaoSocial?.trim() || undefined
+    if (razaoSocial && razaoSocial.length > 200) {
+      throw new Error('razaoSocial must be at most 200 characters')
+    }
+    return { name: body.name.trim(), cnpj, razaoSocial }
+  },
 }))
 
 vi.mock('~~/server/utils/auth/company/repository', () => ({
@@ -28,16 +56,17 @@ vi.mock('~~/server/utils/auth/company/repository', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/shared/errors', () => ({
-  sendValidationError: (msg: string) => {
-    throw new Error(msg)
-  },
-}))
-
 describe('POST /api/auth/companies', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
+    mockIsValidCnpj.mockReturnValue(true)
+    mockSendUnauthorizedError.mockImplementation((msg: string) => {
+      throw new Error(msg)
+    })
+    mockSendValidationError.mockImplementation((msg: string) => {
+      throw new Error(msg)
+    })
   })
 
   it('requires authentication', async () => {
@@ -114,6 +143,7 @@ describe('POST /api/auth/companies', () => {
   })
 
   it('rejects cnpj with invalid check digits', async () => {
+    mockIsValidCnpj.mockReturnValue(false)
     mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '12345678000190' })
 
     const handler = await import('~~/server/api/auth/companies.post').then((m) => m.default)

@@ -4,6 +4,10 @@ const mockFindCompanyById = vi.fn()
 const mockIsCompanyMember = vi.fn()
 const mockSetActiveCompany = vi.fn()
 const mockReadBody = vi.fn()
+const mockSendUnauthorizedError = vi.fn()
+const mockSendValidationError = vi.fn()
+const mockSendNotFoundError = vi.fn()
+const mockSendForbiddenError = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -24,25 +28,38 @@ vi.mock('~~/server/utils/auth/company/repository', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/shared/errors', () => ({
-  sendValidationError: (msg: string) => {
-    throw new Error(msg)
-  },
-  sendNotFoundError: (msg: string) => {
-    const err = new Error(msg)
-    ;(err as any).status = 404
-    throw err
-  },
-  sendForbiddenError: (msg: string) => {
-    const err = new Error(msg)
-    ;(err as any).status = 403
-    throw err
+vi.mock('~~/server/utils/shared', () => ({
+  sendUnauthorizedError: mockSendUnauthorizedError,
+  sendValidationError: mockSendValidationError,
+  sendNotFoundError: mockSendNotFoundError,
+  sendForbiddenError: mockSendForbiddenError,
+  validateCompanySwitchInput: (body: any) => {
+    if (!body?.companyId || typeof body.companyId !== 'string') {
+      throw new Error('Company ID is required')
+    }
+    return { companyId: body.companyId }
   },
 }))
 
 describe('POST /api/auth/companies/switch', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSendUnauthorizedError.mockImplementation((msg: string) => {
+      throw new Error(msg)
+    })
+    mockSendValidationError.mockImplementation((msg: string) => {
+      throw new Error(msg)
+    })
+    mockSendNotFoundError.mockImplementation((msg: string) => {
+      const err = new Error(msg)
+      ;(err as any).status = 404
+      throw err
+    })
+    mockSendForbiddenError.mockImplementation((msg: string) => {
+      const err = new Error(msg)
+      ;(err as any).status = 403
+      throw err
+    })
   })
 
   it('requires authentication', async () => {

@@ -1,35 +1,28 @@
-import { defineEventHandler, readBody, createError } from 'h3'
+import { defineEventHandler, readBody } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
-import { createAuthEvent } from '~~/server/utils/shared/audit'
-import { getClientIp } from '~~/server/utils/shared/ip'
 import {
-  sendValidationError,
-  sendNotFoundError,
   assertCompanyRole,
-} from '~~/server/utils/shared/errors'
+  createAuthEvent,
+  getClientIp,
+  sendNotFoundError,
+  sendUnauthorizedError,
+  validateDeleteCompanyInput,
+} from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
   if (!user) {
-    throw createError({
-      status: 401,
-      statusText: '401',
-      message: JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
-    })
+    sendUnauthorizedError('Authentication required.')
   }
 
-  const body = await readBody<{ companyId?: string }>(event)
+  const { companyId } = validateDeleteCompanyInput(await readBody(event))
 
-  if (!body?.companyId || typeof body.companyId !== 'string') {
-    sendValidationError('companyId is required')
-  }
-
-  const company = await companyRepository.findCompanyById(body.companyId, user.id)
+  const company = await companyRepository.findCompanyById(companyId, user.id)
   if (!company) {
     sendNotFoundError('Company not found')
   }
 
-  const role = await companyRepository.getCompanyMembershipRole(user.id, body.companyId)
+  const role = await companyRepository.getCompanyMembershipRole(user.id, companyId)
   await assertCompanyRole(
     role,
     'owner',
@@ -37,7 +30,7 @@ export default defineEventHandler(async (event) => {
     'Only company owners can delete companies',
   )
 
-  await companyRepository.softDeleteCompany(body.companyId, user.id)
+  await companyRepository.softDeleteCompany(companyId, user.id)
 
   const ip = getClientIp(event)
   await createAuthEvent({
@@ -45,7 +38,7 @@ export default defineEventHandler(async (event) => {
     email: user.email,
     eventType: 'company_deleted',
     ipAddress: ip || null,
-    metadata: { companyId: body.companyId },
+    metadata: { companyId },
   })
 
   return { message: 'Company deleted successfully' }

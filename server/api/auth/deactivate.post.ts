@@ -1,17 +1,12 @@
-import { defineEventHandler, createError } from 'h3'
+import { defineEventHandler } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { createAuthEvent } from '~~/server/utils/shared/audit'
-import { getClientIp } from '~~/server/utils/shared/ip'
+import { createAuthEvent, getClientIp, sendUnauthorizedError } from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
 
   if (!user) {
-    throw createError({
-      status: 401,
-      statusText: '401',
-      message: JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
-    })
+    sendUnauthorizedError('Authentication required.')
   }
 
   await identityRepository.deactivateUser(user.id)
@@ -21,8 +16,6 @@ export default defineEventHandler(async (event) => {
     | { id: string; activeCompanyId?: string | null }
     | undefined
 
-  // FR-023: session_invalidated — deactivateUser encerrou todas as sessões do
-  // usuário; sessionId da sessão atual é registrado quando disponível.
   await createAuthEvent({
     userId: user.id,
     email: user.email,

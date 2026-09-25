@@ -1,20 +1,17 @@
-import { defineEventHandler, getQuery, createError } from 'h3'
+import { defineEventHandler, getQuery } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
-  sendValidationError,
-  sendNotFoundError,
   assertCompanyRole,
-} from '~~/server/utils/shared/errors'
+  sendNotFoundError,
+  sendUnauthorizedError,
+  sendValidationError,
+} from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string } | undefined
   if (!user) {
-    throw createError({
-      status: 401,
-      statusText: '401',
-      message: JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
-    })
+    sendUnauthorizedError('Authentication required.')
   }
 
   const query = getQuery<{ companyId?: string }>(event)

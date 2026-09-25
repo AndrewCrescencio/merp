@@ -2,9 +2,12 @@ import { defineEventHandler, appendResponseHeaders } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
-import { sendUnauthorizedError, sendAuthUnavailableError } from '~~/server/utils/shared/errors'
-import { createAuthEvent } from '~~/server/utils/shared/audit'
-import { getClientIp } from '~~/server/utils/shared/ip'
+import {
+  createAuthEvent,
+  getClientIp,
+  sendAuthUnavailableError,
+  sendUnauthorizedError,
+} from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
   const session = event.context.session as { id: string } | undefined

@@ -4,6 +4,9 @@ const mockAcceptInvite = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
+const mockSendUnauthorizedError = vi.fn()
+const mockSendValidationError = vi.fn()
+const mockCheckIpRateLimit = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -15,29 +18,25 @@ vi.mock('h3', () => ({
     throw err
   },
 }))
-vi.mock('~~/server/utils/shared/ip', () => ({
+
+vi.mock('~~/server/utils/shared', () => ({
+  createAuthEvent: mockCreateAuthEvent,
   getClientIp: mockGetClientIp,
+  sendUnauthorizedError: mockSendUnauthorizedError,
+  sendValidationError: mockSendValidationError,
+  checkIpRateLimit: mockCheckIpRateLimit,
+  validateInviteAcceptInput: (body: any) => {
+    if (!body?.token || typeof body.token !== 'string' || body.token.length === 0) {
+      throw new Error('token is required')
+    }
+    return { token: body.token }
+  },
 }))
 
 vi.mock('~~/server/utils/auth/invite/repository', () => ({
   inviteRepository: {
     acceptInvite: mockAcceptInvite,
   },
-}))
-
-vi.mock('~~/server/utils/shared/audit', () => ({
-  createAuthEvent: mockCreateAuthEvent,
-}))
-
-vi.mock('~~/server/utils/shared/errors', () => ({
-  sendValidationError: (msg: string) => {
-    throw new Error(msg)
-  },
-}))
-
-vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
-  ...(await importOriginal()),
-  checkIpRateLimit: vi.fn(),
 }))
 
 const eventWithUser = (user: Record<string, unknown> = {}) =>
@@ -47,6 +46,13 @@ describe('POST /api/auth/invites/accept', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetClientIp.mockReturnValue('127.0.0.1')
+    mockCheckIpRateLimit.mockResolvedValue(undefined)
+    mockSendUnauthorizedError.mockImplementation((msg: string) => {
+      throw new Error(msg)
+    })
+    mockSendValidationError.mockImplementation((msg: string) => {
+      throw new Error(msg)
+    })
   })
 
   it('requires authentication', async () => {

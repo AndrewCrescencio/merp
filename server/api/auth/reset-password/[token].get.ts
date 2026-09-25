@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam, sendRedirect } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { checkIpRateLimit } from '~~/server/utils/shared/security'
+import { checkIpRateLimit } from '~~/server/utils/shared'
 
 // AUD-04/AUD-08: clique no link de reset enviado por email. Valida o token
 // (sem consumir — o consumo único acontece no POST /reset-password) e

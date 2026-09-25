@@ -14,15 +14,13 @@ vi.mock('h3', () => ({
   },
 }))
 
+vi.mock('~~/server/utils/shared/security', () => ({
+  checkUserRateLimit: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('~~/server/utils/auth/company/repository', () => ({
   companyRepository: {
     searchCompanies: mockSearchCompanies,
-  },
-}))
-
-vi.mock('~~/server/utils/shared/errors', () => ({
-  sendValidationError: (msg: string) => {
-    throw new Error(msg)
   },
 }))
 
@@ -42,7 +40,7 @@ describe('GET /api/auth/companies', () => {
     mockGetQuery.mockReturnValue({})
 
     const handler = await import('~~/server/api/auth/companies.get').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 's1' } } } as any
 
     await expect(handler(event)).rejects.toThrow('Search query is required')
     expect(mockSearchCompanies).not.toHaveBeenCalled()
@@ -52,7 +50,7 @@ describe('GET /api/auth/companies', () => {
     mockGetQuery.mockReturnValue({ q: 'x'.repeat(200) })
 
     const handler = await import('~~/server/api/auth/companies.get').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 's1' } } } as any
 
     await expect(handler(event)).rejects.toThrow('Search query must be at most 100 characters')
     expect(mockSearchCompanies).not.toHaveBeenCalled()
@@ -65,7 +63,7 @@ describe('GET /api/auth/companies', () => {
     ])
 
     const handler = await import('~~/server/api/auth/companies.get').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 's1' } } } as any
 
     const result = await handler(event)
 
@@ -80,7 +78,7 @@ describe('GET /api/auth/companies', () => {
     mockSearchCompanies.mockResolvedValue([])
 
     const handler = await import('~~/server/api/auth/companies.get').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 's1' } } } as any
 
     const result = await handler(event)
 

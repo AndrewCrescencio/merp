@@ -1,4 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  mockRateLimitPass,
+  mockRateLimitFail,
+  createMockEvent,
+  createAuthError,
+} from '~~/server/utils/test-utils'
 
 const mockRegister = vi.fn()
 const mockCreateAuthEvent = vi.fn()
@@ -23,26 +29,21 @@ vi.mock('h3', () => ({
 vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
-
 vi.mock('~~/server/utils/auth/identity/repository', () => ({
   identityRepository: { register: mockRegister },
   generateUserId: () => 'synthetic-user-id-123',
 }))
-
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   ...(await importOriginal()),
   checkIpRateLimit: mockCheckIpRateLimit,
   checkEmailRateLimit: mockCheckEmailRateLimit,
 }))
-
 vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: mockSendValidationError,
 }))
-
 vi.mock('~~/server/utils/shared/audit', () => ({
   createAuthEvent: mockCreateAuthEvent,
 }))
-
 vi.mock('#shared/auth', () => ({
   auth: { api: {} },
 }))
@@ -62,7 +63,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('Valid email is required')
+    await expect(handler(createMockEvent())).rejects.toThrow('Valid email is required')
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -71,7 +72,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('Valid email is required')
+    await expect(handler(createMockEvent())).rejects.toThrow('Valid email is required')
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -80,7 +81,9 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('Password must be at least 8 characters')
+    await expect(handler(createMockEvent())).rejects.toThrow(
+      'Password must be at least 8 characters',
+    )
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -94,7 +97,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow(
+    await expect(handler(createMockEvent())).rejects.toThrow(
       'Password is too common. Choose a stronger password.',
     )
     expect(mockRegister).not.toHaveBeenCalled()
@@ -110,7 +113,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('Valid email is required')
+    await expect(handler(createMockEvent())).rejects.toThrow('Valid email is required')
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -124,7 +127,9 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('Password must be at most 128 characters')
+    await expect(handler(createMockEvent())).rejects.toThrow(
+      'Password must be at most 128 characters',
+    )
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -138,7 +143,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('Name must be at most 120 characters')
+    await expect(handler(createMockEvent())).rejects.toThrow('Name must be at most 120 characters')
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -152,7 +157,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow(
+    await expect(handler(createMockEvent())).rejects.toThrow(
       'consentTermsVersion must be at most 50 characters',
     )
     expect(mockRegister).not.toHaveBeenCalled()
@@ -163,7 +168,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('Name is required')
+    await expect(handler(createMockEvent())).rejects.toThrow('Name is required')
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -176,7 +181,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('Name is required')
+    await expect(handler(createMockEvent())).rejects.toThrow('Name is required')
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -189,7 +194,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toThrow('consentTermsVersion is required')
+    await expect(handler(createMockEvent())).rejects.toThrow('consentTermsVersion is required')
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
@@ -208,7 +213,7 @@ describe('POST /api/auth/register', () => {
     })
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
-    const event = {} as any
+    const event = createMockEvent()
 
     await handler(event)
 
@@ -216,20 +221,13 @@ describe('POST /api/auth/register', () => {
   })
 
   it('returns 429 from IP rate limit without reading the body', async () => {
-    const ipError: any = new Error(
-      JSON.stringify({
-        error: 'rate_limit_exceeded',
-        message: 'Too many requests. Try again later.',
-        retryAfter: 30,
-      }),
+    mockCheckIpRateLimit.mockRejectedValue(
+      createAuthError(429, 'rate_limit_exceeded', 'Too many requests'),
     )
-    ipError.status = 429
-    ipError.statusCode = 429
-    mockCheckIpRateLimit.mockRejectedValue(ipError)
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 429 })
+    await expect(handler(createMockEvent())).rejects.toMatchObject({ statusCode: 429 })
     expect(mockReadBody).not.toHaveBeenCalled()
     expect(mockRegister).not.toHaveBeenCalled()
   })
@@ -249,7 +247,7 @@ describe('POST /api/auth/register', () => {
     })
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
-    const event = {} as any
+    const event = createMockEvent()
 
     await handler(event)
 
@@ -271,7 +269,7 @@ describe('POST /api/auth/register', () => {
     })
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
-    const event = {} as any
+    const event = createMockEvent()
 
     await handler(event)
 
@@ -298,7 +296,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    const result = await handler({} as any)
+    const result = await handler(createMockEvent())
 
     expect(result).toEqual({
       id: 'uuid-123',
@@ -320,7 +318,7 @@ describe('POST /api/auth/register', () => {
     mockRegister.mockResolvedValue(null)
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
-    const result = await handler({} as any)
+    const result = await handler(createMockEvent())
 
     expect(result).toEqual({
       id: expect.any(String),
@@ -349,7 +347,7 @@ describe('POST /api/auth/register', () => {
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
 
-    const result = await handler({} as any)
+    const result = await handler(createMockEvent())
 
     expect(mockRegister).toHaveBeenCalledWith({
       email: 'user@example.com',
@@ -375,7 +373,7 @@ describe('POST /api/auth/register', () => {
     })
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
-    await handler({} as any)
+    await handler(createMockEvent())
 
     expect(mockRegister).toHaveBeenCalledWith({
       email: 'user@example.com',
@@ -401,7 +399,7 @@ describe('POST /api/auth/register', () => {
     })
 
     const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
-    await handler({} as any)
+    await handler(createMockEvent())
 
     expect(mockRegister).toHaveBeenCalledWith({
       email: 'user@example.com',

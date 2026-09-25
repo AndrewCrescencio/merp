@@ -1,57 +1,33 @@
-import { defineEventHandler, readBody, createError, setResponseStatus } from 'h3'
+import { defineEventHandler, readBody, setResponseStatus } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
-  sendValidationError,
-  sendNotFoundError,
   assertCompanyRole,
-} from '~~/server/utils/shared/errors'
-import { createAuthEvent } from '~~/server/utils/shared/audit'
-import { getClientIp } from '~~/server/utils/shared/ip'
-import {
   checkIpRateLimit,
-  EMAIL_REGEX,
-  MAX_EMAIL_LENGTH,
-  normalizeEmail,
-} from '~~/server/utils/shared/security'
+  createAuthEvent,
+  getClientIp,
+  sendNotFoundError,
+  sendUnauthorizedError,
+  validateInviteInput,
+} from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
-  // AUD-11: rate limit por IP antes do readBody (mesmo padrão das rotas
-  // públicas) — criação de convites é mutação barata de abusar.
   await checkIpRateLimit(event)
 
   const user = event.context.user as { id: string; email: string } | undefined
   if (!user) {
-    throw createError({
-      status: 401,
-      statusText: '401',
-      message: JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
-    })
+    sendUnauthorizedError('Authentication required.')
   }
 
   const body = await readBody<{ companyId?: string; email?: string }>(event)
+  const { companyId, email } = validateInviteInput(body)
 
-  if (!body?.companyId || typeof body.companyId !== 'string') {
-    sendValidationError('companyId is required')
-  }
-
-  const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
-  if (!email || !EMAIL_REGEX.test(email)) {
-    sendValidationError('A valid email is required')
-  }
-
-  // AUD-14: teto de tamanho — email gigante não vira linha/PII desproporcional
-  // nem chave de auditoria inválida.
-  if (email.length > MAX_EMAIL_LENGTH) {
-    sendValidationError('A valid email is required')
-  }
-
-  const company = await companyRepository.findCompanyById(body.companyId, user.id)
+  const company = await companyRepository.findCompanyById(companyId, user.id)
   if (!company) {
     sendNotFoundError('Company not found')
   }
 
-  const role = await companyRepository.getCompanyMembershipRole(user.id, body.companyId)
+  const role = await companyRepository.getCompanyMembershipRole(user.id, companyId)
   await assertCompanyRole(
     role,
     'owner',
@@ -60,8 +36,8 @@ export default defineEventHandler(async (event) => {
   )
 
   const created = await inviteRepository.createInvite({
-    companyId: body.companyId,
-    email: email!,
+    companyId,
+    email,
     invitedBy: user.id,
   })
 
@@ -71,7 +47,7 @@ export default defineEventHandler(async (event) => {
     email: user.email,
     eventType: 'invite_created',
     ipAddress: ip || null,
-    metadata: { companyId: body.companyId, invitedEmail: email },
+    metadata: { companyId, invitedEmail: email },
   })
 
   setResponseStatus(event, 201)
@@ -80,8 +56,6 @@ export default defineEventHandler(async (event) => {
     companyId: created.companyId,
     email: created.email,
     expiresAt: created.expiresAt,
-    // AUD-01: token de aceite — devolvido UMA única vez nesta resposta.
-    // Nunca reaparece em invites.get nem em logs de auditoria.
     token: created.token,
   }
 })

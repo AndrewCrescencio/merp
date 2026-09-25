@@ -1,5 +1,6 @@
-import { defineEventHandler, createError } from 'h3'
+import { defineEventHandler } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { sendUnauthorizedError } from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as
@@ -12,14 +13,7 @@ export default defineEventHandler(async (event) => {
   const currentSession = event.context.session as { id: string } | undefined
 
   if (!user) {
-    throw createError({
-      status: 401,
-      statusText: 'Unauthorized',
-      message: JSON.stringify({
-        error: 'unauthorized',
-        message: 'Authentication required.',
-      }),
-    })
+    sendUnauthorizedError('Authentication required.')
   }
 
   const [companies, activeCompanyId] = await Promise.all([
