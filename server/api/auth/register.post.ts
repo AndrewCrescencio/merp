@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, setResponseStatus } from 'h3'
-import { identityRepository, generateUserId } from '~~/server/utils/auth/identity/repository'
+import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { generateUserId } from '~~/server/utils/auth/identity/queries'
 import {
   checkEmailRateLimit,
   checkIpRateLimit,
