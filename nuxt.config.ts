@@ -13,10 +13,24 @@ if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN && isBuild
 }
 
 export default defineNuxtConfig({
-  compatibilityDate: '2025-07-15',
+  modules: ['@nuxt/eslint'],
   devtools: { enabled: true },
 
-  modules: ['@nuxt/eslint'],
+  routeRules: {
+    '/api/**': {
+      cors: true,
+      headers: {
+        'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || 'http://localhost:3000',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        // x-csrf-token: exigido pelos POSTs autenticados (double-submit) —
+        // sem ele o preflight do navegador bloqueia logout/companies/invite.
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    },
+  },
+
+  compatibilityDate: '2025-07-15',
 
   nitro: {
     errorHandler: '~~/server/error-handler',
@@ -32,17 +46,10 @@ export default defineNuxtConfig({
     },
   },
 
-  routeRules: {
-    '/api/**': {
-      cors: true,
-      headers: {
-        'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || 'http://localhost:3000',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        // x-csrf-token: exigido pelos POSTs autenticados (double-submit) —
-        // sem ele o preflight do navegador bloqueia logout/companies/invite.
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
-        'Access-Control-Allow-Credentials': 'true',
-      },
+  eslint: {
+    config: {
+      typescript: true,
+      stylistic: true,
     },
   },
 })
