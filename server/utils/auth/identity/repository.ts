@@ -10,13 +10,10 @@ import {
   withdrawConsentBA,
   deactivateUserBA,
 } from './queries'
-import type {
-  RegisterInput,
-  SignInInput,
-  UserResult,
-  SignInResult,
-  UpdateUserInput,
-} from './queries'
+import type { SignInInput, UpdateUserInput } from './queries'
+import type { RegisterInput } from '../../shared/validate'
+import type { UserResult, SignInResult } from './user'
+import { generateUserId } from './queries'
 
 export class IdentityRepository {
   async register(input: RegisterInput): Promise<UserResult | null> {

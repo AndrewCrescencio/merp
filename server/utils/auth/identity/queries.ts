@@ -6,39 +6,21 @@ import { logger } from '#shared/logger'
 import { handleDatabaseError } from '../../shared/errors'
 import type { AuthInstance } from '#shared/auth'
 import { createError, H3Error } from 'h3'
+import { randomUUID } from 'node:crypto'
+import type { RegisterInput } from '../../shared/validate'
+import type { UserResult } from './user'
+import type { SessionResult, SessionWithUser } from './session'
 
 const TIMING_PAD_PASSWORD = '__aud07_timing_pad__'
 
-export interface RegisterInput {
-  email: string
-  password: string
-  name: string
-  consentTermsVersion?: string
+export function generateUserId(): string {
+  return randomUUID()
 }
 
 export interface SignInInput {
   email: string
   password: string
   rememberMe?: boolean
-}
-
-export interface UserResult {
-  id: string
-  email: string
-  name: string | null
-  isActive: boolean
-  consentWithdrawnAt: Date | null
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface SessionResult {
-  id: string
-  userId: string
-  token: string
-  expiresAt: Date
-  rememberMe: boolean
-  createdAt: Date
 }
 
 export interface SignInResult extends UserResult {

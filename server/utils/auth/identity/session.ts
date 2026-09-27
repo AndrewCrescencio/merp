@@ -2,6 +2,7 @@ import { and, eq, gt } from 'drizzle-orm'
 import { db } from '../../db'
 import { session, user } from '../../schema'
 import { handleDatabaseError } from '../../shared/errors'
+import type { UserResult } from './user'
 
 export interface SessionResult {
   id: string
@@ -15,16 +16,6 @@ export interface SessionResult {
 export interface SessionWithUser {
   session: SessionResult
   user: UserResult
-}
-
-export interface UserResult {
-  id: string
-  email: string
-  name: string | null
-  isActive: boolean
-  consentWithdrawnAt: Date | null
-  createdAt: Date
-  updatedAt: Date
 }
 
 export class SessionRepository {
