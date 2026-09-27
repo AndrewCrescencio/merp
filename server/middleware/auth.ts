@@ -28,6 +28,12 @@ const publicRoutes = [
   // quebraria o propósito do arquivo.
   '/api/.well-known/security.txt',
   '/',
+  // Public pages (no auth required)
+  '/auth/register',
+  '/auth/login',
+  '/auth/verify-email',
+  '/auth/forget-password',
+  '/auth/reset-password',
 ]
 
 // AUD-09: o GET /api/auth/reset-password/<token> (clique no link do email) é
