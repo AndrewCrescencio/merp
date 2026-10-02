@@ -79,6 +79,8 @@
 | printed_at        | timestamptz | NULLABLE                                                       |
 | created_at        | timestamptz | DEFAULT now()                                                  |
 
+> Detalhamento consolidado em `specs/007-print/`.
+
 ### cashier_shift (Turno de Caixa)
 
 | Campo         | Tipo          | Constraints                                              |

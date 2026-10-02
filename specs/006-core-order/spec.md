@@ -85,3 +85,7 @@ Criação de `order` **exige** header `Idempotency-Key` (ver `specs/000-foundati
 | created_at       | timestamptz   | DEFAULT now()                                                 |
 
 **Snapshot rule** (ver `specs/000-foundation/snapshot.md`): editar produto não reescreve o passado.
+
+---
+
+Ver também: `specs/007-print/` (impressão operacional).
