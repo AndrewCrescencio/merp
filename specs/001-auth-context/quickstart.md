@@ -24,27 +24,29 @@ npm run dev
 
 ## Relevant Files
 
-| Path                                       | Purpose                                 |
-| ------------------------------------------ | --------------------------------------- |
-| `server/api/auth/register.post.ts`         | Registration endpoint (LGPD consent)    |
-| `server/api/auth/login.post.ts`            | Login endpoint                          |
-| `server/api/auth/logout.post.ts`           | Logout endpoint                         |
-| `server/api/auth/me.get.ts`                | Session check endpoint                  |
-| `server/api/auth/deactivate.post.ts`       | User deactivation (soft delete)         |
-| `server/api/auth/export.get.ts`            | Personal data export                    |
-| `server/api/auth/companies.post.ts`        | Company creation endpoint               |
-| `server/api/auth/companies.get.ts`         | Company search endpoint                 |
-| `server/api/auth/companies.switch.post.ts` | Company context switch                  |
-| `server/api/auth/companies.delete.post.ts` | Company deletion (soft delete)          |
-| `server/api/auth/companies.join.post.ts`   | Join existing company                   |
-| `server/middleware/auth.ts`                | Session validation middleware           |
-| `server/middleware/pii-audit.ts`           | PII access audit logging middleware     |
-| `server/utils/auth/repository.ts`          | IAuthRepository + DrizzleAuthRepository |
-| `server/utils/auth/helpers.ts`             | Auth business logic helpers             |
-| `server/utils/schema.ts`                   | Drizzle table definitions               |
-| `server/tasks/purge-sessions.ts`           | Expired session purge (daily cron)      |
-| `shared/auth.ts`                           | Better Auth instance initialization     |
-| `shared/logger.ts`                         | Shared logger                           |
+| Path (correto)                                                                                       | Purpose                                                             |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `server/api/auth/register.post.ts`                                                                   | Registration                                                        |
+| `server/api/auth/login.post.ts`                                                                      | Login                                                               |
+| `server/api/auth/logout.post.ts`                                                                     | Logout                                                              |
+| `server/api/auth/me.get.ts`                                                                          | Session check                                                       |
+| `server/api/auth/export.get.ts`                                                                      | LGPD export                                                         |
+| `server/api/auth/deactivate.post.ts`                                                                 | Deactivation                                                        |
+| `server/api/auth/consent/withdraw.post.ts`                                                           | LGPD consent withdrawal                                             |
+| `server/api/auth/companies*.ts`                                                                      | Company CRUD + switch + members                                     |
+| `server/api/auth/invite.post.ts`, `invites.get.ts`, `invites.accept.post.ts`                         | Invites                                                             |
+| `server/api/auth/verify-email.get.ts`, `send-verification-email.post.ts`                             | Email verification                                                  |
+| `server/api/auth/forget-password.post.ts`, `reset-password.post.ts`, `reset-password/[token].get.ts` | Password recovery                                                   |
+| `server/middleware/auth.ts`                                                                          | Session validation + user rate limit                                |
+| `server/middleware/pii-audit.ts`                                                                     | PII audit                                                           |
+| `server/utils/auth/identity/repository.ts`                                                           | Identity + session + verification                                   |
+| `server/utils/auth/company/repository.ts`                                                            | Company + membership                                                |
+| `server/utils/auth/invite/repository.ts`                                                             | Invites                                                             |
+| `server/utils/auth/tenant-context.ts`                                                                | `withTenant`                                                        |
+| `server/utils/shared/*`                                                                              | errors, security (rate limit/lockout), audit, csrf, email, ip, etc. |
+| `server/utils/schema/*`                                                                              | Drizzle tables by feature                                           |
+| `server/tasks/purge-*.ts`                                                                            | Retention tasks                                                     |
+| `shared/auth.ts`, `shared/logger.ts`                                                                 | Better Auth instance + logger                                       |
 
 ## Testing
 
