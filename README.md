@@ -98,20 +98,20 @@ shared/
 
 ## Endpoints principais
 
-| Endpoint                          | Auth                     | Descrição                                                   |
-| --------------------------------- | ------------------------ | ----------------------------------------------------------- |
-| `POST /api/auth/register`         | Público                  | Registro com consentTermsVersion (LGPD)                     |
-| `POST /api/auth/login`            | Público                  | Login + rememberMe → cookie httpOnly Secure SameSite=Strict |
-| `POST /api/auth/logout`           | Sessão                   | Revoga sessão + cookie                                      |
-| `GET /api/auth/me`                | Sessão                   | Perfil + empresas + activeCompanyId                         |
-| `POST /api/auth/companies`        | Sessão                   | Cria empresa (owner bootstrap)                              |
-| `GET /api/auth/companies?q=`      | Sessão                   | Busca empresas onde é membro                                |
-| `POST /api/auth/companies/switch` | Sessão                   | Troca activeCompanyId (valida membership)                   |
-| `POST /api/auth/invite`           | Sessão (owner)           | Cria convite — token retornado **uma vez**                  |
-| `POST /api/auth/invites/accept`   | Sessão (email = convite) | Aceita convite → cria membership                            |
-| `GET /api/auth/export`            | Sessão                   | LGPD Art. 18 — perfil + empresas + sessões + authEvents     |
-| `GET /api/health`                 | Público                  | Sempre 200; `auth`/`db` indicam readiness                   |
-| `GET /api/metrics`                | Público                  | Prometheus (uptime, heap, readiness — sem PII)              |
+| Endpoint                          | Auth                     | Descrição                                                |
+| --------------------------------- | ------------------------ | -------------------------------------------------------- |
+| `POST /api/auth/register`         | Público                  | Registro com consentTermsVersion (LGPD)                  |
+| `POST /api/auth/login`            | Público                  | Login + rememberMe → cookie httpOnly Secure SameSite=Lax |
+| `POST /api/auth/logout`           | Sessão                   | Revoga sessão + cookie                                   |
+| `GET /api/auth/me`                | Sessão                   | Perfil + empresas + activeCompanyId                      |
+| `POST /api/auth/companies`        | Sessão                   | Cria empresa (owner bootstrap)                           |
+| `GET /api/auth/companies?q=`      | Sessão                   | Busca empresas onde é membro                             |
+| `POST /api/auth/companies/switch` | Sessão                   | Troca activeCompanyId (valida membership)                |
+| `POST /api/auth/invite`           | Sessão (owner)           | Cria convite — token retornado **uma vez**               |
+| `POST /api/auth/invites/accept`   | Sessão (email = convite) | Aceita convite → cria membership                         |
+| `GET /api/auth/export`            | Sessão                   | LGPD Art. 18 — perfil + empresas + sessões + authEvents  |
+| `GET /api/health`                 | Público                  | Sempre 200; `auth`/`db` indicam readiness                |
+| `GET /api/metrics`                | Público                  | Prometheus (uptime, heap, readiness — sem PII)           |
 
 ## Segurança (resumo)
 
@@ -119,7 +119,7 @@ shared/
 - **Lockout**: (email+IP) 10 tentativas + global email 50 tentativas → 30min
 - **CSRF**: double-submit (`x-csrf-token`); isentos: register, login, forget-password, reset-password, send-verification-email + todos os GET
 - **CORS**: origem explícita (sem wildcard); `X-CSRF-Token` liberado no preflight
-- **Cookies**: `merp-session_token` — httpOnly, Secure (prod), SameSite=Strict (prod)
+- **Cookies**: `merp-session_token` — httpOnly, Secure (prod), SameSite=Lax — Lax (não Strict) para permitir links de verificação/reset enviados por email funcionarem cross-site.
 - **RLS**: 24 arquivos em `drizzle/` (14 no journal + 10 policies via applier custom — ver runbook acima)
 - **PII audit**: Acesso a `/me` e `/export` logado (sem `name` nos logs)
 
