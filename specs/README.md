@@ -19,6 +19,7 @@
 
 - [x] ADR-001: Vertical strategy (Core + Packs)
 - [x] ADR-002: Location scope in RLS
+- [x] ADR-008: Vertical slices (package by feature)
 - [x] 003–007 movidos para `specs/packs/erp-b2b/` (ADIADO)
 
 ## Phase 2 — Foundation Normative (Docs Only) ✅ COMPLETE
@@ -57,6 +58,29 @@
 
 ---
 
+## Mapa de numeração (specs 003–005)
+
+Originalmente 003–007 especificavam ERP genérico. Com ADR-001 (núcleo + packs),
+foram absorvidas por `specs/packs/erp-b2b/`:
+
+| Nº antigo | Conteúdo           | Local atual                     |
+| --------- | ------------------ | ------------------------------- |
+| 003       | Catálogo + Estoque | `packs/erp-b2b/catalog/plan.md` |
+| 004       | Vendas + Compras   | `packs/erp-b2b/sales/plan.md`   |
+| 005       | Financeiro         | `packs/erp-b2b/finance/plan.md` |
+| 006       | CRM                | `packs/erp-b2b/crm/plan.md`     |
+| 007       | Relatórios + Admin | `packs/erp-b2b/admin/plan.md`   |
+
+A numeração 003–005 fica reservada (não reutilizar). `006-core-order` e
+`007-print` usam a série nova (núcleo unificado + print).
+
+---
+
 ## Dívidas Conhecidas
 
 - **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.
+- **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).
+- **`006-core-order`** tem spec + data-model + contracts, mas falta
+  `plan.md`/`tasks.md`/`research.md`/`quickstart.md` (ADIADO).
+- **`packs/erp-b2b/*`** têm apenas `plan.md`; falta spec/data-model/contracts
+  por módulo (ADIADO — ver ADR-001).
