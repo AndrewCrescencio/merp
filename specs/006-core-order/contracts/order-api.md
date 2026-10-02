@@ -1,3 +1,6 @@
+> **Estado (2026-10):** spec pronta, **implementação não iniciada**.
+> Falta `plan.md`/`tasks.md`/`research.md`/`quickstart.md`.
+
 # Order API Contracts
 
 Base path: `/api/v1/orders`
@@ -68,15 +71,16 @@ Cria uma nova ordem.
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | order_type inválido, location_id obrigatório, items vazio, quantity ≤ 0 |
-| 401 | unauthorized | Sem sessão |
-| 403 | csrf_invalid | CSRF token ausente/inválido |
-| 409 | conflict | Idempotency-Key já processada (retorna resposta original) |
-| 422 | invalid_transition | N/A na criação |
-| 429 | rate_limit_exceeded | Rate limit excedido |
-| 503 | service_unavailable | DB indisponível |
+
+| Status | Error Code          | Condition                                                               |
+| ------ | ------------------- | ----------------------------------------------------------------------- |
+| 400    | validation_error    | order_type inválido, location_id obrigatório, items vazio, quantity ≤ 0 |
+| 401    | unauthorized        | Sem sessão                                                              |
+| 403    | csrf_invalid        | CSRF token ausente/inválido                                             |
+| 409    | conflict            | Idempotency-Key já processada (retorna resposta original)               |
+| 422    | invalid_transition  | N/A na criação                                                          |
+| 429    | rate_limit_exceeded | Rate limit excedido                                                     |
+| 503    | service_unavailable | DB indisponível                                                         |
 
 ---
 
@@ -166,12 +170,13 @@ Valida transição permitida pelo FSM do `order_type`. Transição inválida →
 **Success Response**: `200 OK` — ordem atualizada
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | status ausente ou inválido |
-| 401 | unauthorized | Sem sessão |
-| 403 | csrf_invalid | CSRF token |
-| 404 | not_found | Ordem não encontrada (ou fora do tenant) |
-| 422 | invalid_transition | Transição não permitida (ex.: open → completed) |
-| 429 | rate_limit_exceeded | Rate limit |
-| 503 | service_unavailable | DB indisponível |
+
+| Status | Error Code          | Condition                                       |
+| ------ | ------------------- | ----------------------------------------------- |
+| 400    | validation_error    | status ausente ou inválido                      |
+| 401    | unauthorized        | Sem sessão                                      |
+| 403    | csrf_invalid        | CSRF token                                      |
+| 404    | not_found           | Ordem não encontrada (ou fora do tenant)        |
+| 422    | invalid_transition  | Transição não permitida (ex.: open → completed) |
+| 429    | rate_limit_exceeded | Rate limit                                      |
+| 503    | service_unavailable | DB indisponível                                 |

@@ -1,3 +1,6 @@
+> **Estado (2026-10):** spec pronta, **implementação não iniciada**.
+> Falta `plan.md`/`tasks.md`/`research.md`/`quickstart.md`.
+
 # Data Model: Core Order
 
 ## Tabelas

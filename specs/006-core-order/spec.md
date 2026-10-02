@@ -1,3 +1,6 @@
+> **Estado (2026-10):** spec pronta, **implementação não iniciada**.
+> Falta `plan.md`/`tasks.md`/`research.md`/`quickstart.md`.
+
 # Feature Specification: Core Order (Núcleo Unificado)
 
 **Status**: Spec pronta, implementação não iniciada
