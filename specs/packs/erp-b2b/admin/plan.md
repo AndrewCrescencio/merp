@@ -1,3 +1,6 @@
+> **Estado (2026-10):** plan-only. Sem `spec.md`, `data-model.md` ou
+> `contracts/` ainda. Não implementado. Ver ADR-001 (núcleo primeiro).
+
 # Fase 7 — Relatórios e Administração
 
 **Status: ADIADO. Não será implementado até o núcleo estar estável.**
