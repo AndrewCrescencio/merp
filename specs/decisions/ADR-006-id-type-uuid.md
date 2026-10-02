@@ -1,26 +1,32 @@
-# ADR-006: ID Type — UUID
+# ADR-006: Tipo de PK — uuid nativo (novas tabelas) / text (tabelas auth legadas)
+
+## Status
+
+Aceito (revisado 2026-10)
+
+## Contexto
+
+- Tabelas auth (`user`, `session`, `account`, `verification`, `company`,
+  `company_member`, `invite`, `auth_event`, `auth_security_state`,
+  `email_queue`) foram criadas com `id text PRIMARY KEY DEFAULT gen_random_uuid()`.
+  O **valor** é UUID, o **tipo de coluna** é text (mais largo, sem validação
+  nativa).
+- Tabelas de domínio (order, catalog, party, etc.) ainda não existem.
 
 ## Decisão
 
-PK `uuid` (não `text`).
-
-## Estado Atual
-
-Código usa `text` com `gen_random_uuid()` default. Spec 003 propõe o mesmo tipo inconsistente.
-
-## Motivo
-
-- `uuid` nativo tem validação, indexação otimizada, 16 bytes vs 36+ chars de `text`.
-- `text` permite qualquer string (risco de IDs malformados).
-- Drizzle: `uuid('id').primaryKey().defaultRandom()` → PG `uuid` type.
-
-## Migração
-
-Fica para quando a **primeira feature de domínio** for implementada (núcleo order/catalog).
-Não vale migrar só auth/identity agora — custo/benefício baixo.
+- **Tabelas auth/identity**: permanecem `text` até segunda ordem (migração
+  custosa, zero benefício imediato).
+- **Novas tabelas de domínio** (a partir de `006-core-order`): PK `uuid`
+  nativa via Drizzle `uuid('id').primaryKey().defaultRandom()`.
 
 ## Consequências
 
-- Novas tabelas: `uuid` PK.
-- Tabelas existentes (auth/identity): permanecem `text` até migração planejada.
-- FKs entre novas tabelas e antigas: `uuid` → `text` (cast implícito PG funciona).
+- FKs mistas `uuid` → `text` entre domínio e auth: PostgreSQL faz cast
+  implícito (funciona), mas perde validação de formato no lado auth.
+- Ao adicionar nova tabela: usar `uuid`. Nunca `text` por copiar exemplo antigo.
+
+## Alternativas rejeitadas
+
+- Migrar auth para uuid agora: churn sem valor.
+- Manter text em tudo: mantém risco de IDs malformados.
