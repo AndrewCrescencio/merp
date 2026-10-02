@@ -168,3 +168,8 @@ With multiple developers:
 3. After US1 completes:
    - Developer C: User Story 3
 4. Stories complete and integrate independently
+
+---
+
+**Nota (2026-10):** todas as tasks de US1–US3 concluídas. T031
+(companies/join) superseded por invite/accept.
