@@ -32,20 +32,23 @@ Implement email/password authentication with session management (fixed 7d TTL, n
 
 _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Gate                           | Status  | Rationale                                                                                                                                                              |
-| ------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| §I Bounded Contexts            | ✅ PASS | Auth is a recognized supporting domain. Communicates via IDs/DTOs. No cross-context type imports.                                                                      |
-| §II Nuxt 4 + Repository        | ✅ PASS | Handlers in `server/api/auth/`, repository in `server/utils/auth/repository.ts` (IAuthRepository + DrizzleAuthRepository). Drizzle schema in `server/utils/schema.ts`. |
-| §III Test as You Go            | ✅ PASS | Vitest unit tests (mock IAuthRepository) + integration tests (real DB + RLS). Auth is supporting domain — tests follow in same commit per MVP shortcut.                |
-| §IV Error Handling             | ✅ PASS | `createError` for HTTP errors. FR-026 defines consistent 500 format. FR-024/FR-025 define timeout/init failure 503s. No internal details leaked.                       |
-| §V Tenant Isolation            | ✅ PASS | `company_id` on all business entities. RLS + `withTenant` helper. Users belong to companies via `company_members`.                                                     |
-| §VI Transactions               | ✅ PASS | Registration idempotent via email uniqueness (FR-003). Invite acceptance uses `SELECT ... FOR UPDATE` row-level locking.                                               |
-| §VII Docker                    | ✅ PASS | App runs in Docker container. PostgreSQL in docker-compose. No host tooling required.                                                                                  |
-| §VIII Database & Multi-tenancy | ✅ PASS | `withTenant(tenantId, fn)` for all tenant-scoped queries. RLS policy on all tenant tables. Direct `db` only for global ops (company creation).                         |
+| Gate                           | Status  | Rationale                                                                                                                                                                       |
+| ------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §I Bounded Contexts            | ✅ PASS | Auth is a recognized supporting domain. Communicates via IDs/DTOs. No cross-context type imports.                                                                               |
+| §II Nuxt 4 + Repository        | ✅ PASS | Handlers in `server/api/auth/`, repositories em `server/utils/auth/{identity,company,invite}/repository.ts`. Drizzle schema em `server/utils/schema/` (por feature + index.ts). |
+| §III Test as You Go            | ✅ PASS | Vitest unit tests (mock IAuthRepository) + integration tests (real DB + RLS). Auth is supporting domain — tests follow in same commit per MVP shortcut.                         |
+| §IV Error Handling             | ✅ PASS | `createError` for HTTP errors. FR-026 defines consistent 500 format. FR-024/FR-025 define timeout/init failure 503s. No internal details leaked.                                |
+| §V Tenant Isolation            | ✅ PASS | `company_id` on all business entities. RLS + `withTenant` helper. Users belong to companies via `company_members`.                                                              |
+| §VI Transactions               | ✅ PASS | Registration idempotent via email uniqueness (FR-003). Invite acceptance uses `SELECT ... FOR UPDATE` row-level locking.                                                        |
+| §VII Docker                    | ✅ PASS | App runs in Docker container. PostgreSQL in docker-compose. No host tooling required.                                                                                           |
+| §VIII Database & Multi-tenancy | ✅ PASS | `withTenant(tenantId, fn)` for all tenant-scoped queries. RLS policy on all tenant tables. Direct `db` only for global ops (company creation).                                  |
 
 **Violations**: None — all constitution principles respected.
 
 ## Project Structure
+
+**Nota (2026-10):** estrutura reflete `specs/002-vertical-slices/architecture.md`
+(fases 1–4 concluídas). God repository foi removido.
 
 ### Documentation (this feature)
 
@@ -94,7 +97,7 @@ server/
 ├── utils/
 │   ├── schema/                      # Drizzle tables por feature + index.ts (registry)
 │   ├── db.ts                        # Database connection
-│   ├── shared/                      # errors, security, audit, csrf, ip, email, purge…
+│   ├── shared/                      # errors, security (+CNPJ), audit, background, purge, csrf, email, ip, hibp, auth-context
 │   └── auth/
 │       ├── identity/repository.ts   # IdentityRepository + identityRepository
 │       ├── company/repository.ts    # CompanyRepository + companyRepository
