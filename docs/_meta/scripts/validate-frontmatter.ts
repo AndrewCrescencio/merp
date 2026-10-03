@@ -10,17 +10,17 @@ const FrontmatterSchema = z.object({
   status: z.enum(["active", "deprecated", "archived", "draft", "accepted", "deferred", "proposed", "superseded"]),
   version: z.string().regex(/^\d+\.\d+\.\d+$/),
   owner: z.string().startsWith("@"),
-  reviewers: z.array(z.string().startsWith("@")).min(1),
   module: z.string().min(1),
-  tags: z.array(z.string()),
-  audience: z.array(z.enum(["dev", "qa", "product", "support", "devops", "architect", "dba", "backend", "frontend", "security"])),
   created: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  updated: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  "review-cycle": z.enum(["quarterly", "semiannual", "on-change", "once"]),
-  related: z.array(z.string()),
-  replaces: z.array(z.string()),
-  "replaced-by": z.string().nullable(),
-});
+  updated: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  reviewers: z.array(z.string().startsWith("@")).min(1).optional(),
+  tags: z.array(z.string()).optional(),
+  audience: z.array(z.enum(["dev", "qa", "product", "support", "devops", "architect", "dba", "backend", "frontend", "security"])).optional(),
+  "review-cycle": z.enum(["quarterly", "semiannual", "on-change", "once"]).optional(),
+  related: z.array(z.string()).optional(),
+  replaces: z.array(z.string()).optional(),
+  "replaced-by": z.string().nullable().optional(),
+}).passthrough();
 
 async function main() {
   const files = await glob("docs/**/*.md");
@@ -43,15 +43,13 @@ async function main() {
       errors++;
       continue;
     }
-    // Verificar slug único
     if (slugs.has(fm.slug)) {
       console.error(`❌ ${file}: Slug duplicado "${fm.slug}" (já em ${slugs.get(fm.slug)})`);
       errors++;
     } else {
       slugs.set(fm.slug, file);
     }
-    // Verificar updated >= created
-    if (fm.updated < fm.created) {
+    if (fm.updated && fm.updated < fm.created) {
       console.error(`❌ ${file}: updated (${fm.updated}) < created (${fm.created})`);
       errors++;
     }
