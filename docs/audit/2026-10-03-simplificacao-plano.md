@@ -154,7 +154,8 @@ Base: `docs/audit/2026-10-03-simplificacao-auditoria.md`. HEAD `2de2d20`. Branch
 
 | Bloco | Linhas Removidas | Arquivos Removidos | Camadas Removidas | Notas |
 |---|---|---|---|---|
-| Quick Wins (T07-T10) | ~ | ~ | ~ | A ser preenchido após execução |
+| Quick Wins (T07) | ~540 | 9 | scheduledTasks, email queue, purge tasks, metrics endpoint | metrics, 4 purge tasks, email queue schema + shared + specs |
+| Quick Wins (T08-T10) | ~ | ~ | ~ | A ser preenchido após execução |
 | Core Refactors (T05-T06) | ~ | ~ | ~ | |
 | MVP Implementation (T12-T14) | — | — | — | Adição, não remoção |
 | Polish (T15-T19) | ~ | ~ | ~ | |
