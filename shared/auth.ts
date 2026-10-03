@@ -3,11 +3,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { db } from '~~/server/utils/db'
 import * as schema from '~~/server/utils/schema'
 import { logger } from './logger'
-import {
-  appVerificationLink,
-  sendPasswordResetLink,
-  sendVerificationEmailLink,
-} from '~~/server/utils/shared/email'
+import { appVerificationLink } from '~~/server/utils/shared/email'
 
 const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000'
 if (process.env.NODE_ENV === 'production' && corsOrigin === 'http://localhost:3000') {
@@ -48,17 +44,15 @@ function createAuth() {
       resetPasswordTokenExpiresIn: 3600,
       // OWASP: trocar a senha invalida todas as sessões existentes.
       revokeSessionsOnPasswordReset: true,
-      // Fire-and-forget (void): os callbacks nunca podem atrasar o request
-      // (equalização de timing do AUD-03/AUD-07) nem falhar o fluxo. O link
-      // gerado pelo better-auth já aponta para /api/auth/reset-password/
-      // <token> (basePath do app) e carrega o callbackURL da origem.
+      // MVP: email queue removed — callbacks are no-op (log only).
+      // Better Auth generates correct links; user copies manually if needed.
       sendResetPassword: ({ user, url }) => {
-        void sendPasswordResetLink(user.email, url)
+        void logger.info('reset password email (no-op)', { email: user.email, url })
       },
     },
     emailVerification: {
       sendVerificationEmail: ({ user, url }) => {
-        void sendVerificationEmailLink(user.email, appVerificationLink(url))
+        void logger.info('verification email (no-op)', { email: user.email, url: appVerificationLink(url) })
       },
       sendOnSignUp: true,
       sendOnSignIn: true,

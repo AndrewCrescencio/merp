@@ -40,10 +40,6 @@ export default defineNuxtConfig({
     experimental: {
       tasks: true,
     },
-    scheduledTasks: {
-      '0 0 * * *': ['purge-sessions', 'purge-security-state', 'purge-auth-events'],
-      '*/5 * * * *': ['process-email-queue'],
-    },
   },
 
   eslint: {

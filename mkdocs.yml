@@ -1,0 +1,86 @@
+site_name: MERP Documentation
+site_url: https://docs.merp.com.br
+repo_url: https://github.com/seu-org/merp
+repo_name: merp
+
+theme:
+  name: material
+  language: pt
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - search.share
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Guias:
+      - getting-started:
+          - "Debug & Troubleshooting — MERP": 01-getting-started/debug-troubleshooting
+          - "Dev Environment — MERP": 01-getting-started/dev-environment
+          - "Quickstart — MERP": 01-getting-started/quickstart
+          - "Testing Guide — MERP": 01-getting-started/testing-guide
+      - "Runbook: Grants e DEFAULT PRIVILEGES para merp_app": 05-operations/runbooks/grants
+      - overview:
+          - "Architecture Overview — MERP": 00-overview/architecture-overview
+          - "MERP Documentation": 00-overview/README
+  - Especificações:
+      - "Especificação: Auth Bounded Context": 03-domain/auth/spec
+      - "Especificação: Restaurant Pack": 06-packs/restaurant/spec
+  - ADRs:
+      - auth:
+          - "2FA Deferred": 02-architecture/adr/adr-010-2fa-deferred
+          - "Better Auth Drizzle Adapter Origin": 02-architecture/adr/adr-009-better-auth-adapter-origin
+          - "Session TTL by Profile": 02-architecture/adr/adr-004-session-ttl-by-profile
+      - cross-cutting:
+          - "API Versioning — /api/v1 desde já": 02-architecture/adr/adr-005-api-versioning
+          - "Escopo de RLS — Company + Location": 02-architecture/adr/adr-002-location-scope
+          - "Estratégia Vertical — Núcleo Comum + Packs": 02-architecture/adr/adr-001-vertical-strategy
+          - "Money — numeric(12,2) vs Centavos-Inteiro": 02-architecture/adr/adr-003-money-numeric-vs-cents
+          - "Test Suite Runs as merp_app Role": 02-architecture/adr/adr-007-test-suite-runs-as-merp-app
+          - "Tipo de PK — uuid nativo (novas tabelas) / text (tabelas auth legadas)": 02-architecture/adr/adr-006-id-type-uuid
+          - "Vertical Slices (Package by Feature)": 02-architecture/adr/adr-008-vertical-slices-package-by-feature
+  - Referência:
+      - "ADR Index": 02-architecture/adr/index
+      - "Padrões de Documentação — MERP": _meta/doc-standards
+      - "Glossário — MERP": 00-overview/glossary
+      - reference:
+          - "CLI Commands — MERP": 07-reference/cli-commands
+          - "Database Schema — MERP": 07-reference/database-schema
+          - "Environment Variables — MERP": 07-reference/env-variables
+          - "Error Codes — MERP": 07-reference/error-codes
+  - API Reference:
+      - "API Contract: Auth": 04-api/auth-api
+
+plugins:
+  - search:
+      lang: pt
+  - git-revision-date-localized:
+      type: date
+      fallback_to_build_date: true
+  - git-authors
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/seu-org/merp
