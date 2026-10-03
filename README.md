@@ -145,6 +145,5 @@ pnpm drizzle-kit studio                 # Drizzle Studio
 - `specs/001-auth-context/spec.md` — Requisitos funcionais, threat model, LGPD, métricas
 - `specs/002-vertical-slices/architecture.md` — Arquitetura, migração, governança
 - `specs/packs/erp-b2b/` — Fases do ERP (catálogo, vendas, financeiro, CRM, admin) — **ADIADO** (ver ADR-001)
-- `ERP_FEATURE_PLAN.md` — Índice do roadmap ERP (aponta para as fases)
-- `BACKEND_ANALYSIS.md` — Análise para adaptação restaurante/pizzaria
-- `OVERENGINEERING_AUDIT.md` — Auditoria de over-engineering (5 findings)
+- `docs/audit/2026-10-03-simplificacao-auditoria.md` — Auditoria completa com hipóteses H01–H22
+- `docs/audit/2026-10-03-simplificacao-plano.md` — Plano de execução com tarefas priorizadas

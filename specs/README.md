@@ -3,7 +3,7 @@
 ## Phase 0 — Security Gate (RLS Test Suite) ✅ COMPLETE
 
 - [x] 0.1 Roles verified: `merp` (superuser), `merp_app` (non-superuser, NOBYPASSRLS) — captured in `docs/audit/2026-09-22-roles.txt`
-- [x] 0.2 Test suite migrated to `merp_app` — all 368 tests pass
+- [x] 0.2 Test suite migrated to `merp_app` — all tests pass
 - [x] 0.3 RLS Canary test created (`server/utils/rls-canary.test.ts`) — fails if suite runs as owner
 - [x] 0.4 Concurrency test created (`server/utils/tenant-isolation-concurrent.test.ts`) — 100 iterations, zero leakage
 - [x] 0.5 ADR-007 recorded: "Test suite runs as merp_app"
@@ -12,7 +12,7 @@
 
 - [x] **GATE A** — `createOwnerDb` renamed to `createOwnerDbForSetupOnly`, restricted to setup/fixtures, ESLint rule active
 - [x] **GATE B** — Canary runs first (`00-rls-canary.test.ts`), vitest `sequence.shuffle: false` + `fileParallelism: false`, CI required check
-- [x] **GATE C** — Migration 0020 (DEFAULT PRIVILEGES) applied, `grants-parity.test.ts` passes (4/4), runbook at `docs/runbooks/grants.md`
+- [x] **GATE C** — Migration 0020 (DEFAULT PRIVILEGES) applied, `grants-parity.test.ts` passes (4/4), runbook at `docs/05-operations/runbooks/grants.md`
 - [x] **GATE D** — `.github/workflows/ci.yml` created: canary job (required) → test job (needs canary) → lint/typecheck; Postgres service container; APP_DATABASE_URL explicit
 
 ## Phase 1 — Product Decision (Core + Packs) ✅ COMPLETE

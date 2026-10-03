@@ -2,7 +2,7 @@
 
 ## Contexto
 
-O produto atende ERP B2B, restaurante e varejo. Specs 003–007 especificam ERP genérico, mas o briefing pede restaurante. `PENDING_DECISIONS.md` registra dois roadmaps concorrentes. Escolher um inviabiliza o produto; fork inviabiliza o time.
+O produto atende ERP B2B, restaurante e varejo. Specs 003–007 especificam ERP genérico, mas o briefing pede restaurante. **Decisão pendente** registra dois roadmaps concorrentes. Escolher um inviabiliza o produto; fork inviabiliza o time.
 
 ## Decisão
 

@@ -274,7 +274,6 @@ Quando nenhum handler usar mais o bridge: **deletar** `repository.ts`.
   pelo modelo "feature = diretório vertical"; adicionar regras 1–6 do §3.3.
 - **AGENTS.md**: apontar para este documento.
 - **`specs/001-auth-context/plan.md`**: atualizar a seção "Project Structure".
-- Atualizar `checklists/architecture.md` (CHK017–019).
 
 ---
 

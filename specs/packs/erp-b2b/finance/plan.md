@@ -6,7 +6,7 @@
 **Status: ADIADO. Não será implementado até o núcleo estar estável.**
 **Regras herdadas de specs/000-foundation/\*. Não é spec executável ainda.**
 
-**Status**: Planejado | **Origem**: extraído de `ERP_FEATURE_PLAN.md` (§2 Fase 3, §3.3, §4.4)
+**Status**: Planejado | **Origem**: ADR-001 (pack erp-b2b deferido)
 **Fundação**: `specs/001-auth-context/` · `specs/002-vertical-slices/architecture.md` · depende de `specs/004-erp-sales/` (origem) e `specs/006-erp-crm/` (customer)
 
 ## Escopo
