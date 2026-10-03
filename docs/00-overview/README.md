@@ -26,7 +26,6 @@ Bem-vindo à documentação do **MERP** — ERP Multi-Tenant construído com Nux
 | Seção | Descrição |
 |-------|-----------|
 | [Primeiros Passos](../01-getting-started/quickstart.md) | Configuração do ambiente, rodar localmente |
-| [Arquitetura](../02-architecture/adr/index.md) | ADRs, padrões, modelo de dados |
 | [Domínios](../03-domain/auth/spec.md) | Specs por bounded context (auth, core-order, catalog, etc.) |
 | [API Reference](../04-api/auth-api.md) | Contratos de endpoints |
 | Operações | Runbooks, segurança, monitoramento *(pendente)* |
