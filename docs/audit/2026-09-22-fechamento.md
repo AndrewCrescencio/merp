@@ -1,24 +1,3 @@
----
-title: "Relatório de Fechamento Documental — 2026-09-22"
-slug: "audit-2026-09-22-fechamento"
-category: "audit"
-status: "archived"
-version: "1.0.0"
-owner: "@tech-lead"
-reviewers: ["@architect"]
-module: "architecture"
-tags: ["audit", "closure", "red-flags", "adr"]
-audience: ["dev", "product"]
-created: "2026-09-22"
-updated: "2026-09-22"
-review-cycle: "once"
-related:
-  - "adr-001-vertical-strategy"
-  - "adr-010-2fa-deferred"
-replaces: []
-replaced-by: null
----
-
 # Relatório de Fechamento Documental e Correção de Red Flags — 2026-09-22
 
 ## Resumo Executivo
