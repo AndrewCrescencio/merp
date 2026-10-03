@@ -43,7 +43,7 @@ Base: `docs/audit/2026-10-03-simplificacao-auditoria.md`. HEAD `2de2d20`. Branch
 | T13 | P2 | feat | Implementar 007-print MVP: `printer` + `print_job` + task `process-print-queue` (cron `*/30`) + 2 templates hardcoded + 3 handlers | `server/tasks/process-print-queue.ts`, `server/utils/print/templates/*.ts`, `server/api/v1/print/*.ts` | 4h / Médio | `DB_AVAILABLE=true pnpm test`, `pnpm lint`, `pnpm build` | T12 | `feat(print): operational printing MVP (KDS + comanda)` | pending |
 | T14 | P2 | feat | Implementar Restaurant Pack fluxo mesa: `restaurant_table` endpoints (open/close), `kitchen_ticket` trigger/status, `cashier_shift` CRUD | `server/api/v1/restaurant/*.ts`, repositories, testes | 4h / Médio | `DB_AVAILABLE=true pnpm test`, `pnpm lint`, `pnpm build` | T12, T13 | `feat(restaurant): table/KDS/cashier flow` | pending |
 | T15 | P2 | docs | Atualizar `specs/README.md`: remover números congelados, refletir estado real (006 implementing, 007 pending, restaurant pending), mover audits archived para `_archive/` | `specs/README.md`, `docs/audit/` → `docs/_archive/audit/` | 1h / Baixo | `pnpm docs:validate`, `pnpm docs:links` | — | `docs: update specs/README + archive old audits` | done (ddfe7ea) |
-| T16 | P2 | docs | Simplificar `docs/_meta/doc-standards.md`: frontmatter 16→8 campos, 1 reviewer, templates opcionais, remover mkdocs/cspell/markdownlint obrigatórios | `docs/_meta/doc-standards.md`, `docs/_meta/scripts/validate-frontmatter.ts` | 2h / Médio | `pnpm docs:validate`, `pnpm docs:ci` | — | `docs: simplify doc-standards to MVP minimum` | in-progress |
+| T16 | P2 | docs | Simplificar `docs/_meta/doc-standards.md`: frontmatter 16→8 campos, 1 reviewer, templates opcionais, remover mkdocs/cspell/markdownlint obrigatórios | `docs/_meta/doc-standards.md`, `docs/_meta/scripts/validate-frontmatter.ts` | 2h / Médio | `pnpm docs:validate`, `pnpm docs:ci` | — | `docs: simplify doc-standards to MVP minimum` | done (ab35de0) |
 | T17 | P3 | chore | Squash migrations 0000-0021 → 1 arquivo inicial + RLS no journal Drizzle; tornar `db:migrate:full` = só `drizzle-kit migrate` | `drizzle/*.sql`, `scripts/apply-custom-sql.ts`, `package.json` | 3h / Alto | `pnpm db:migrate:full` (clean DB), `DB_AVAILABLE=true pnpm test` | T03 | `chore(db): squash migrations + RLS in journal` | pending |
 | T18 | P3 | chore | Adicionar ESLint `no-restricted-imports` para feature boundaries (ex: `server/utils/auth/identity` não importa `company`) | `eslint.config.mjs` | 1h / Baixo | `pnpm lint` | T04 | `chore(lint): add feature boundary import restrictions` | pending |
 | T19 | P3 | chore | Criar `.github/workflows/docs.yml` para CI docs (validate + links + lint) | `.github/workflows/docs.yml` | 0.5h / Baixo | `git push` → Actions passa | — | `ci(docs): add docs validation workflow` | pending |
@@ -155,9 +155,10 @@ Base: `docs/audit/2026-10-03-simplificacao-auditoria.md`. HEAD `2de2d20`. Branch
 | Bloco | Linhas Removidas | Arquivos Removidos | Camadas Removidas | Notas |
 |---|---|---|---|---|
 | Quick Wins (T07) | ~540 | 9 | scheduledTasks, email queue, purge tasks, metrics endpoint | metrics, 4 purge tasks, email queue schema + shared + specs |
-| Quick Wins (T08-T10) | ~ | ~ | ~ | A ser preenchido após execução |
+| Quick Wins (T08-T10) | ~10 | 10 | ADR duplication, broken refs | 2FA residuals, 10 ADRs, broken links fixed |
+| Quick Wins (T15-T16) | ~360 | 0 | doc-standards governance | 461→190 lines, 16→8 fields, 2→1 reviewer |
 | Core Refactors (T05-T06) | ~ | ~ | ~ | |
 | MVP Implementation (T12-T14) | — | — | — | Adição, não remoção |
-| Polish (T15-T19) | ~ | ~ | ~ | |
+| Polish (T17-T19) | ~ | ~ | ~ | |
 
 *Executar `/ponytail-gain` ao final de cada bloco e registrar aqui.*
