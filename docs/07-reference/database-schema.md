@@ -48,7 +48,7 @@ replaced-by: null
 | `auth_event` | Audit log de eventos auth | Não |
 | `auth_security_state` | Rate limiting / lockout state | Não |
 | `email_queue` | Fila de emails (Resend) | Não |
-| `two_factor` | TOTP + backup codes (deferido) | Sim (user-scoped) |
+
 
 ## Tabelas Tenant (Multi-tenancy)
 
