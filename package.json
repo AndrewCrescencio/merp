@@ -15,7 +15,16 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "db:migrate:full": "drizzle-kit migrate && tsx scripts/apply-custom-sql.ts"
+    "db:migrate:full": "drizzle-kit migrate && tsx scripts/apply-custom-sql.ts",
+    "docs:validate": "tsx docs/_meta/scripts/validate-frontmatter.ts",
+    "docs:links": "tsx docs/_meta/scripts/check-links.ts",
+    "docs:index": "tsx docs/_meta/scripts/generate-index.ts",
+    "docs:new": "tsx docs/_meta/scripts/new-doc.ts",
+    "docs:deprecate": "tsx docs/_meta/scripts/deprecate.ts",
+    "docs:archive": "tsx docs/_meta/scripts/archive.ts",
+    "docs:lint": "npx markdownlint-cli docs/**/*.md --config .markdownlint.json",
+    "docs:spell": "cspell docs/**/*.md",
+    "docs:ci": "pnpm run docs:validate && pnpm run docs:links && pnpm run docs:lint"
   },
   "lint-staged": {
     "*.{ts,mjs,vue}": [
@@ -39,15 +48,20 @@
   "devDependencies": {
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^25.9.3",
+    "cspell": "^8.14.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
+    "glob": "^11.0.0",
     "h3": "^1.15.11",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
+    "markdownlint-cli": "^0.43.0",
     "nitropack": "2.13.4",
     "prettier": "^3.8.4",
     "tsx": "^4.19.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "yaml": "^2.5.0",
+    "zod": "^3.23.0"
   }
 }

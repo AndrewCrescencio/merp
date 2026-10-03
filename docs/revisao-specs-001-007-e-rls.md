@@ -1,3 +1,24 @@
+---
+title: "Revisão Técnica — Specs 001–007 e Auditoria RLS"
+slug: "review-specs-001-007-rls"
+category: "audit"
+status: "archived"
+version: "1.0.0"
+owner: "@tech-lead"
+reviewers: ["@architect"]
+module: "architecture"
+tags: ["review", "audit", "rls", "specs"]
+audience: ["dev"]
+created: "2026-09-22"
+updated: "2026-09-22"
+review-cycle: "once"
+related:
+  - "adr-001-vertical-strategy"
+  - "adr-002-location-scope"
+replaces: []
+replaced-by: null
+---
+
 # Revisões técnicas — specs 001–007 e auditoria RLS (Fases 1–2)
 
 Consolidação em arquivo único das revisões realizadas. Data: 2026-09-22.

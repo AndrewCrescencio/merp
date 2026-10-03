@@ -1,3 +1,23 @@
+---
+title: "Runbook: Grants e DEFAULT PRIVILEGES para merp_app"
+slug: "runbook-grants"
+category: "guide"
+status: "active"
+version: "1.0.0"
+owner: "@devops"
+reviewers: ["@dba"]
+module: "operations"
+tags: ["runbook", "grants", "rls", "postgresql"]
+audience: ["devops", "dev"]
+created: "2026-09-22"
+updated: "2026-09-22"
+review-cycle: "semiannual"
+related:
+  - "adr-007-test-suite-runs-as-merp-app"
+replaces: []
+replaced-by: null
+---
+
 # Runbook: Grants e DEFAULT PRIVILEGES para merp_app
 
 ## Visão Geral
