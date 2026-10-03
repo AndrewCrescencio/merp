@@ -4,7 +4,7 @@
 
 - [x] 0.1 Roles verified: `merp` (superuser), `merp_app` (non-superuser, NOBYPASSRLS) — captured in `docs/audit/2026-09-22-roles.txt`
 - [x] 0.2 Test suite migrated to `merp_app` — all tests pass
-- [x] 0.3 RLS Canary test created (`server/utils/rls-canary.test.ts`) — fails if suite runs as owner
+- [x] 0.3 RLS Canary test created (`server/utils/00-rls-canary.test.ts`) — fails if suite runs as owner
 - [x] 0.4 Concurrency test created (`server/utils/tenant-isolation-concurrent.test.ts`) — 100 iterations, zero leakage
 - [x] 0.5 ADR-007 recorded: "Test suite runs as merp_app"
 
@@ -37,20 +37,21 @@
 - [x] Fix contradictions F02–F16
 - [x] 2FA removed from scope (see ADR-010)
 
-## Phase 4 — Core Order (Unified) ⏳ PENDING
+## Phase 4 — Core Order (Unified) 🚧 IN PROGRESS
 
-- [ ] `specs/006-core-order/spec.md`
+- [ ] `specs/006-core-order/spec.md` — spec + data-model + contracts exist
 - [ ] RLS matrix for order
 - [ ] FSM tests
+- [ ] Implementation: `order`, `order_item`, `order_dine_in`, `order_takeout` + 4 handlers
 
-## Phase 5 — Restaurant Pack ⏳ PENDING
+## Phase 5 — Restaurant Pack 📋 PLANNED
 
-- [ ] Table/Comanda
-- [ ] KDS
-- [ ] Printer
+- [ ] Table/Comanda (`restaurant_table` endpoints)
+- [ ] KDS (`kitchen_ticket` trigger/status)
+- [ ] Printer (`printer` + `print_job` + task)
 - [ ] Cashier shift
-- [ ] Delivery/Reserva
-- [ ] NFC-e (last)
+- [ ] Delivery/Reserva (fase 2)
+- [ ] NFC-e (provedor terceirizado, pós-MVP)
 
 ---
 
@@ -80,7 +81,9 @@ A numeração 003–005 fica reservada (não reutilizar). `006-core-order` e
 
 - **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.
 - **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).
-- **`006-core-order`** tem spec + data-model + contracts, mas falta
-  `plan.md`/`tasks.md`/`research.md`/`quickstart.md` (ADIADO).
+- **`006-core-order`** tem spec + data-model + contracts; implementação em andamento (T12).
 - **`packs/erp-b2b/*`** têm apenas `plan.md`; falta spec/data-model/contracts
   por módulo (ADIADO — ver ADR-001).
+- **`withTenant`** precisa suportar `locationId` + GUC `app.location_id` (T02, P0).
+- **Schemas núcleo** (location, party, product, payment, restaurant_table, kitchen_station, printer, print_job) faltando (T03, P0).
+- **`line_total` half-up** não implementado (T04, P0).
