@@ -357,13 +357,14 @@ authenticated requests carry the correct tenant context.
   hardening phase.
 
 **Monitoring & alerting thresholds**:
-| Metric | Warning | Critical | Alert |
-|--------|---------|----------|-------|
-| Login failure rate | >20% of attempts in 5min | >50% in 5min | Ops email + dashboard |
-| Rate-limit hits/min | >100 hits/min | >500 hits/min | Ops email + SMS |
-| Registration rate | >50/min | >200/min | Ops email |
-| Session validation errors | >10% in 5min | >30% in 5min | Ops email |
-| PII access (anomalous) | >2x normal rate | >5x normal rate | Security team email |
+
+| Metric                    | Warning                  | Critical        | Alert                 |
+| ------------------------- | ------------------------ | --------------- | --------------------- |
+| Login failure rate        | >20% of attempts in 5min | >50% in 5min    | Ops email + dashboard |
+| Rate-limit hits/min       | >100 hits/min            | >500 hits/min   | Ops email + SMS       |
+| Registration rate         | >50/min                  | >200/min        | Ops email             |
+| Session validation errors | >10% in 5min             | >30% in 5min    | Ops email             |
+| PII access (anomalous)    | >2x normal rate          | >5x normal rate | Security team email   |
 
 All thresholds are configurable via environment variables. Metrics are
 exposed via a `/metrics` endpoint (Prometheus format) for dashboard

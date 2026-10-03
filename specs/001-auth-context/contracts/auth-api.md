@@ -65,11 +65,12 @@ or found in breaches (HIBP k-anonymity, NIST 800-63B).
 emailed on sign-up (`sendOnSignUp`); login is blocked until the email is verified (AUD-04).
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Invalid email / short, weak or breached password / missing name or consentTermsVersion |
-| 429 | rate_limit_exceeded | Rate limit per IP (20/min) or per email (5/min) |
-| 503 | service_unavailable | Database unreachable |
+
+| Status | Error Code          | Condition                                                                              |
+| ------ | ------------------- | -------------------------------------------------------------------------------------- |
+| 400    | validation_error    | Invalid email / short, weak or breached password / missing name or consentTermsVersion |
+| 429    | rate_limit_exceeded | Rate limit per IP (20/min) or per email (5/min)                                        |
+| 503    | service_unavailable | Database unreachable                                                                   |
 
 **Note (AUD-03)**: if the email is already registered, the endpoint returns the same generic `201 Created` response (id/name/createdAt derived from the request input) — no `409 conflict`, no observable difference between new and existing emails (anti-enumeration). No duplicate account is created and the existing account is never modified.
 
@@ -100,13 +101,14 @@ Authenticate with email and password. Creates a session (FR-005). Public. CSRF-e
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing email or password |
-| 401 | unauthorized | Invalid credentials (generic — no distinction between wrong password, non-existent user, locked, or deactivated account per CHK007; a deactivation notice email is sent to the account owner instead, AUD-06) |
-| 403 | email_not_verified | Correct password but email not verified (AUD-04; only reachable with the correct password — no enumeration). A fresh verification link is emailed automatically (`sendOnSignIn`). |
-| 429 | rate_limit_exceeded | Rate limit per email exceeded (5 req/min sliding window, FR-010) or per IP (20 req/min) |
-| 503 | service_unavailable | Database unreachable |
+
+| Status | Error Code          | Condition                                                                                                                                                                                                     |
+| ------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | validation_error    | Missing email or password                                                                                                                                                                                     |
+| 401    | unauthorized        | Invalid credentials (generic — no distinction between wrong password, non-existent user, locked, or deactivated account per CHK007; a deactivation notice email is sent to the account owner instead, AUD-06) |
+| 403    | email_not_verified  | Correct password but email not verified (AUD-04; only reachable with the correct password — no enumeration). A fresh verification link is emailed automatically (`sendOnSignIn`).                             |
+| 429    | rate_limit_exceeded | Rate limit per email exceeded (5 req/min sliding window, FR-010) or per IP (20 req/min)                                                                                                                       |
+| 503    | service_unavailable | Database unreachable                                                                                                                                                                                          |
 
 **Rate Limit Headers** (on 429): `Retry-After`, `RateLimit-Reset`, `RateLimit-Remaining`
 
@@ -134,11 +136,12 @@ Always answers `{ "status": true }` regardless of whether the account exists or 
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Invalid email format |
-| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) or per email (5 req/min) |
-| 503 | service_unavailable | Database unreachable |
+
+| Status | Error Code          | Condition                                               |
+| ------ | ------------------- | ------------------------------------------------------- |
+| 400    | validation_error    | Invalid email format                                    |
+| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min) or per email (5 req/min) |
+| 503    | service_unavailable | Database unreachable                                    |
 
 ---
 
@@ -157,11 +160,12 @@ email succeeds. Returns JSON (no redirect — the frontend routes on `{ status: 
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing, expired or forged token (`Invalid or expired verification link`) |
-| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) |
-| 503 | service_unavailable | Database unreachable |
+
+| Status | Error Code          | Condition                                                                 |
+| ------ | ------------------- | ------------------------------------------------------------------------- |
+| 400    | validation_error    | Missing, expired or forged token (`Invalid or expired verification link`) |
+| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min)                                            |
+| 503    | service_unavailable | Database unreachable                                                      |
 
 ---
 
@@ -189,11 +193,12 @@ account exists (anti-enumeration).
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Invalid email format |
-| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) or per email (5 req/min) |
-| 503 | service_unavailable | Database unreachable |
+
+| Status | Error Code          | Condition                                               |
+| ------ | ------------------- | ------------------------------------------------------- |
+| 400    | validation_error    | Invalid email format                                    |
+| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min) or per email (5 req/min) |
+| 503    | service_unavailable | Database unreachable                                    |
 
 ---
 
@@ -221,11 +226,12 @@ password runs the same weak/breached checks as registration.
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing token, invalid/expired/consumed token (`Invalid or expired reset link`), or invalid password (min 8, max 128, not weak, not breached) |
-| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) |
-| 503 | service_unavailable | Database unreachable |
+
+| Status | Error Code          | Condition                                                                                                                                     |
+| ------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | validation_error    | Missing token, invalid/expired/consumed token (`Invalid or expired reset link`), or invalid password (min 8, max 128, not weak, not breached) |
+| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min)                                                                                                                |
+| 503    | service_unavailable | Database unreachable                                                                                                                          |
 
 ---
 
@@ -259,10 +265,11 @@ Terminate the current session (FR-006). Requires session + CSRF token.
 Emits `session_invalidated` + `logout` audit events (FR-023).
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
+
+| Status | Error Code   | Condition                  |
+| ------ | ------------ | -------------------------- |
+| 401    | unauthorized | No active session          |
+| 403    | csrf_invalid | Missing/invalid CSRF token |
 
 ---
 
@@ -286,10 +293,11 @@ Requires session. PII access is audit-logged (FR-022).
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 401 | unauthorized | No active session |
-| 401 | session_expired | Session past TTL (FR-023, `session_expired` event emitted) |
+
+| Status | Error Code      | Condition                                                  |
+| ------ | --------------- | ---------------------------------------------------------- |
+| 401    | unauthorized    | No active session                                          |
+| 401    | session_expired | Session past TTL (FR-023, `session_expired` event emitted) |
 
 ---
 
@@ -309,10 +317,11 @@ Terminates ALL sessions of the user immediately and emits `session_invalidated`
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
+
+| Status | Error Code   | Condition                  |
+| ------ | ------------ | -------------------------- |
+| 401    | unauthorized | No active session          |
+| 403    | csrf_invalid | Missing/invalid CSRF token |
 
 ---
 
@@ -332,10 +341,11 @@ Automated PII deletion/anonymization queue is out of scope (deferred).
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
+
+| Status | Error Code   | Condition                  |
+| ------ | ------------ | -------------------------- |
+| 401    | unauthorized | No active session          |
+| 403    | csrf_invalid | Missing/invalid CSRF token |
 
 ---
 
@@ -363,9 +373,10 @@ PII access is audit-logged (FR-022).
 Events recorded without a user id (e.g. failed logins for unknown emails) are excluded.
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 401 | unauthorized | No active session |
+
+| Status | Error Code   | Condition         |
+| ------ | ------------ | ----------------- |
+| 401    | unauthorized | No active session |
 
 ---
 
@@ -397,14 +408,15 @@ digits validated when 14 digits are present) and `razaoSocial` are optional.
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing/invalid `name`, oversized fields, or invalid CNPJ check digits |
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
-| 409 | conflict | CNPJ already registered |
-| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) |
-| 503 | service_unavailable | Database unreachable |
+
+| Status | Error Code          | Condition                                                              |
+| ------ | ------------------- | ---------------------------------------------------------------------- |
+| 400    | validation_error    | Missing/invalid `name`, oversized fields, or invalid CNPJ check digits |
+| 401    | unauthorized        | No active session                                                      |
+| 403    | csrf_invalid        | Missing/invalid CSRF token                                             |
+| 409    | conflict            | CNPJ already registered                                                |
+| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min)                                         |
+| 503    | service_unavailable | Database unreachable                                                   |
 
 ---
 
@@ -427,10 +439,11 @@ Requires session.
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing/empty/oversized `q` |
-| 401 | unauthorized | No active session |
+
+| Status | Error Code       | Condition                   |
+| ------ | ---------------- | --------------------------- |
+| 400    | validation_error | Missing/empty/oversized `q` |
+| 401    | unauthorized     | No active session           |
 
 ---
 
@@ -458,13 +471,14 @@ leave the session pointing at a company the user no longer belongs to.
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing `companyId` |
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
-| 403 | forbidden | User is not a member of the specified company |
-| 404 | not_found | Company not found or deleted |
+
+| Status | Error Code       | Condition                                     |
+| ------ | ---------------- | --------------------------------------------- |
+| 400    | validation_error | Missing `companyId`                           |
+| 401    | unauthorized     | No active session                             |
+| 403    | csrf_invalid     | Missing/invalid CSRF token                    |
+| 403    | forbidden        | User is not a member of the specified company |
+| 404    | not_found        | Company not found or deleted                  |
 
 ---
 
@@ -490,14 +504,15 @@ of `name` / `cnpj` / `razaoSocial` must be present. Empty-string `cnpj` /
 **Success Response**: `200 OK` — the updated company row
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing `companyId`, no updatable field, oversized fields, or invalid CNPJ check digits |
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
-| 403 | forbidden | Caller is not a member, or not an owner (`Only company owners can update companies`) |
-| 404 | not_found | Company not found or deleted |
-| 409 | conflict | CNPJ already registered |
+
+| Status | Error Code       | Condition                                                                               |
+| ------ | ---------------- | --------------------------------------------------------------------------------------- |
+| 400    | validation_error | Missing `companyId`, no updatable field, oversized fields, or invalid CNPJ check digits |
+| 401    | unauthorized     | No active session                                                                       |
+| 403    | csrf_invalid     | Missing/invalid CSRF token                                                              |
+| 403    | forbidden        | Caller is not a member, or not an owner (`Only company owners can update companies`)    |
+| 404    | not_found        | Company not found or deleted                                                            |
+| 409    | conflict         | CNPJ already registered                                                                 |
 
 ---
 
@@ -525,13 +540,14 @@ sessions stay valid. Emits a `company_deleted` audit event.
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing `companyId` |
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
-| 403 | forbidden | Caller is not a member, or not an owner (`Only company owners can delete companies`) |
-| 404 | not_found | Company not found (or already deleted) |
+
+| Status | Error Code       | Condition                                                                            |
+| ------ | ---------------- | ------------------------------------------------------------------------------------ |
+| 400    | validation_error | Missing `companyId`                                                                  |
+| 401    | unauthorized     | No active session                                                                    |
+| 403    | csrf_invalid     | Missing/invalid CSRF token                                                           |
+| 403    | forbidden        | Caller is not a member, or not an owner (`Only company owners can delete companies`) |
+| 404    | not_found        | Company not found (or already deleted)                                               |
 
 ---
 
@@ -564,13 +580,14 @@ Omit `userId` to leave the company yourself.
 (or `{ "message": "Left company successfully" }` when leaving)
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | Missing `companyId`, or malformed `userId` |
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
-| 403 | forbidden | Not a member / not an owner when removing others / target is an owner (`Cannot remove a company owner`) |
-| 404 | not_found | Company not found, or member not found |
+
+| Status | Error Code       | Condition                                                                                               |
+| ------ | ---------------- | ------------------------------------------------------------------------------------------------------- |
+| 400    | validation_error | Missing `companyId`, or malformed `userId`                                                              |
+| 401    | unauthorized     | No active session                                                                                       |
+| 403    | csrf_invalid     | Missing/invalid CSRF token                                                                              |
+| 403    | forbidden        | Not a member / not an owner when removing others / target is an owner (`Cannot remove a company owner`) |
+| 404    | not_found        | Company not found, or member not found                                                                  |
 
 ---
 
@@ -607,15 +624,16 @@ expires after 7 days and is consumed on first successful accept. Emits an
 `invite_created` audit event (without the token).
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | `companyId` or `email` missing/invalid |
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
-| 403 | forbidden | Caller is not a member or not an owner of the company |
-| 404 | not_found | Company not found or deleted |
-| 409 | conflict | Invite already exists for this company and email |
-| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) |
+
+| Status | Error Code          | Condition                                             |
+| ------ | ------------------- | ----------------------------------------------------- |
+| 400    | validation_error    | `companyId` or `email` missing/invalid                |
+| 401    | unauthorized        | No active session                                     |
+| 403    | csrf_invalid        | Missing/invalid CSRF token                            |
+| 403    | forbidden           | Caller is not a member or not an owner of the company |
+| 404    | not_found           | Company not found or deleted                          |
+| 409    | conflict            | Invite already exists for this company and email      |
+| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min)                        |
 
 ---
 
@@ -653,14 +671,15 @@ Emits an `invite_accepted` audit event.
 return the same generic 404 — no enumeration.
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | `token` missing |
-| 401 | unauthorized | No active session |
-| 403 | csrf_invalid | Missing/invalid CSRF token |
-| 404 | not_found | Invite not found, expired, already consumed, or email mismatch |
-| 409 | conflict | User is already a member of this company |
-| 429 | rate_limit_exceeded | Rate limit per IP (20 req/min) |
+
+| Status | Error Code          | Condition                                                      |
+| ------ | ------------------- | -------------------------------------------------------------- |
+| 400    | validation_error    | `token` missing                                                |
+| 401    | unauthorized        | No active session                                              |
+| 403    | csrf_invalid        | Missing/invalid CSRF token                                     |
+| 404    | not_found           | Invite not found, expired, already consumed, or email mismatch |
+| 409    | conflict            | User is already a member of this company                       |
+| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min)                                 |
 
 ---
 
@@ -692,12 +711,13 @@ Requires session; caller must be a member of the company.
 ```
 
 **Error Responses**:
-| Status | Error Code | Condition |
-|--------|------------|-----------|
-| 400 | validation_error | `companyId` missing |
-| 401 | unauthorized | No active session |
-| 403 | forbidden | Caller is not a member of the company |
-| 404 | not_found | Company not found or deleted |
+
+| Status | Error Code       | Condition                             |
+| ------ | ---------------- | ------------------------------------- |
+| 400    | validation_error | `companyId` missing                   |
+| 401    | unauthorized     | No active session                     |
+| 403    | forbidden        | Caller is not a member of the company |
+| 404    | not_found        | Company not found or deleted          |
 
 ---
 
