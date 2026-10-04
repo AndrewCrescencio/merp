@@ -1,9 +1,5 @@
 import { sessionRepository } from './session'
 import { userRepository } from './user'
-import type { SignInInput, UpdateUserInput } from './queries'
-import type { RegisterInput } from '../../shared/validate'
-import type { UserResult, SignInResult } from './user'
-import { generateUserId } from './queries'
 
 export class IdentityRepository {
   async validateResetToken(token: string): Promise<boolean> {
@@ -48,6 +44,7 @@ export class IdentityRepository {
   }
 
   async withdrawConsent(userId: string): Promise<UserResult> {
+    await sessionRepository.terminateUserSessions(userId)
     return userRepository.withdrawConsent(userId)
   }
 
