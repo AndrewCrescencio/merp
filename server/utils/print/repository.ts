@@ -1,7 +1,7 @@
-import { withTenant } from '../auth/tenant-context'
-import { sql, eq, and, desc, lt } from 'drizzle-orm'
+import { withTenant } from '../../db/tenant-context'
+import { eq, and, desc, lt } from 'drizzle-orm'
 import { printer, printJob } from '../../schema'
-import type { PrinterSelect, PrintJobSelect, PrinterInsert, PrintJobInsert } from '../../schema'
+import type { PrinterSelect, PrintJobSelect } from '../../schema'
 
 export interface RegisterPrinterInput {
   companyId: string
@@ -23,8 +23,8 @@ export interface EnqueuePrintJobInput {
   priority?: number
 }
 
-const PRINT_JOB_STATUSES = ['pending', 'printing', 'completed', 'failed'] as const
-type PrintJobStatus = (typeof PRINT_JOB_STATUSES)[number]
+const _PRINT_JOB_STATUSES = ['pending', 'printing', 'completed', 'failed'] as const
+type _PrintJobStatus = (typeof _PRINT_JOB_STATUSES)[number]
 
 export const printRepository = {
   async registerPrinter(input: RegisterPrinterInput): Promise<PrinterSelect> {

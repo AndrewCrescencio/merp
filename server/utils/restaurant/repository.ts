@@ -1,5 +1,5 @@
-import { withTenant } from '../auth/tenant-context'
-import { sql, eq, and, desc } from 'drizzle-orm'
+import { withTenant } from '../../db/tenant-context'
+import { eq, and, desc } from 'drizzle-orm'
 import { restaurantTable, kitchenTicket, cashierShift } from '../../schema'
 import type { RestaurantTableSelect, KitchenTicketSelect, CashierShiftSelect } from '../../schema'
 
@@ -261,7 +261,7 @@ export const restaurantRepository = {
         throw new Error(`Shift is not open (current status: ${shift.status})`)
       }
 
-      const closingFloat = Number(input.closingFloat)
+      const _closingFloat = Number(input.closingFloat)
       const expectedAmount = Number(input.expectedAmount)
       const actualAmount = Number(input.actualAmount)
       const difference = actualAmount - expectedAmount

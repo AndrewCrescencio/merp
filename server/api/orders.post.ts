@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, readBody } from 'h3'
-import { orderRepository } from '#utils/auth/order/repository'
+import { orderRepository } from '#utils/order/repository'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -45,8 +45,11 @@ export default defineEventHandler(async (event) => {
       takeout: body.takeout,
     })
     return order
-  } catch (error: any) {
-    if (error.message.includes('duplicate key') || error.message.includes('idempotency')) {
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('duplicate key') || error.message.includes('idempotency'))
+    ) {
       throw createError({ statusCode: 409, message: 'idempotency_key_conflict' })
     }
     throw error

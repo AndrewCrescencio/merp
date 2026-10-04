@@ -9,7 +9,7 @@ import {
   sendNotFoundError,
   isPgConflict,
 } from '../../shared/errors'
-import { withTenant } from '../tenant-context'
+import { withTenant } from '../../db/tenant-context'
 
 export interface CreateInviteInput {
   companyId: string
@@ -74,7 +74,7 @@ export class InviteRepository {
           .returning()
         return { ...toInviteResult(created!), token }
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isPgConflict(error)) {
         sendConflictError('Invite already exists for this company')
       }
@@ -194,7 +194,7 @@ export class InviteRepository {
           tx,
         )
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isPgConflict(error)) {
         sendConflictError('User is already a member of this company')
       }
