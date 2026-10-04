@@ -2,7 +2,7 @@
 
 ## Context
 
-The codebase imports the Drizzle adapter from `@better-auth/drizzle-adapter`. Initial investigation suggested this might not be the official package.
+The codebase imports the Drizzle adapter from `@better-auth/drizzle-adapter`. This was initially investigated to confirm it's the official package.
 
 ## Decision
 
@@ -11,9 +11,9 @@ The import `import { drizzleAdapter } from '@better-auth/drizzle-adapter'` is co
 ## Evidence
 
 - Package: `@better-auth/drizzle-adapter@1.6.26`
-- Repository: `https://github.com/better-auth/better-auth` (monorepo, `packages/drizzle-adapter`)
+- Repository: <https://github.com/better-auth/better-auth> (monorepo, `packages/drizzle-adapter`)
 - Registry: npm public registry
-- Homepage: `https://www.better-auth.com/docs/adapters/drizzle`
+- Homepage: <https://www.better-auth.com/docs/adapters/drizzle>
 - The alternative import path `better-auth/adapters/drizzle` does not exist in the installed `better-auth` package
 
 ## Consequences
@@ -26,3 +26,7 @@ The import `import { drizzleAdapter } from '@better-auth/drizzle-adapter'` is co
 
 - Changing import to `better-auth/adapters/drizzle` — path does not exist
 - Removing `@better-auth/drizzle-adapter` from dependencies — would break resolution since it's not re-exported by `better-auth`
+
+## Verification
+
+This ADR confirms the correct import path. The codebase successfully uses `@better-auth/drizzle-adapter` for the Drizzle adapter, verified in CI and runtime.
