@@ -1,18 +1,22 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 
-const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_test'
+const _INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_test'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
-  let repo: any
-  let company: any
-  let identity: any
+  let repo: import('~~/server/utils/auth/invite/repository').InviteRepository
+  let company: import('~~/server/utils/auth/company/repository').CompanyRepository
+  let membershipRepo: import('~~/server/utils/auth/company/membership').MembershipRepository
+  let _identity: import('~~/server/utils/auth/identity/repository').IdentityRepository
 
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = INTEGRATION_DB_URL
     repo = new (await import('~~/server/utils/auth/invite/repository')).InviteRepository()
     company = new (await import('~~/server/utils/auth/company/repository')).CompanyRepository()
+    membershipRepo = new (
+      await import('~~/server/utils/auth/company/membership')
+    ).MembershipRepository()
   })
 
   const registerUser = (email: string, name: string) =>
@@ -45,14 +49,16 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     expect(pending?.id).toBe(created.id)
 
     const listed = await repo.listCompanyInvites(createdCompany.id)
-    expect(listed.map((i: any) => i.id)).toContain(created.id)
+    expect(listed.map((i: { id: string }) => i.id)).toContain(created.id)
 
     const accepted = await repo.acceptInvite(created.token, inviteeEmail, invitee.id)
     expect(accepted.acceptedAt).toBeInstanceOf(Date)
 
     expect(await repo.findPendingInvite(createdCompany.id, inviteeEmail)).toBeNull()
-    expect(await company.isCompanyMember(invitee.id, createdCompany.id)).toBe(true)
-    expect(await company.getCompanyMembershipRole(invitee.id, createdCompany.id)).toBe('member')
+    expect(await membershipRepo.isCompanyMember(invitee.id, createdCompany.id)).toBe(true)
+    expect(await membershipRepo.getCompanyMembershipRole(invitee.id, createdCompany.id)).toBe(
+      'member',
+    )
   })
 
   it('rejects duplicate invites for the same company and email', async () => {
@@ -77,7 +83,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const owner = await registerUser(ownerEmail, 'Exp Owner')
     const createdCompany = await company.createCompanyWithOwner({ name: 'Exp Company' }, owner.id)
 
-    const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+    const { withTenant } = await import('~~/server/utils/db/tenant-context')
     const { invite } = await import('~~/server/utils/schema')
     const { eq } = await import('drizzle-orm')
 
@@ -87,7 +93,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
       invitedBy: owner.id,
     })
 
-    await withTenant(createdCompany.id, owner.id, async (tx) => {
+    await withTenant(createdCompany.id, null, owner.id, async (tx) => {
       await tx
         .update(invite)
         .set({ expiresAt: new Date(Date.now() - 60_000) })
@@ -124,7 +130,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const inviteeEmail = `diffinvitee-${Date.now()}@example.com`
     const otherEmail = `other-${Date.now()}@example.com`
     const owner = await registerUser(ownerEmail, 'Diff Owner')
-    const invitee = await registerUser(inviteeEmail, 'Diff Invitee')
+    const _invitee = await registerUser(inviteeEmail, 'Diff Invitee')
     const other = await registerUser(otherEmail, 'Other User')
     const createdCompany = await company.createCompanyWithOwner({ name: 'Diff Company' }, owner.id)
 
@@ -141,7 +147,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     // o convite segue válido para o destinatário certo
     const pending = await repo.findPendingInvite(createdCompany.id, inviteeEmail)
     expect(pending?.id).toBe(created.id)
-    expect(await company.isCompanyMember(other.id, createdCompany.id)).toBe(false)
+    expect(await membershipRepo.isCompanyMember(other.id, createdCompany.id)).toBe(false)
   })
 
   it('rejects a forged token (nothing matches an unknown hash)', async () => {
@@ -174,7 +180,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const attacker = await registerUser(attackerEmail, 'Rls Attacker')
     const createdCompany = await company.createCompanyWithOwner({ name: 'Rls Company' }, owner.id)
 
-    const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+    const { withTenant } = await import('~~/server/utils/db/tenant-context')
     const { companyMember } = await import('~~/server/utils/schema')
 
     await expect(
@@ -187,7 +193,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
       }),
     ).rejects.toThrow()
 
-    expect(await company.isCompanyMember(attacker.id, createdCompany.id)).toBe(false)
+    expect(await membershipRepo.isCompanyMember(attacker.id, createdCompany.id)).toBe(false)
   })
 
   it('RLS backstop: member (non-owner) cannot UPDATE invites in the company', async () => {
@@ -200,7 +206,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const owner = await registerUser(ownerEmail, 'Upd Owner')
     const member = await registerUser(memberEmail, 'Upd Member')
     const createdCompany = await company.createCompanyWithOwner({ name: 'Upd Company' }, owner.id)
-    await company.createCompanyMember(createdCompany.id, member.id, 'member')
+    await membershipRepo.createCompanyMember(createdCompany.id, member.id, 'member')
 
     const created = await repo.createInvite({
       companyId: createdCompany.id,
@@ -208,7 +214,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
       invitedBy: owner.id,
     })
 
-    const { withTenant } = await import('~~/server/utils/auth/tenant-context')
+    const { withTenant } = await import('~~/server/utils/db/tenant-context')
     const { invite } = await import('~~/server/utils/schema')
     const { eq } = await import('drizzle-orm')
 
