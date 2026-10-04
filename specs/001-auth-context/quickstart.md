@@ -42,7 +42,8 @@ npm run dev
 | `server/utils/auth/identity/repository.ts`                                                           | Identity + session + verification                                   |
 | `server/utils/auth/company/repository.ts`                                                            | Company + membership                                                |
 | `server/utils/auth/invite/repository.ts`                                                             | Invites                                                             |
-| `server/utils/auth/tenant-context.ts`                                                                | `withTenant`                                                        |
+| `server/utils/db/tenant-context.ts`                                                                  | `withTenant`                                                        |
+| `server/utils/order/repository.ts`                                                                   | Orders                                                              |
 | `server/utils/shared/*`                                                                              | errors, security (rate limit/lockout), audit, csrf, email, ip, etc. |
 | `server/utils/schema/*`                                                                              | Drizzle tables by feature                                           |
 | `server/tasks/purge-*.ts`                                                                            | Retention tasks                                                     |

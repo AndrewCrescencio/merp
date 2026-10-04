@@ -94,12 +94,13 @@ server/
 ├── utils/
 │   ├── schema/                      # Drizzle tables por feature + index.ts (registry)
 │   ├── db.ts                        # Database connection
+│   ├── db/tenant-context.ts         # withTenant (shared infra)
 │   ├── shared/                      # errors, security (+CNPJ), audit, background, purge, csrf, email, ip, hibp, auth-context
-│   └── auth/
-│       ├── identity/repository.ts   # IdentityRepository + identityRepository
-│       ├── company/repository.ts    # CompanyRepository + companyRepository
-│       ├── invite/repository.ts     # InviteRepository + inviteRepository
-│       └── tenant-context.ts        # withTenant
+│   ├── auth/
+│   │   ├── identity/repository.ts   # IdentityRepository + identityRepository
+│   │   ├── company/repository.ts    # CompanyRepository + companyRepository
+│   │   ├── invite/repository.ts     # InviteRepository + inviteRepository
+│   └── order/repository.ts          # OrderRepository + orderRepository
 shared/
 ├── auth.ts                          # Better Auth instance initialization
 └── logger.ts                        # Shared logger

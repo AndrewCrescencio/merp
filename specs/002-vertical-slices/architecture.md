@@ -82,7 +82,7 @@ shared/
 3. **Sem "god objects"**: se um repositório tem mais de ~8–10 métodos ou
    toca mais de 3 tabelas, é sinal de que há mais de uma feature ali dentro.
 4. **Fronteiras por domínio de negócio**, não por camada técnica.
-5. **Infra compartilhada explícita**: `db.ts`, `tenant-context.ts`,
+5. **Infra compartilhada explícita**: `db.ts`, `db/tenant-context.ts`,
    `schema registry`, contrato de erros ficam num diretório `shared` do
    servidor — a única exceção à regra da verticalidade.
 
@@ -145,8 +145,8 @@ server/
     │   ├── ip.ts                                # getClientIp (TRUST_PROXY)
     │   ├── purge.ts                             # corpo compartilhado das purge tasks
     │   └── security.ts                          # rate limit + lockout + CNPJ (auth_security_state)
+    ├── db/tenant-context.ts                     # withTenant (infra de tenant, usado pelas features)
     └── auth/                                    # ← VERTICAL SLICES
-        ├── tenant-context.ts                    # withTenant (infra de tenant, usado pelas features)
         ├── identity/                            # FEATURE: conta + sessão
         │   ├── repository.ts                    # IdentityRepository + identityRepository
         │   └── repository.test.ts               # integração (DB real)
@@ -201,14 +201,14 @@ shared/                                        # infra do app (inalterado)
 concluídas. Desvios do plano: sem `dto.ts` por feature (os DTOs ficaram no
 próprio `repository.ts`); sem interfaces `I*Repository` nem classes
 `Drizzle*` (classe concreta + singleton por feature); `db.ts`,
-`tenant-context.ts`, `apply-custom-sql.ts`
+`db/tenant-context.ts`, `apply-custom-sql.ts`
 e `test-setup.ts` permaneceram em `server/utils/` (não movidos para
 `shared/`); `security` e `audit` foram para `server/utils/shared/` (D3).
 Pendente: Fase 5 (verificação final) e Fase 6 (governança).
 
 ### Fase 0 — Fundação (sem mudança de comportamento)
 
-- Criar `server/utils/shared/` e mover: `db.ts`, `tenant-context.ts`,
+- Criar `server/utils/shared/` e mover: `db.ts`, `db/tenant-context.ts`,
   `apply-custom-sql.ts`, `test-setup.ts`.
 - Mover helpers de erro HTTP (`sendXxxError`, `classifyDatabaseError`,
   `handleDatabaseError`, `withTimeout`, `TimeoutError`) para
