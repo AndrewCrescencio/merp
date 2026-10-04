@@ -20,24 +20,28 @@ const mockTx = {
   },
 }
 
+type MockTx = typeof mockTx
+
 const mockWithTenant = vi.fn(
   async (
     tenantId: string | null,
     locationId: string | null,
     userId: string | null,
-    fn: any,
-    existingTx?: any,
+    fn: (tx: MockTx) => Promise<unknown>,
+    existingTx?: MockTx,
   ) => {
     return fn(existingTx || mockTx)
   },
 )
 
 vi.mock('../db', () => ({
-  db: {},
+  db: {
+    transaction: vi.fn(async (fn: (tx: MockTx) => Promise<unknown>) => fn(mockTx)),
+  },
   withTenant: mockWithTenant,
 }))
 
-vi.mock('../../schema', () => ({
+vi.mock('../schema', () => ({
   order: { id: 'id', companyId: 'company_id' },
   orderItem: {},
   orderDineIn: {},
@@ -48,7 +52,7 @@ vi.mock('../../schema', () => ({
   desc: vi.fn(),
 }))
 
-vi.mock('../tenant-context', () => ({
+vi.mock('../db/tenant-context', () => ({
   withTenant: mockWithTenant,
 }))
 

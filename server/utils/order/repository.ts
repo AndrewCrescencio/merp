@@ -1,13 +1,14 @@
-import { withTenant } from '../tenant-context'
-import { sql, eq, and, desc } from 'drizzle-orm'
-import { order, orderItem, orderDineIn, orderTakeout } from '../../schema'
-import type { OrderSelect, OrderItemSelect } from '../../schema'
+import { withTenant } from '../db/tenant-context'
+import type { Tx } from '../db'
+import { eq, and, desc } from 'drizzle-orm'
+import { order, orderItem, orderDineIn, orderTakeout } from '../schema'
+import type { OrderSelect, OrderItemSelect } from '../schema'
 
-const VALID_STATUSES = ['open', 'completed', 'cancelled'] as const
-const VALID_ORDER_TYPES = ['dine_in', 'takeout'] as const
+const _VALID_STATUSES = ['open', 'completed', 'cancelled'] as const
+const _VALID_ORDER_TYPES = ['dine_in', 'takeout'] as const
 
-type OrderStatus = (typeof VALID_STATUSES)[number]
-type OrderType = (typeof VALID_ORDER_TYPES)[number]
+type OrderStatus = (typeof _VALID_STATUSES)[number]
+type OrderType = (typeof _VALID_ORDER_TYPES)[number]
 
 interface CreateOrderInput {
   companyId: string
@@ -44,7 +45,7 @@ interface OrderWithItems extends OrderSelect {
   takeout?: { pickupAt: Date | null; pickupName: string | null; pickupPhone: string | null }
 }
 
-async function enrichOrder(tx: any, orderRow: OrderSelect): Promise<OrderWithItems | null> {
+async function enrichOrder(tx: Tx, orderRow: OrderSelect): Promise<OrderWithItems | null> {
   if (!orderRow) return null
 
   const items = await tx.query.orderItem.findMany({
@@ -112,14 +113,14 @@ export const orderRepository = {
         .returning()
 
       let totalAmount = 0
-      for (const item of input.items) {
+      const itemRows = input.items.map((item, _index) => {
         const unitPrice = Number(item.unitPrice)
         const quantity = Number(item.quantity)
         const discount = Number(item.discountApplied || '0')
         const lineTotal = Math.round((unitPrice * quantity - discount) * 100) / 100
         totalAmount += lineTotal
 
-        await tx.insert(orderItem).values({
+        return {
           companyId: input.companyId,
           locationId: input.locationId,
           orderId: newOrder.id,
@@ -130,7 +131,11 @@ export const orderRepository = {
           taxSnapshot: item.taxSnapshot,
           bomSnapshot: item.bomSnapshot,
           discountApplied: item.discountApplied || '0',
-        })
+        }
+      })
+
+      if (itemRows.length > 0) {
+        await tx.insert(orderItem).values(itemRows)
       }
 
       await tx
@@ -163,7 +168,7 @@ export const orderRepository = {
   async getById(
     companyId: string,
     orderId: string,
-    existingTx?: any,
+    existingTx?: Tx,
   ): Promise<OrderWithItems | null> {
     if (existingTx) {
       const orderRow = await existingTx.query.order.findFirst({
