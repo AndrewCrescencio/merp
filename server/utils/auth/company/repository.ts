@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { and, eq, like, or } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../db'
-import { company } from '../../schema'
+import { company, companyMember, session } from '../../schema'
 import { createError, H3Error } from 'h3'
 import {
   handleDatabaseError,
@@ -9,7 +9,7 @@ import {
   sendNotFoundError,
   isPgConflict,
 } from '../../shared/errors'
-import { withTenant } from '../tenant-context'
+import { withTenant } from '../../db/tenant-context'
 
 export function escapeLikePattern(query: string): string {
   return query.replace(/[\\%_]/g, (c) => `\\${c}`)
@@ -40,7 +40,7 @@ export class CompanyRepository {
   async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
     try {
       const companyId = randomUUID()
-      return await withTenant(companyId, null, async (tx) => {
+      return await withTenant(companyId, null, null, async (tx) => {
         const [created] = await tx
           .insert(company)
           .values({
@@ -53,7 +53,7 @@ export class CompanyRepository {
 
         return created!
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isPgConflict(error)) {
         throw createError({
           status: 409,
@@ -81,6 +81,7 @@ export class CompanyRepository {
         const companyId = randomUUID()
         const created = await withTenant(
           companyId,
+          null,
           ownerUserId,
           async (ctxTx) => {
             await ctxTx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
@@ -103,7 +104,7 @@ export class CompanyRepository {
 
         return created
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isPgConflict(error)) {
         throw createError({
           status: 409,
@@ -121,7 +122,7 @@ export class CompanyRepository {
   /** Finds a non-deleted company visible to the user, or null (RLS outsiders get null). */
   async findCompanyById(id: string, userId: string): Promise<CompanyResult | null> {
     try {
-      return await withTenant(null, userId, async (tx) => {
+      return await withTenant(null, null, userId, async (tx) => {
         const [found] = await tx
           .select()
           .from(company)
@@ -130,7 +131,7 @@ export class CompanyRepository {
 
         return found || null
       })
-    } catch (error) {
+    } catch (error: unknown) {
       return handleDatabaseError(error)
     }
   }
@@ -141,7 +142,7 @@ export class CompanyRepository {
    */
   async softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult> {
     try {
-      return await withTenant(companyId, userId, async (tx) => {
+      return await withTenant(companyId, null, userId, async (tx) => {
         const [updated] = await tx
           .update(company)
           .set({ isDeleted: true, updatedAt: new Date() })
@@ -159,7 +160,7 @@ export class CompanyRepository {
 
         return updated!
       })
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof H3Error) {
         throw error
       }
@@ -178,7 +179,7 @@ export class CompanyRepository {
     input: Partial<CreateCompanyInput>,
   ): Promise<CompanyResult> {
     try {
-      return await withTenant(companyId, userId, async (tx) => {
+      return await withTenant(companyId, null, userId, async (tx) => {
         const updates: Partial<typeof company.$inferInsert> = { updatedAt: new Date() }
         if (input.name !== undefined) updates.name = input.name
         if (input.cnpj !== undefined) updates.cnpj = input.cnpj || null
@@ -195,7 +196,7 @@ export class CompanyRepository {
         }
         return updated!
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isPgConflict(error)) {
         sendConflictError('CNPJ already registered')
       }

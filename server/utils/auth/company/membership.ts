@@ -8,7 +8,11 @@ import {
   sendNotFoundError,
   isPgConflict,
 } from '../../shared/errors'
-import { withTenant } from '../tenant-context'
+import { withTenant } from '../../db/tenant-context'
+
+export function escapeLikePattern(query: string): string {
+  return query.replace(/[\\%_]/g, (c) => `\\${c}`)
+}
 
 export interface CompanyMemberResult {
   id: string
@@ -37,7 +41,7 @@ export class MembershipRepository {
       )
     }
     try {
-      return await withTenant(companyId, userId, async (tx) => {
+      return await withTenant(companyId, null, userId, async (tx) => {
         await tx.execute(sql`SELECT set_config('app.allow_member_bootstrap', 'true', true)`)
         const [created] = await tx
           .insert(companyMember)
@@ -45,7 +49,7 @@ export class MembershipRepository {
           .returning()
         return created!
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isPgConflict(error)) {
         throw createError({
           status: 409,
@@ -64,10 +68,13 @@ export class MembershipRepository {
    * Searches non-deleted companies the user belongs to (max 20, LIKE on
    * name/CNPJ with escaped wildcards).
    */
-  async searchCompanies(query: string, userId: string): Promise<Array<CompanyResult & { role: string }>> {
+  async searchCompanies(
+    query: string,
+    userId: string,
+  ): Promise<Array<CompanyResult & { role: string }>> {
     try {
       const pattern = `%${escapeLikePattern(query)}%`
-      return await withTenant(null, userId, async (tx) => {
+      return await withTenant(null, null, userId, async (tx) => {
         return await tx
           .select({
             id: company.id,
@@ -90,7 +97,7 @@ export class MembershipRepository {
           )
           .limit(20)
       })
-    } catch (error) {
+    } catch (error: unknown) {
       return handleDatabaseError(error)
     }
   }
@@ -98,7 +105,7 @@ export class MembershipRepository {
   /** Lists non-deleted companies the user belongs to, each with its membership role. */
   async findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>> {
     try {
-      return await withTenant(null, userId, async (tx) => {
+      return await withTenant(null, null, userId, async (tx) => {
         return await tx
           .select({
             id: company.id,
@@ -114,7 +121,7 @@ export class MembershipRepository {
           .innerJoin(company, eq(companyMember.companyId, company.id))
           .where(and(eq(companyMember.userId, userId), eq(company.isDeleted, false)))
       })
-    } catch (error) {
+    } catch (error: unknown) {
       return handleDatabaseError(error)
     }
   }
@@ -122,7 +129,7 @@ export class MembershipRepository {
   /** True when the user is a member of the company. */
   async isCompanyMember(userId: string, companyId: string): Promise<boolean> {
     try {
-      return await withTenant(companyId, userId, async (tx) => {
+      return await withTenant(companyId, null, userId, async (tx) => {
         const [found] = await tx
           .select({ id: companyMember.id })
           .from(companyMember)
@@ -130,7 +137,7 @@ export class MembershipRepository {
           .limit(1)
         return !!found
       })
-    } catch (error) {
+    } catch (error: unknown) {
       return handleDatabaseError(error)
     }
   }
@@ -138,7 +145,7 @@ export class MembershipRepository {
   /** Returns the membership role (`owner`|`member`) or null for non-members. */
   async getCompanyMembershipRole(userId: string, companyId: string): Promise<string | null> {
     try {
-      return await withTenant(companyId, userId, async (tx) => {
+      return await withTenant(companyId, null, userId, async (tx) => {
         const [found] = await tx
           .select({ role: companyMember.role })
           .from(companyMember)
@@ -146,7 +153,7 @@ export class MembershipRepository {
           .limit(1)
         return found?.role ?? null
       })
-    } catch (error) {
+    } catch (error: unknown) {
       return handleDatabaseError(error)
     }
   }
@@ -163,7 +170,7 @@ export class MembershipRepository {
     targetUserId: string,
   ): Promise<void> {
     try {
-      return await withTenant(companyId, executedByUserId, async (tx) => {
+      return await withTenant(companyId, null, executedByUserId, async (tx) => {
         const deleted = await tx
           .delete(companyMember)
           .where(
@@ -180,7 +187,7 @@ export class MembershipRepository {
           .set({ activeCompanyId: null, updatedAt: new Date() })
           .where(and(eq(session.userId, targetUserId), eq(session.activeCompanyId, companyId)))
       })
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof H3Error) {
         throw error
       }
@@ -198,7 +205,7 @@ export class MembershipRepository {
     userId: string,
   ): Promise<void> {
     try {
-      await withTenant(companyId, userId, async (tx) => {
+      await withTenant(companyId, null, userId, async (tx) => {
         if (companyId !== null) {
           const [membership] = await tx
             .select({ id: companyMember.id })
@@ -216,7 +223,7 @@ export class MembershipRepository {
           .set({ activeCompanyId: companyId, updatedAt: new Date() })
           .where(eq(session.id, sessionId))
       })
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof H3Error) {
         throw error
       }
@@ -234,7 +241,7 @@ export class MembershipRepository {
         .limit(1)
 
       return found?.activeCompanyId || null
-    } catch (error) {
+    } catch (error: unknown) {
       return handleDatabaseError(error)
     }
   }
