@@ -13,11 +13,12 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     process.env.APP_DATABASE_URL = INTEGRATION_DB_URL
     repo = new (await import('~~/server/utils/auth/invite/repository')).InviteRepository()
     company = new (await import('~~/server/utils/auth/company/repository')).CompanyRepository()
-    identity = new (await import('~~/server/utils/auth/identity/repository')).IdentityRepository()
   })
 
   const registerUser = (email: string, name: string) =>
-    identity.register({ email, password: 'password123', name })
+    import('~~/server/utils/auth/identity/queries').then((m) =>
+      m.registerUser({ email, password: 'password123', name }),
+    )
 
   it('creates, lists, finds and accepts an invite by token', async () => {
     const ownerEmail = `owner-${Date.now()}@example.com`
@@ -177,7 +178,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const { companyMember } = await import('~~/server/utils/schema')
 
     await expect(
-      withTenant(createdCompany.id, attacker.id, async (tx) => {
+      withTenant(createdCompany.id, null, attacker.id, async (tx) => {
         await tx.insert(companyMember).values({
           companyId: createdCompany.id,
           userId: attacker.id,
@@ -214,7 +215,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     // RLS de UPDATE filtra silenciosamente (0 rows) — o member não vê erro,
     // mas a linha não muda; o invite continua intacto para o destinatário.
     const hijackedEmail = `hijack-${Date.now()}@example.com`
-    const rows = await withTenant(createdCompany.id, member.id, async (tx) => {
+    const rows = await withTenant(createdCompany.id, null, member.id, async (tx) => {
       return tx
         .update(invite)
         .set({ email: hijackedEmail })

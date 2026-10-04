@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 
-const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_test'
+const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5433/merp_test'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
@@ -11,11 +11,12 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = INTEGRATION_DB_URL
     repo = new (await import('~~/server/utils/auth/company/repository')).CompanyRepository()
-    identity = new (await import('~~/server/utils/auth/identity/repository')).IdentityRepository()
   })
 
   const registerUser = (email: string, name: string) =>
-    identity.register({ email, password: 'password123', name })
+    import('~~/server/utils/auth/identity/queries').then((m) =>
+      m.registerUser({ email, password: 'password123', name }),
+    )
 
   describe('RLS isolation', () => {
     it('prevents cross-tenant member visibility', async () => {
@@ -53,7 +54,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
 
       // cm_select_policy confia no tenant context (fornecido pelo app, não pelo
       // atacante) — sem contexto, user A não vê nada da empresa B (fail-closed).
-      const rows = await withTenant(null, userA.id, (tx) =>
+      const rows = await withTenant(null, null, userA.id, (tx) =>
         tx.select().from(companyMember).where(eq(companyMember.companyId, companyB.id)),
       )
 
@@ -74,7 +75,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const { company } = await import('~~/server/utils/schema')
       const { eq } = await import('drizzle-orm')
 
-      const updated = await withTenant(companyB.id, userA.id, (tx) =>
+      const updated = await withTenant(companyB.id, null, userA.id, (tx) =>
         tx.update(company).set({ name: 'Hacked' }).where(eq(company.id, companyB.id)).returning(),
       )
 
@@ -208,7 +209,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       // Raw SQL com o flag de member no GUC — a policy (0014) exige o flag de
       // founder para role='owner'; role='member' é negado pelo flag errado.
       await expect(
-        withTenant(company.id, attacker.id, async (tx) => {
+        withTenant(company.id, null, attacker.id, async (tx) => {
           await tx.execute(sql`SELECT set_config('app.allow_member_bootstrap', 'true', true)`)
           await tx.insert(companyMember).values({
             companyId: company.id,
@@ -231,7 +232,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const { getPostgresErrorCode } = await import('~~/server/utils/shared/errors')
 
       await expect(
-        withTenant(company.id, member.id, (tx) =>
+        withTenant(company.id, null, member.id, (tx) =>
           tx
             .update(companyMember)
             .set({ role: 'owner' })
@@ -254,7 +255,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const { getPostgresErrorCode } = await import('~~/server/utils/shared/errors')
 
       await expect(
-        withTenant(companyA.id, member.id, (tx) =>
+        withTenant(companyA.id, null, member.id, (tx) =>
           tx
             .update(companyMember)
             .set({ companyId: companyB.id })

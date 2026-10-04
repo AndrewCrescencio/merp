@@ -1,0 +1,20 @@
+import { createError, defineEventHandler } from 'h3'
+import { restaurantRepository } from '#utils/restaurant/repository'
+
+export default defineEventHandler(async (event) => {
+  const auth = event.context.auth
+
+  if (!auth?.user) {
+    throw createError({ statusCode: 401, message: 'unauthenticated' })
+  }
+
+  const { companyId, locationId } = auth.session
+
+  const shift = await restaurantRepository.getCurrentUserShift(companyId, locationId, auth.user.id)
+
+  if (!shift) {
+    throw createError({ statusCode: 404, message: 'no_open_shift' })
+  }
+
+  return shift
+})
