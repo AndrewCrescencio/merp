@@ -45,7 +45,7 @@ Base: `docs/audit/2026-10-03-simplificacao-auditoria.md`. HEAD `2de2d20`. Branch
 | T15 | P2 | docs | Atualizar `specs/README.md`: remover números congelados, refletir estado real (006 implementing, 007 pending, restaurant pending), mover audits archived para `_archive/` | `specs/README.md`, `docs/audit/` → `docs/_archive/audit/` | 1h / Baixo | `pnpm docs:validate`, `pnpm docs:links` | — | `docs: update specs/README + archive old audits` | done (ddfe7ea) |
 | T16 | P2 | docs | Simplificar `docs/_meta/doc-standards.md`: frontmatter 16→8 campos, 1 reviewer, templates opcionais, remover mkdocs/cspell/markdownlint obrigatórios | `docs/_meta/doc-standards.md`, `docs/_meta/scripts/validate-frontmatter.ts` | 2h / Médio | `pnpm docs:validate`, `pnpm docs:ci` | — | `docs: simplify doc-standards to MVP minimum` | done (ab35de0) |
 | T17 | P3 | chore | Squash migrations 0000-0021 → 1 arquivo inicial + RLS no journal Drizzle; tornar `db:migrate:full` = só `drizzle-kit migrate` | `drizzle/*.sql`, `scripts/apply-custom-sql.ts`, `package.json` | 3h / Alto | `pnpm db:migrate:full` (clean DB), `DB_AVAILABLE=true pnpm test` | T03 | `chore(db): squash migrations + RLS in journal` | pending |
-| T18 | P3 | chore | Adicionar ESLint `no-restricted-imports` para feature boundaries (ex: `server/utils/auth/identity` não importa `company`) | `eslint.config.mjs` | 1h / Baixo | `pnpm lint` | T04 | `chore(lint): add feature boundary import restrictions` | in-progress |
+| T18 | P3 | chore | Adicionar ESLint `no-restricted-imports` para feature boundaries (ex: `server/utils/auth/identity` não importa `company`) | `eslint.config.mjs` | 1h / Baixo | `pnpm lint` | T04 | `chore(lint): add feature boundary import restrictions` | done (346f798) |
 | T19 | P3 | chore | Criar `.github/workflows/docs.yml` para CI docs (validate + links + lint) | `.github/workflows/docs.yml` | 0.5h / Baixo | `git push` → Actions passa | — | `ci(docs): add docs validation workflow` | done (64419b0) |
 
 ---
@@ -158,7 +158,8 @@ Base: `docs/audit/2026-10-03-simplificacao-auditoria.md`. HEAD `2de2d20`. Branch
 | Quick Wins (T08-T10) | ~10 | 10 | ADR duplication, broken refs | 2FA residuals, 10 ADRs, broken links fixed |
 | Quick Wins (T11, T15-T16) | ~360 | 0 | doc-standards governance, idempotency table | 461→190 lines, 16→8 fields, 2→1 reviewer, idempotency_record removed from spec |
 | Core Refactors (T05-T06) | ~200 | 0 | auth.api wrappers, CompanyRepository split | 6 wrappers removed, 26M→6M+12M |
+| Core Refactors (T18) | ~0 | 0 | lint rule added | Feature boundary ESLint rules prevent cross-feature coupling |
 | MVP Implementation (T12-T14) | — | — | — | Adição, não remoção |
-| Polish (T17-T19) | ~ | ~ | ~ | |
+| Polish (T17, T19) | ~ | ~ | ~ | |
 
 *Executar `/ponytail-gain` ao final de cada bloco e registrar aqui.*
