@@ -60,7 +60,7 @@ export class InviteRepository {
    */
   async createInvite(input: CreateInviteInput): Promise<CreatedInviteResult> {
     try {
-      return await withTenant(input.companyId, input.invitedBy, async (tx) => {
+      return await withTenant(input.companyId, null, input.invitedBy, async (tx) => {
         const { token, tokenHash } = generateToken()
         const [created] = await tx
           .insert(invite)
@@ -85,7 +85,7 @@ export class InviteRepository {
   /** Finds a non-expired, unaccepted invite for (company, email), or null. */
   async findPendingInvite(companyId: string, email: string): Promise<InviteResult | null> {
     try {
-      return await withTenant(companyId, null, async (tx) => {
+      return await withTenant(companyId, null, null, async (tx) => {
         const [found] = await tx
           .select()
           .from(invite)
@@ -108,7 +108,7 @@ export class InviteRepository {
   /** Lists a company's invites as metadata (never tokens). */
   async listCompanyInvites(companyId: string): Promise<InviteResult[]> {
     try {
-      return await withTenant(companyId, null, async (tx) => {
+      return await withTenant(companyId, null, null, async (tx) => {
         return (await tx.select().from(invite).where(eq(invite.companyId, companyId))).map(
           toInviteResult,
         )
@@ -136,6 +136,7 @@ export class InviteRepository {
       return await db.transaction(async (tx) => {
         const pending = await withTenant(
           null,
+          null,
           userId,
           async (t) => {
             await t.execute(sql`SELECT set_config('app.invite_token_hash', ${tokenHash}, true)`)
@@ -162,6 +163,7 @@ export class InviteRepository {
 
         return withTenant(
           pending!.companyId,
+          null,
           userId,
           async (t) => {
             await t.execute(sql`SELECT set_config('app.invite_token_hash', ${tokenHash}, true)`)

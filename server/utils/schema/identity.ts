@@ -39,6 +39,7 @@ export const session = pgTable(
     userAgent: text('user_agent'),
     rememberMe: boolean('remember_me').notNull().default(false),
     activeCompanyId: text('active_company_id'),
+    activeLocationId: text('active_location_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

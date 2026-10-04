@@ -66,6 +66,10 @@ export async function setup(): Promise<void> {
     console.log('[test-setup] Base de dados merp_test já existe')
   }
 
+  console.log('[test-setup] A criar função round_half_up...')
+  run(
+    `docker compose -f "${COMPOSE_FILE}" exec -T postgres psql -U merp -d merp_test -v ON_ERROR_STOP=1 -c "DROP FUNCTION IF EXISTS round_half_up(numeric) CASCADE; CREATE OR REPLACE FUNCTION round_half_up(v numeric) RETURNS numeric(12,2) LANGUAGE sql IMMUTABLE AS \\$\\$ SELECT floor(v * 100 + 0.5) / 100.0; \\$\\$;"`,
+  )
   console.log('[test-setup] A sincronizar schema...')
   run(
     `DATABASE_URL="${TEST_DB_URL}" npx drizzle-kit push --config="${resolve(__dirname, '../../drizzle.config.ts')}"`,
