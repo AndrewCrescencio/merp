@@ -39,7 +39,7 @@ describe.skipIf(!dbAvailable)('withTenant (integration)', () => {
     `)
     // Fail-closed: fora da transação o GUC volta a ausente (NULL) ou vazio
     // ('') — ambos mapeiam para NULL via NULLIF no get_tenant_id() → RLS nega.
-    expect([null, '']).toContain((row as any).tenant_id)
+    expect([null, '']).toContain((row as { tenant_id: string | null }).tenant_id)
   })
 
   it('reuses an existing transaction when existingTx is passed', async () => {
@@ -90,7 +90,7 @@ describe.skipIf(!dbAvailable)('withTenant (integration)', () => {
     const [row] = await db.execute(sql`
       SELECT current_setting('app.tenant_id', true) AS tenant_id
     `)
-    expect([null, '']).toContain((row as any).tenant_id)
+    expect([null, '']).toContain((row as { tenant_id: string | null }).tenant_id)
   })
 
   it('clears outer tenant when nested withTenant(null) reuses the transaction', async () => {
