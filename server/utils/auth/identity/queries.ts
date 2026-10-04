@@ -27,6 +27,10 @@ export interface SignInResult extends UserResult {
   setCookie: string[]
 }
 
+export async function validateResetToken(token: string): Promise<boolean> {
+  return userRepository.validateResetToken(token)
+}
+
 async function runTimingPad(email: string, headers?: Headers): Promise<void> {
   const authInstance = (await callBetterAuth(async (auth) => auth)) as AuthInstance
   await callBetterAuth(

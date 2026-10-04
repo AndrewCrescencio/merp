@@ -70,7 +70,7 @@ function mockUserRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-describe('IdentityRepository.signIn — AUD-07 timing pad', () => {
+describe('signInUser — AUD-07 timing pad', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAuthApi()
@@ -82,11 +82,10 @@ describe('IdentityRepository.signIn — AUD-07 timing pad', () => {
       Object.assign(new Error('Invalid email or password'), { statusCode: 401 }),
     )
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { signInUser } = await import('./queries')
 
     await expect(
-      repo.signIn({ email: 'existing@example.com', password: 'real-password' }, new Headers()),
+      signInUser({ email: 'existing@example.com', password: 'real-password' }, new Headers()),
     ).rejects.toMatchObject({
       statusCode: 401,
       message: expect.stringContaining('account_deactivated'),
@@ -103,11 +102,10 @@ describe('IdentityRepository.signIn — AUD-07 timing pad', () => {
     mockLimit.mockResolvedValue([mockUserRow({ isActive: false })])
     mockSignInEmail.mockResolvedValue({ response: { token: 'leaked-token' } })
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { signInUser } = await import('./queries')
 
     await expect(
-      repo.signIn({ email: 'existing@example.com', password: 'real-password' }, new Headers()),
+      signInUser({ email: 'existing@example.com', password: 'real-password' }, new Headers()),
     ).rejects.toMatchObject({
       statusCode: 401,
       message: expect.stringContaining('account_deactivated'),
@@ -124,11 +122,10 @@ describe('IdentityRepository.signIn — AUD-07 timing pad', () => {
       Object.assign(new Error('Invalid email or password'), { statusCode: 401 }),
     )
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { signInUser } = await import('./queries')
 
     await expect(
-      repo.signIn({ email: 'missing@example.com', password: 'real-password' }, new Headers()),
+      signInUser({ email: 'missing@example.com', password: 'real-password' }, new Headers()),
     ).rejects.toMatchObject({ statusCode: 401 })
 
     expect(mockSignInEmail).toHaveBeenCalledTimes(1)
@@ -142,11 +139,10 @@ describe('IdentityRepository.signIn — AUD-07 timing pad', () => {
       Object.assign(new Error('Email not verified'), { statusCode: 403 }),
     )
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { signInUser } = await import('./queries')
 
     await expect(
-      repo.signIn({ email: 'existing@example.com', password: 'real-password' }, new Headers()),
+      signInUser({ email: 'existing@example.com', password: 'real-password' }, new Headers()),
     ).rejects.toMatchObject({
       statusCode: 403,
       message: expect.stringContaining('email_not_verified'),
@@ -154,103 +150,95 @@ describe('IdentityRepository.signIn — AUD-07 timing pad', () => {
   })
 })
 
-describe('IdentityRepository — AUD-04 email verification & password reset flows', () => {
+describe('AUD-04 email verification & password reset flows', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAuthApi()
   })
 
-  it('sendVerificationEmail delegates email and wraps in timeout', async () => {
+  it('sendVerificationEmailBA delegates email and wraps in timeout', async () => {
     mockSendVerificationEmail.mockResolvedValue({ status: true })
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { sendVerificationEmailBA } = await import('./queries')
 
-    await expect(repo.sendVerificationEmail('user@example.com')).resolves.toBeUndefined()
+    await expect(sendVerificationEmailBA('user@example.com')).resolves.toBeUndefined()
     expect(mockSendVerificationEmail).toHaveBeenCalledWith({ body: { email: 'user@example.com' } })
   })
 
-  it('sendVerificationEmail maps upstream timeout to 503', async () => {
+  it('sendVerificationEmailBA maps upstream timeout to 503', async () => {
     const { TimeoutError } = await import('../../shared/errors')
     mockSendVerificationEmail.mockRejectedValue(new TimeoutError(5_000))
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { sendVerificationEmailBA } = await import('./queries')
 
-    await expect(repo.sendVerificationEmail('user@example.com')).rejects.toMatchObject({
+    await expect(sendVerificationEmailBA('user@example.com')).rejects.toMatchObject({
       statusCode: 503,
       message: expect.stringContaining('upstream_timeout'),
     })
   })
 
-  it('verifyEmail delegates token to better-auth', async () => {
+  it('verifyEmailBA delegates token to better-auth', async () => {
     mockVerifyEmail.mockResolvedValue({ status: true, user: null })
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { verifyEmailBA } = await import('./queries')
 
-    await expect(repo.verifyEmail('signed-jwt')).resolves.toBeUndefined()
+    await expect(verifyEmailBA('signed-jwt')).resolves.toBeUndefined()
     expect(mockVerifyEmail).toHaveBeenCalledWith({ query: { token: 'signed-jwt' } })
   })
 
-  it('verifyEmail maps invalid/expired token (APIError 400/401) to generic 400', async () => {
+  it('verifyEmailBA maps invalid/expired token (APIError 400/401) to generic 400', async () => {
     mockVerifyEmail.mockRejectedValue(
       Object.assign(new Error('Invalid token'), { statusCode: 401 }),
     )
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { verifyEmailBA } = await import('./queries')
 
-    await expect(repo.verifyEmail('bogus')).rejects.toMatchObject({
+    await expect(verifyEmailBA('bogus')).rejects.toMatchObject({
       statusCode: 400,
       message: expect.stringContaining('Invalid or expired verification link'),
     })
   })
 
-  it('verifyEmail maps upstream timeout to 503', async () => {
+  it('verifyEmailBA maps upstream timeout to 503', async () => {
     const { TimeoutError } = await import('../../shared/errors')
     mockVerifyEmail.mockRejectedValue(new TimeoutError(5_000))
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { verifyEmailBA } = await import('./queries')
 
-    await expect(repo.verifyEmail('signed-jwt')).rejects.toMatchObject({ statusCode: 503 })
+    await expect(verifyEmailBA('signed-jwt')).rejects.toMatchObject({ statusCode: 503 })
   })
 
-  it('requestPasswordReset delegates email with app origin as redirectTo', async () => {
+  it('requestPasswordResetBA delegates email with app origin as redirectTo', async () => {
     mockRequestPasswordReset.mockResolvedValue({ status: true })
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { requestPasswordResetBA } = await import('./queries')
 
-    await expect(repo.requestPasswordReset('user@example.com')).resolves.toBeUndefined()
+    await expect(requestPasswordResetBA('user@example.com')).resolves.toBeUndefined()
     expect(mockRequestPasswordReset).toHaveBeenCalledWith({
       body: { email: 'user@example.com', redirectTo: 'http://localhost:3000' },
     })
   })
 
-  it('resetPassword delegates token and new password', async () => {
+  it('resetPasswordBA delegates token and new password', async () => {
     mockResetPassword.mockResolvedValue({ status: true })
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { resetPasswordBA } = await import('./queries')
 
-    await expect(repo.resetPassword('reset-token', 'new-password-123')).resolves.toBeUndefined()
+    await expect(resetPasswordBA('reset-token', 'new-password-123')).resolves.toBeUndefined()
     expect(mockResetPassword).toHaveBeenCalledWith({
       query: { token: 'reset-token' },
       body: { newPassword: 'new-password-123' },
     })
   })
 
-  it('resetPassword maps invalid/consumed/expired token (400) to generic 400', async () => {
+  it('resetPasswordBA maps invalid/consumed/expired token (400) to generic 400', async () => {
     mockResetPassword.mockRejectedValue(
       Object.assign(new Error('Invalid token'), { statusCode: 400 }),
     )
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { resetPasswordBA } = await import('./queries')
 
-    await expect(repo.resetPassword('bogus', 'new-password-123')).rejects.toMatchObject({
+    await expect(resetPasswordBA('bogus', 'new-password-123')).rejects.toMatchObject({
       statusCode: 400,
       message: expect.stringContaining('Invalid or expired reset link'),
     })
@@ -259,18 +247,16 @@ describe('IdentityRepository — AUD-04 email verification & password reset flow
   it('validateResetToken resolves true when a fresh reset record exists', async () => {
     mockLimit.mockResolvedValue([{ id: 'verification-id' }])
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { validateResetToken } = await import('./queries')
 
-    await expect(repo.validateResetToken('reset-token')).resolves.toBe(true)
+    await expect(validateResetToken('reset-token')).resolves.toBe(true)
   })
 
   it('validateResetToken resolves false when the record is missing or expired', async () => {
     mockLimit.mockResolvedValue([])
 
-    const { IdentityRepository } = await import('./repository')
-    const repo = new IdentityRepository()
+    const { validateResetToken } = await import('./queries')
 
-    await expect(repo.validateResetToken('reset-token')).resolves.toBe(false)
+    await expect(validateResetToken('reset-token')).resolves.toBe(false)
   })
 })

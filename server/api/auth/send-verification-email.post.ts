@@ -1,5 +1,5 @@
 import { defineEventHandler, readBody } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { sendVerificationEmailBA } from '~~/server/utils/auth/identity/queries'
 import {
   checkEmailRateLimit,
   checkIpRateLimit,
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
 
   await checkEmailRateLimit(event, email)
 
-  await identityRepository.sendVerificationEmail(email)
+  await sendVerificationEmailBA(email)
 
   return { status: true }
 })

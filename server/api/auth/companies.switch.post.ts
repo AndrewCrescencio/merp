@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import {
   sendForbiddenError,
   sendNotFoundError,
@@ -21,12 +22,12 @@ export default defineEventHandler(async (event) => {
     sendNotFoundError('Company not found or deleted')
   }
 
-  const isMember = await companyRepository.isCompanyMember(user.id, companyId)
+  const isMember = await membershipRepository.isCompanyMember(user.id, companyId)
   if (!isMember) {
     sendForbiddenError('User is not a member of the specified company')
   }
 
-  await companyRepository.setActiveCompany(currentSession.id, companyId, user.id)
+  await membershipRepository.setActiveCompany(currentSession.id, companyId, user.id)
 
   event.context.activeCompanyId = companyId
 

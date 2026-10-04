@@ -1,5 +1,5 @@
 import { defineEventHandler, getQuery, readBody } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { resetPasswordBA } from '~~/server/utils/auth/identity/queries'
 import {
   checkIpRateLimit,
   checkPasswordBreach,
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     )
   }
 
-  await identityRepository.resetPassword(token, newPassword)
+  await resetPasswordBA(token, newPassword)
 
   return { status: true }
 })

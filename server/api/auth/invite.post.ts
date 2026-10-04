@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, setResponseStatus } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
   assertCompanyRole,
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
     sendNotFoundError('Company not found')
   }
 
-  const role = await companyRepository.getCompanyMembershipRole(user.id, companyId)
+  const role = await membershipRepository.getCompanyMembershipRole(user.id, companyId)
   await assertCompanyRole(
     role,
     'owner',

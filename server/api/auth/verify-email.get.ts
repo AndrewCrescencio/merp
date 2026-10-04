@@ -1,5 +1,5 @@
 import { defineEventHandler, getQuery } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { verifyEmailBA } from '~~/server/utils/auth/identity/queries'
 import { checkIpRateLimit, validateVerifyEmailInput } from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
 
   const { token } = validateVerifyEmailInput(getQuery(event))
 
-  await identityRepository.verifyEmail(token)
+  await verifyEmailBA(token)
 
   return { status: true }
 })

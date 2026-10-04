@@ -1,6 +1,5 @@
 import { defineEventHandler, readBody, setResponseStatus } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { generateUserId } from '~~/server/utils/auth/identity/queries'
+import { registerUser, generateUserId } from '~~/server/utils/auth/identity/queries'
 import {
   checkEmailRateLimit,
   checkIpRateLimit,
@@ -32,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   await checkEmailRateLimit(event, email)
 
-  const user = await identityRepository.register({
+  const user = await registerUser({
     email,
     password,
     name,

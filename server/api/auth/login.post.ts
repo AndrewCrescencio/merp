@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, appendResponseHeaders } from 'h3'
 import { logger } from '#shared/logger'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { signInUser } from '~~/server/utils/auth/identity/queries'
 import {
   background,
   checkAccountLockout,
@@ -100,7 +100,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const user = await identityRepository.signIn(
+    const user = await signInUser(
       {
         email,
         password: body.password,

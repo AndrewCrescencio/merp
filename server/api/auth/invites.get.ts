@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
   assertCompanyRole,
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
     sendNotFoundError('Company not found')
   }
 
-  const role = await companyRepository.getCompanyMembershipRole(user.id, query.companyId)
+  const role = await membershipRepository.getCompanyMembershipRole(user.id, query.companyId)
   await assertCompanyRole(role, null, 'You are not a member of this company')
 
   const invites = await inviteRepository.listCompanyInvites(query.companyId)

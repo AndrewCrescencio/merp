@@ -1,6 +1,6 @@
 import { defineEventHandler } from 'h3'
 import { identityRepository } from '~~/server/utils/auth/identity/repository'
-import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import { sendUnauthorizedError } from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   const [fullUser, companies, sessions, authEvents] = await Promise.all([
     identityRepository.findById(user.id),
-    companyRepository.findUserCompanies(user.id),
+    membershipRepository.findUserCompanies(user.id),
     identityRepository.getUserSessions(user.id),
     identityRepository.listUserAuthEvents(user.id),
   ])

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const mockVerifyEmail = vi.fn()
+const mockVerifyEmailBA = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockGetQuery = vi.fn()
@@ -19,15 +19,15 @@ vi.mock('~~/server/utils/shared/errors', () => ({
   sendValidationError: mockSendValidationError,
 }))
 
-vi.mock('~~/server/utils/auth/identity/repository', () => ({
-  identityRepository: { verifyEmail: mockVerifyEmail },
+vi.mock('~~/server/utils/auth/identity/queries', () => ({
+  verifyEmailBA: mockVerifyEmailBA,
 }))
 
 describe('GET /api/auth/verify-email (AUD-04)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
-    mockVerifyEmail.mockResolvedValue(undefined)
+    mockVerifyEmailBA.mockResolvedValue(undefined)
     mockSendValidationError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })
@@ -39,7 +39,7 @@ describe('GET /api/auth/verify-email (AUD-04)', () => {
     const handler = await import('~~/server/api/auth/verify-email.get').then((m) => m.default)
 
     await expect(handler({} as any)).rejects.toThrow('Invalid or expired verification link')
-    expect(mockVerifyEmail).not.toHaveBeenCalled()
+    expect(mockVerifyEmailBA).not.toHaveBeenCalled()
   })
 
   it('delegates the token to the repository and returns generic success', async () => {
@@ -51,13 +51,13 @@ describe('GET /api/auth/verify-email (AUD-04)', () => {
     const result = await handler(event)
 
     expect(mockCheckIpRateLimit).toHaveBeenCalledWith(event)
-    expect(mockVerifyEmail).toHaveBeenCalledWith('signed-jwt')
+    expect(mockVerifyEmailBA).toHaveBeenCalledWith('signed-jwt')
     expect(result).toEqual({ status: true })
   })
 
   it('propagates validation errors from the repository (invalid/expired token)', async () => {
     mockGetQuery.mockReturnValue({ token: 'bogus' })
-    mockVerifyEmail.mockRejectedValue(new Error('Invalid or expired verification link'))
+    mockVerifyEmailBA.mockRejectedValue(new Error('Invalid or expired verification link'))
 
     const handler = await import('~~/server/api/auth/verify-email.get').then((m) => m.default)
 

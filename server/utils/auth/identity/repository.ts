@@ -1,45 +1,11 @@
 import { sessionRepository } from './session'
 import { userRepository } from './user'
-import {
-  registerUser,
-  signInUser,
-  sendVerificationEmailBA,
-  verifyEmailBA,
-  requestPasswordResetBA,
-  resetPasswordBA,
-  withdrawConsentBA,
-  deactivateUserBA,
-} from './queries'
 import type { SignInInput, UpdateUserInput } from './queries'
 import type { RegisterInput } from '../../shared/validate'
 import type { UserResult, SignInResult } from './user'
 import { generateUserId } from './queries'
 
 export class IdentityRepository {
-  async register(input: RegisterInput): Promise<UserResult | null> {
-    return registerUser(input, await (await import('#shared/auth')).getAuth())
-  }
-
-  async signIn(input: SignInInput, headers?: Headers): Promise<SignInResult> {
-    return signInUser(input, headers)
-  }
-
-  async sendVerificationEmail(email: string): Promise<void> {
-    return sendVerificationEmailBA(email)
-  }
-
-  async verifyEmail(token: string): Promise<void> {
-    return verifyEmailBA(token)
-  }
-
-  async requestPasswordReset(email: string): Promise<void> {
-    return requestPasswordResetBA(email)
-  }
-
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    return resetPasswordBA(token, newPassword)
-  }
-
   async validateResetToken(token: string): Promise<boolean> {
     return userRepository.validateResetToken(token)
   }
@@ -82,11 +48,11 @@ export class IdentityRepository {
   }
 
   async withdrawConsent(userId: string): Promise<UserResult> {
-    return withdrawConsentBA(userId)
+    return userRepository.withdrawConsent(userId)
   }
 
   async deactivateUser(userId: string): Promise<UserResult> {
-    return deactivateUserBA(userId)
+    return userRepository.deactivateUser(userId)
   }
 
   async getUserSessions(
