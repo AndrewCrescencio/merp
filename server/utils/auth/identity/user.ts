@@ -115,6 +115,32 @@ export class UserRepository {
       return handleDatabaseError(error)
     }
   }
+
+  async deactivateUser(userId: string): Promise<UserResult> {
+    try {
+      const [updated] = await db
+        .update(user)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(user.id, userId))
+        .returning()
+      return updated!
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
+
+  async withdrawConsent(userId: string): Promise<UserResult> {
+    try {
+      const [updated] = await db
+        .update(user)
+        .set({ isActive: false, consentWithdrawnAt: new Date(), updatedAt: new Date() })
+        .where(eq(user.id, userId))
+        .returning()
+      return updated!
+    } catch (error) {
+      return handleDatabaseError(error)
+    }
+  }
 }
 
 export const userRepository = new UserRepository()
