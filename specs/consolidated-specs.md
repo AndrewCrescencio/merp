@@ -85,7 +85,7 @@ All 429 responses include: `Retry-After`, `RateLimit-Reset`, `RateLimit-Remainin
 | order_type   | text          | NOT NULL, CHECK IN ('dine_in','takeout','delivery','retail_pos','wholesale','quotation') |
 | status       | text          | NOT NULL, DEFAULT 'open' — FSM por order_type                                            |
 | customer_id  | uuid          | NULLABLE, FK → party.id                                                                  |
-| party_id     | uuid          | NULLABLE, FK → party.id                                                                  |
+| party_id     | uuid          | NULLABLE, FK → party.id (cliente ou fornecedor)                                          |
 | total_amount | numeric(12,2) | NOT NULL, DEFAULT 0                                                                      |
 | currency     | text          | NOT NULL, DEFAULT 'BRL'                                                                  |
 | notes        | text          | NULLABLE                                                                                 |
