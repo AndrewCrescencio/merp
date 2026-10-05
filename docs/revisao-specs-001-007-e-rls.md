@@ -1,5 +1,5 @@
 ---
-title: 'Technical Review — Specs 001–007 and RLS Audit'
+title: 'Revisão Técnica — Specs 001–007 e Auditoria RLS'
 slug: 'review-specs-001-007-rls'
 category: 'audit'
 status: 'archived'

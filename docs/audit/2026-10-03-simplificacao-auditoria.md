@@ -1,5 +1,5 @@
 ---
-title: 'Simplification Audit — 2026-10-03'
+title: 'Auditoria de Simplificação — 2026-10-03'
 slug: 'audit-2026-10-03-simplificacao-auditoria'
 category: 'audit'
 status: 'draft'

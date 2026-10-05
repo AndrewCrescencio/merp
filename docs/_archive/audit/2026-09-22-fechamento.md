@@ -1,5 +1,5 @@
 ---
-title: 'Documentation Closure Report — 2026-09-22'
+title: 'Relatório de Fechamento Documental — 2026-09-22'
 slug: 'audit-2026-09-22-fechamento'
 category: 'audit'
 status: 'archived'

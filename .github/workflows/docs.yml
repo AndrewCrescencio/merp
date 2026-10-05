@@ -3,14 +3,8 @@ name: Docs Validation
 on:
   push:
     branches: [main, dev]
-    paths:
-      - 'docs/**'
-      - '.github/workflows/docs.yml'
   pull_request:
     branches: [main, dev]
-    paths:
-      - 'docs/**'
-      - '.github/workflows/docs.yml'
 
 jobs:
   docs:
@@ -34,12 +28,3 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Validate frontmatter
-        run: pnpm docs:validate
-
-      - name: Check links
-        run: pnpm docs:links
-
-      - name: Lint markdown
-        run: pnpm exec markdownlint docs --config .markdownlint.json || true

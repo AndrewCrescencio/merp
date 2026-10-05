@@ -1,25 +1,22 @@
 # ADR-004: Session TTL by Profile
 
-## Decision
+## Decisão
 
 - **Backoffice** (admin, gestor): TTL fixo 7 dias (`disableSessionRefresh: true`).
 - **Terminal PDV/KDS compartilhado**: TTL curto + PIN de turno.
 
-## State of Implementation
+## Estado Atual
 
-- **Código atual**: TTL fixo 7 dias para todos os usuários (`disableSessionRefresh: true`).
-- **Regra operacional**: "Logout obrigatório ao fim do turno no PDV/KDS" — enquanto TTL por perfil não é implementado.
+Código hoje tem 7d fixo para todos. Registrar como **regra operacional**:
 
-## Criteria for Profile-Based TTL (Future Implementation)
+> "Logout obrigatório ao fim do turno no PDV/KDS" enquanto TTL por perfil não for implementado.
 
-- Multiple operators on the same terminal (PDV counter, KDS kitchen).
-- Risk of open session from previous operator.
+## Critério para Implementar TTL por Perfil
+
+- Múltiplos operadores no mesmo terminal (PDV balcão, KDS cozinha).
+- Risco de sessão aberta por operador anterior.
 - Feature flag `session.ttlByProfile` habilita lógica.
 
-## Rejected Alternative
+## Alternativa Rejeitada
 
-- Short TTL for all (including backoffice) — poor experience for managers who don't share terminals.
-
-## Note
-
-This ADR documents the current implementation (7d fixo for all) and the planned evolution toward profile-based TTL. The code currently enforces a fixed 7-day TTL for all users, with operational logout required at the end of each PDV/KDS turn.
+TTL curto para todos (backoffice incluído) — experiência ruim para gestores que não compartilham terminal.

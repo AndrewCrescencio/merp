@@ -1,5 +1,5 @@
 ---
-title: 'MERP Documentation Standards'
+title: 'Padrões de Documentação — MERP (MVP)'
 slug: 'doc-standards'
 category: 'reference'
 status: 'active'
