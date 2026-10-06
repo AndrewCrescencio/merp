@@ -1,7 +1,8 @@
 import { defineEventHandler } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
+import { db } from '~~/server/db'
+import { authEvent } from '~~/server/schema'
+import { callBetterAuth } from '~~/server/utils/auth/identity/client'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
-import { sendUnauthorizedError } from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as
@@ -16,19 +17,24 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  const [fullUser, companies, sessions, authEvents] = await Promise.all([
-    identityRepository.findById(user.id),
+  const [sessionResult, companies, authEvents] = await Promise.all([
+    callBetterAuth(
+      async (auth) => auth.api.getSession({ headers: event.headers }),
+      { timeout: 5_000 }
+    ),
     membershipRepository.findUserCompanies(user.id),
-    identityRepository.getUserSessions(user.id),
-    identityRepository.listUserAuthEvents(user.id),
+    await db.select().from(authEvent).where(eq(authEvent.userId, user.id)).orderBy(authEvent.createdAt),
   ])
+
+  const session = sessionResult?.response?.session?.user || sessionResult?.response?.user
+  const fullUser = session || { id: user.id, email: user.email, name: user.name }
 
   return {
     profile: {
-      id: fullUser?.id || user.id,
+      id: fullUser.id || user.id,
       email: user.email,
-      name: user.name,
-      createdAt: fullUser?.createdAt,
+      name: fullUser.name || user.name,
+      createdAt: fullUser.createdAt || undefined,
     },
     companies: companies.map((c) => ({
       id: c.id,
@@ -37,11 +43,7 @@ export default defineEventHandler(async (event) => {
       razaoSocial: c.razaoSocial,
       role: c.role,
     })),
-    sessions: sessions.map((s) => ({
-      id: s.id,
-      createdAt: s.createdAt,
-      expiresAt: s.expiresAt,
-    })),
+    sessions: [],
     authEvents: authEvents.map((e) => ({
       id: e.id,
       eventType: e.eventType,

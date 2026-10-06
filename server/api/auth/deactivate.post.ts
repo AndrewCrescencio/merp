@@ -1,6 +1,6 @@
 import { defineEventHandler } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import { createAuthEvent, getClientIp, sendUnauthorizedError } from '~~/server/utils/shared'
+import { callBetterAuth } from '~~/server/utils/auth/identity/client'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -9,7 +9,13 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  await identityRepository.deactivateUser(user.id)
+  await callBetterAuth(
+    async (auth) =>
+      auth.api.updateUser({
+        body: { isActive: false },
+      }),
+    { timeout: 5_000 },
+  )
 
   const ip = getClientIp(event)
   const session = event.context.session as
@@ -32,7 +38,6 @@ export default defineEventHandler(async (event) => {
     userId: user.id,
     email: user.email,
     eventType: 'deactivation',
-    ipAddress: ip || null,
   })
 
   return { message: 'Account deactivated successfully' }

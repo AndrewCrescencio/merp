@@ -22,7 +22,6 @@ vi.mock('~~/server/utils/shared/errors', () => ({
 }))
 
 vi.mock('~~/server/utils/auth/identity/repository', () => ({
-  identityRepository: { resetPassword: mockResetPassword },
 }))
 
 describe('POST /api/auth/reset-password (AUD-04)', () => {

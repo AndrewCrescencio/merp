@@ -1,5 +1,4 @@
 import { defineEventHandler, readBody } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import {
   createAuthEvent,
   getClientIp,
@@ -15,7 +14,12 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  const result = await identityRepository.withdrawConsent(user.id)
+  await callBetterAuth(
+    async (auth) => auth.api.updateUser({
+      body: { isActive: false, consentWithdrawnAt: new Date() },
+    }),
+    { timeout: 5_000 }
+  )
 
   const ip = getClientIp(event)
 
@@ -25,7 +29,7 @@ export default defineEventHandler(async (event) => {
     eventType: 'consent_withdrawal',
     ipAddress: ip || null,
     metadata: {
-      consentWithdrawnAt: result.consentWithdrawnAt ?? null,
+      consentWithdrawnAt: new Date(),
     },
   })
 

@@ -37,7 +37,6 @@ vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
 vi.mock('~~/server/utils/auth/identity/repository', () => ({
-  identityRepository: { signIn: mockSignIn },
 }))
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   ...(await importOriginal()),

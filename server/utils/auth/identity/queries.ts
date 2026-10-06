@@ -1,7 +1,8 @@
 import { callBetterAuth } from './client'
-import { sessionRepository } from './session'
-import { userRepository } from './user'
 import { createAuthEvent } from '../../shared/audit'
+import { db } from '../../db'
+import { session, verification } from '../../schema'
+import { eq } from 'drizzle-orm'
 import { logger } from '#shared/logger'
 import { handleDatabaseError } from '../../shared/errors'
 import type { AuthInstance } from '#shared/auth'
@@ -9,7 +10,6 @@ import { createError, H3Error } from 'h3'
 import { randomUUID } from 'node:crypto'
 import type { RegisterInput } from '../../shared/validate'
 import type { UserResult } from './user'
-import type { SessionResult, SessionWithUser } from './session'
 
 const TIMING_PAD_PASSWORD = '__aud07_timing_pad__'
 
@@ -28,11 +28,24 @@ export interface SignInResult extends UserResult {
 }
 
 export async function validateResetToken(token: string): Promise<boolean> {
-  return userRepository.validateResetToken(token)
+  try {
+    const [found] = await db
+      .select({ id: verification.id })
+      .from(verification)
+      .where(
+        and(
+          eq(verification.identifier, `reset-password:${token}`),
+          gt(verification.expiresAt, new Date()),
+        ),
+      )
+      .limit(1)
+    return !!found
+  } catch {
+    return false
+  }
 }
 
 async function runTimingPad(email: string, headers?: Headers): Promise<void> {
-  const authInstance = (await callBetterAuth(async (auth) => auth)) as AuthInstance
   await callBetterAuth(
     async (auth) =>
       auth.api.signInEmail({
@@ -46,7 +59,10 @@ async function runTimingPad(email: string, headers?: Headers): Promise<void> {
       logger.warn('AUD-07: timing pad resolved unexpectedly, revoking session', { email })
       const sessionToken = result?.response?.token
       if (sessionToken) {
-        await sessionRepository.terminateSession(sessionToken)
+        await callBetterAuth(
+          async (auth) => auth.api.revokeSession({ body: { token: sessionToken } }),
+          { timeout: 5_000 }
+        )
       }
     })
     .catch(() => {})
@@ -66,7 +82,7 @@ export async function handleDeactivatedAccount(email: string, headers?: Headers)
 
 export async function registerUser(
   input: RegisterInput,
-  authInstance: AuthInstance,
+  _authInstance: AuthInstance,
 ): Promise<UserResult | null> {
   try {
     const { user: createdUser } = await callBetterAuth(
@@ -82,16 +98,20 @@ export async function registerUser(
       { timeout: 5_000 },
     )
 
-    const existing = await userRepository.findByEmail(input.email)
-    if (existing && existing.id !== createdUser.id) {
-      return null
-    }
+    // Better Auth signUpEmail returns the created user, so no need to check
+    // if email is taken - Better Auth handles this via 422 error
 
     if (input.consentTermsVersion) {
-      await userRepository.updateUser(createdUser.id, {
-        consentTermsVersion: input.consentTermsVersion,
-        consentTermsAcceptedAt: new Date(),
-      } as any)
+      await callBetterAuth(
+        async (auth) =>
+          auth.api.updateUser({
+            body: {
+              consentTermsVersion: input.consentTermsVersion,
+              consentTermsAcceptedAt: new Date(),
+            } as any,
+          }),
+        { timeout: 5_000 },
+      )
     }
 
     return {
@@ -114,13 +134,6 @@ export async function registerUser(
 }
 
 export async function signInUser(input: SignInInput, headers?: Headers): Promise<SignInResult> {
-  const existing = await userRepository.findByEmail(input.email)
-  if (existing && !existing.isActive) {
-    await handleDeactivatedAccount(input.email, headers)
-  }
-
-  await sessionRepository.terminateUserSessions(existing?.id ?? '')
-
   try {
     const result = await callBetterAuth(
       async (auth) =>
@@ -138,7 +151,11 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
 
     const sessionToken = result.response.token
 
-    void sessionRepository.validateSession(sessionToken).then(async (validated) => {
+    void callBetterAuth(
+      async (auth) =>
+        auth.api.revokeSession({ body: { token: sessionToken } }),
+      { timeout: 5_000 }
+    ).then(async (validated) => {
       if (validated) {
         try {
           await createAuthEvent({
@@ -169,13 +186,24 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
       setCookie: result.headers?.getSetCookie?.() ?? [],
     }
   } catch (error: any) {
-    if (error?.statusCode === 403) {
+    const status = error?.statusCode ?? error?.status
+    if (status === 403) {
       throw createError({
         status: 403,
         statusText: '403',
         message: JSON.stringify({
           error: 'email_not_verified',
           message: 'Please verify your email address before logging in.',
+        }),
+      })
+    }
+    if (status === 401 || status === 403) {
+      throw createError({
+        status: 401,
+        statusText: '401',
+        message: JSON.stringify({
+          error: 'invalid_credentials',
+          message: 'Invalid email or password',
         }),
       })
     }
@@ -246,19 +274,22 @@ export async function resetPasswordBA(token: string, newPassword: string): Promi
 
 export async function withdrawConsentBA(userId: string): Promise<UserResult> {
   return handleDatabaseError(
-    sessionRepository.terminateUserSessions(userId).then(() =>
-      userRepository.updateUser(userId, {
-        consentWithdrawnAt: new Date(),
-        isActive: false,
-      } as any),
-    ),
+    callBetterAuth(
+      async (auth) => auth.api.updateUser({
+        body: { isActive: false, consentWithdrawnAt: new Date() } as any,
+      }),
+      { timeout: 5_000 }
+    ).then(() => db.delete(session).where(eq(session.userId, userId))),
   )
 }
 
 export async function deactivateUserBA(userId: string): Promise<UserResult> {
   return handleDatabaseError(
-    sessionRepository
-      .terminateUserSessions(userId)
-      .then(() => userRepository.updateUser(userId, { isActive: false } as any)),
+    callBetterAuth(
+      async (auth) => auth.api.updateUser({
+        body: { isActive: false } as any,
+      }),
+      { timeout: 5_000 }
+    ).then(() => db.delete(session).where(eq(session.userId, userId))),
   )
 }

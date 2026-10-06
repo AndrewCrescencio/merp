@@ -1,5 +1,2 @@
-export * from './repository'
-export * from './session'
-export * from './user'
 export * from './queries'
 export * from './client'

@@ -22,7 +22,6 @@ vi.mock('~~/server/utils/shared/errors', () => ({
 }))
 
 vi.mock('~~/server/utils/auth/identity/repository', () => ({
-  identityRepository: { sendVerificationEmail: mockSendVerificationEmail },
 }))
 
 describe('POST /api/auth/send-verification-email (AUD-04)', () => {

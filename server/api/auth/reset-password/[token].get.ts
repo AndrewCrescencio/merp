@@ -1,6 +1,7 @@
 import { defineEventHandler, getRouterParam, sendRedirect } from 'h3'
-import { identityRepository } from '~~/server/utils/auth/identity/repository'
 import { checkIpRateLimit } from '~~/server/utils/shared'
+import { db } from '~~/server/db'
+import { verification } from '~~/server/schema'
 
 // AUD-04/AUD-08: clique no link de reset enviado por email. Valida o token
 // (sem consumir — o consumo único acontece no POST /reset-password) e
@@ -17,12 +18,24 @@ export default defineEventHandler(async (event) => {
   const token = getRouterParam(event, 'token')
   const appOrigin = new URL(process.env.BETTER_AUTH_URL || 'http://localhost:3000').origin
 
-  const valid =
-    typeof token === 'string' && token ? await identityRepository.validateResetToken(token) : false
+  const isValid =
+    typeof token === 'string' && token
+      ? (await db
+          .select({ id: verification.id })
+          .from(verification)
+          .where(
+            and(
+              eq(verification.identifier, `reset-password:${token}`),
+              gt(verification.expiresAt, new Date()),
+            ),
+          )
+          .limit(1))
+        .then(([found]) => !!found)
+      : false
 
   await sendRedirect(
     event,
-    valid
+    isValid
       ? `${appOrigin}/#/reset-password?token=${encodeURIComponent(token!)}`
       : `${appOrigin}/?error=INVALID_TOKEN`,
     302,

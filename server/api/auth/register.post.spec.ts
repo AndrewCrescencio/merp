@@ -30,7 +30,6 @@ vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
 vi.mock('~~/server/utils/auth/identity/repository', () => ({
-  identityRepository: { register: mockRegister },
   generateUserId: () => 'synthetic-user-id-123',
 }))
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
