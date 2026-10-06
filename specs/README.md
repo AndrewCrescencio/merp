@@ -24,13 +24,10 @@
 
 ## Phase 2 — Foundation Normative (Docs Only) ✅ COMPLETE
 
-- [x] `specs/000-foundation/rls-pattern.md`
-- [x] `specs/000-foundation/money.md`
-- [x] `specs/000-foundation/idempotency.md`
-- [x] `specs/000-foundation/endpoint-pattern.md`
-- [x] `specs/000-foundation/naming.md`
 - [x] `specs/000-foundation/snapshot.md`
 - [x] ADR-003 to ADR-006
+
+_(Os specs `naming.md`, `money.md`, `endpoint-pattern.md`, `rls-pattern.md`, `idempotency.md` foram removidos once the code already implements these concepts — see Fase 3 cleanup decisions)_
 
 ## Phase 3 — Close 001 (Auth Context) ✅ COMPLETE
 
@@ -62,15 +59,9 @@
 ## Mapa de numeração (specs 003–005)
 
 Originalmente 003–007 especificavam ERP genérico. Com ADR-001 (núcleo + packs),
-foram absorvidas por `specs/packs/erp-b2b/`:
-
-| Nº antigo | Conteúdo           | Local atual                     |
-| --------- | ------------------ | ------------------------------- |
-| 003       | Catálogo + Estoque | `packs/erp-b2b/catalog/plan.md` |
-| 004       | Vendas + Compras   | `packs/erp-b2b/sales/plan.md`   |
-| 005       | Financeiro         | `packs/erp-b2b/finance/plan.md` |
-| 006       | CRM                | `packs/erp-b2b/crm/plan.md`     |
-| 007       | Relatórios + Admin | `packs/erp-b2b/admin/plan.md`   |
+foram absorvidas por `specs/packs/erp-b2b/`. **Fase 3 — decisões de limpeza:**
+todos os packs `erp-b2b/*` (catalog, sales, finance, crm, admin) foram removidos do repo
+(plan-only, não implementados; recuperáveis pela tag `archive/pre-docs-truth-<data>`).
 
 A numeração 003–005 fica reservada (não reutilizar). `006-core-order` e
 `007-print` usam a série nova (núcleo unificado + print).
@@ -82,8 +73,7 @@ A numeração 003–005 fica reservada (não reutilizar). `006-core-order` e
 - **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.
 - **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).
 - **`006-core-order`** tem spec + data-model + contracts; implementação em andamento (T12).
-- **`packs/erp-b2b/*`** têm apenas `plan.md`; falta spec/data-model/contracts
-  por módulo (ADIADO — ver ADR-001).
+- **Packs `erp-b2b/*` removidos** (decision Fase 3: plan-only, não implementados; código já não referencia esses módulos).
 - **`withTenant`** precisa suportar `locationId` + GUC `app.location_id` (T02, P0).
 - **Schemas núcleo** (location, party, product, payment, restaurant_table, kitchen_station, printer, print_job) faltando (T03, P0).
 - **`line_total` half-up** não implementado (T04, P0).

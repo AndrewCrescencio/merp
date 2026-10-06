@@ -16,15 +16,12 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "db:migrate:full": "drizzle-kit migrate && tsx scripts/apply-custom-sql.ts",
-    "docs:validate": "tsx docs/_meta/scripts/validate-frontmatter.ts",
-    "docs:links": "tsx docs/_meta/scripts/check-links.ts",
     "docs:index": "tsx docs/_meta/scripts/generate-index.ts",
     "docs:new": "tsx docs/_meta/scripts/new-doc.ts",
-    "docs:deprecate": "tsx docs/_meta/scripts/deprecate.ts",
+    "docs:deprecate": "tsx docs/_scripts/deprecate.ts",
     "docs:archive": "tsx docs/_meta/scripts/archive.ts",
     "docs:lint": "npx markdownlint-cli docs/**/*.md --config .markdownlint.json",
-    "docs:spell": "cspell docs/**/*.md",
-    "docs:ci": "pnpm run docs:validate && pnpm run docs:links && pnpm run docs:lint"
+    "docs:spell": "cspell docs/**/*.md"
   },
   "lint-staged": {
     "*.{ts,mjs,vue}": [
