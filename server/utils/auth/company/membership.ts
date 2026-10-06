@@ -1,13 +1,7 @@
-import { and, eq, like, or, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
-import { createError, H3Error } from 'h3'
-import {
-  handleDatabaseError,
-  sendForbiddenError,
-  sendNotFoundError,
-  isPgConflict,
-} from '../../shared/errors'
+import { handleDatabaseError, sendForbiddenError, sendNotFoundError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
 
 export function escapeLikePattern(query: string): string {
@@ -40,68 +34,20 @@ export class MembershipRepository {
         'createCompanyMember: role must be "member"; owner bootstrap uses CompanyRepository.createCompanyWithOwner',
       )
     }
-    try {
-      return await withTenant(companyId, null, userId, async (tx) => {
-        await tx.execute(sql`SELECT set_config('app.allow_member_bootstrap', 'true', true)`)
-        const [created] = await tx
-          .insert(companyMember)
-          .values({ companyId, userId, role })
-          .returning()
-        return created!
-      })
-    } catch (error: unknown) {
-      if (isPgConflict(error)) {
-        throw createError({
-          status: 409,
-          statusText: '409',
-          message: JSON.stringify({
-            error: 'conflict',
-            message: 'User is already a member of this company',
-          }),
-        })
-      }
-      return handleDatabaseError(error)
-    }
+    return await withTenant(companyId, null, userId, async (tx) => {
+      await tx.execute(sql`SELECT set_config('app.allow_member_bootstrap', 'true', true)`)
+      const [created] = await tx
+        .insert(companyMember)
+        .values({ companyId, userId, role })
+        .returning()
+      return created!
+    })
   }
 
   /**
    * Searches non-deleted companies the user belongs to (max 20, LIKE on
    * name/CNPJ with escaped wildcards).
    */
-  async searchCompanies(
-    query: string,
-    userId: string,
-  ): Promise<Array<CompanyResult & { role: string }>> {
-    try {
-      const pattern = `%${escapeLikePattern(query)}%`
-      return await withTenant(null, null, userId, async (tx) => {
-        return await tx
-          .select({
-            id: company.id,
-            name: company.name,
-            cnpj: company.cnpj,
-            razaoSocial: company.razaoSocial,
-            isDeleted: company.isDeleted,
-            createdAt: company.createdAt,
-            updatedAt: company.updatedAt,
-            role: companyMember.role,
-          })
-          .from(companyMember)
-          .innerJoin(company, eq(companyMember.companyId, company.id))
-          .where(
-            and(
-              eq(companyMember.userId, userId),
-              eq(company.isDeleted, false),
-              or(like(company.name, pattern), like(company.cnpj, pattern)),
-            ),
-          )
-          .limit(20)
-      })
-    } catch (error: unknown) {
-      return handleDatabaseError(error)
-    }
-  }
-
   /** Lists non-deleted companies the user belongs to, each with its membership role. */
   async findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>> {
     try {

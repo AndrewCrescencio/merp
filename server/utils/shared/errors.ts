@@ -39,6 +39,35 @@ export function sendForbiddenError(message: string): never {
   sendAuthError(403, 'forbidden', message)
 }
 
+export function sendForbiddenError(message: string): never {
+  sendAuthError(403, 'forbidden', message)
+}
+
+export function sendForbiddenError(message: string): never {
+  sendAuthError(403, 'forbidden', message)
+}
+
+function companyConflictError(
+  error: unknown,
+  onConflict: () => never
+): boolean {
+  if (isPgConflict(error)) {
+    onConflict()
+    return true
+  }
+  return false
+}
+
+function pgConflictOrGuard(error: unknown, guard: (error: unknown) => boolean, onConflict: () => never): never {
+  if (isPgConflict(error)) {
+    onConflict()
+  } else if (guard(error)) {
+    // guard passed — fall through to handleDatabaseError below
+  } else {
+    return handleDatabaseError(error)
+  }
+}
+
 export async function assertCompanyRole(
   role: string | null | undefined,
   requiredRole: string | null,

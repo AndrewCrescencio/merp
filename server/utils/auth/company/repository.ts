@@ -1,14 +1,6 @@
-import { randomUUID } from 'node:crypto'
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
-import { createError, H3Error } from 'h3'
-import {
-  handleDatabaseError,
-  sendConflictError,
-  sendNotFoundError,
-  isPgConflict,
-} from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
 
 export function escapeLikePattern(query: string): string {
@@ -38,34 +30,19 @@ export class CompanyRepository {
    * {@link createCompanyWithOwner}). 409 when the CNPJ is taken.
    */
   async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
-    try {
-      const companyId = randomUUID()
-      return await withTenant(companyId, null, null, async (tx) => {
-        const [created] = await tx
-          .insert(company)
-          .values({
-            id: companyId,
-            name: input.name,
-            cnpj: input.cnpj || null,
-            razaoSocial: input.razaoSocial || null,
-          })
-          .returning()
-
-        return created!
-      })
-    } catch (error: unknown) {
-      if (isPgConflict(error)) {
-        throw createError({
-          status: 409,
-          statusText: '409',
-          message: JSON.stringify({
-            error: 'conflict',
-            message: 'CNPJ already registered',
-          }),
+    const companyId = randomUUID()
+    return await withTenant(companyId, null, null, async (tx) => {
+      const [created] = await tx
+        .insert(company)
+        .values({
+          id: companyId,
+          name: input.name,
+          cnpj: input.cnpj || null,
+          razaoSocial: input.razaoSocial || null,
         })
-      }
-      return handleDatabaseError(error)
-    }
+        .returning()
+      return created!
+    })
   }
 
   /**
@@ -76,64 +53,46 @@ export class CompanyRepository {
     data: CreateCompanyInput,
     ownerUserId: string,
   ): Promise<CompanyResult> {
-    try {
-      return await db.transaction(async (tx) => {
-        const companyId = randomUUID()
-        const created = await withTenant(
-          companyId,
-          null,
-          ownerUserId,
-          async (ctxTx) => {
-            await ctxTx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
-            const [row] = await ctxTx
-              .insert(company)
-              .values({
-                id: companyId,
-                name: data.name,
-                cnpj: data.cnpj,
-                razaoSocial: data.razaoSocial,
-              })
-              .returning()
-            await ctxTx
-              .insert(companyMember)
-              .values({ companyId, userId: ownerUserId, role: 'owner' })
-            return row!
-          },
-          tx,
-        )
+    return await db.transaction(async (tx) => {
+      const companyId = randomUUID()
+      const created = await withTenant(
+        companyId,
+        null,
+        ownerUserId,
+        async (ctxTx) => {
+          await ctxTx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
+          const [row] = await ctxTx
+            .insert(company)
+            .values({
+              id: companyId,
+              name: data.name,
+              cnpj: data.cnpj,
+              razaoSocial: data.razaoSocial,
+            })
+            .returning()
+          await ctxTx
+            .insert(companyMember)
+            .values({ companyId, userId: ownerUserId, role: 'owner' })
+          return row!
+        },
+        tx,
+      )
 
-        return created
-      })
-    } catch (error: unknown) {
-      if (isPgConflict(error)) {
-        throw createError({
-          status: 409,
-          statusText: '409',
-          message: JSON.stringify({
-            error: 'conflict',
-            message: 'CNPJ already registered',
-          }),
-        })
-      }
-      return handleDatabaseError(error)
-    }
+      return created
+    })
   }
 
   /** Finds a non-deleted company visible to the user, or null (RLS outsiders get null). */
   async findCompanyById(id: string, userId: string): Promise<CompanyResult | null> {
-    try {
-      return await withTenant(null, null, userId, async (tx) => {
-        const [found] = await tx
-          .select()
-          .from(company)
-          .where(and(eq(company.id, id), eq(company.isDeleted, false)))
-          .limit(1)
+    return await withTenant(null, null, userId, async (tx) => {
+      const [found] = await tx
+        .select()
+        .from(company)
+        .where(and(eq(company.id, id), eq(company.isDeleted, false)))
+        .limit(1)
 
-        return found || null
-      })
-    } catch (error: unknown) {
-      return handleDatabaseError(error)
-    }
+      return found || null
+    })
   }
 
   /**
@@ -141,70 +100,52 @@ export class CompanyRepository {
    * detaches sessions pointing at it. 404 when RLS denies or already deleted.
    */
   async softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult> {
-    try {
-      return await withTenant(companyId, null, userId, async (tx) => {
-        const [updated] = await tx
-          .update(company)
-          .set({ isDeleted: true, updatedAt: new Date() })
-          .where(eq(company.id, companyId))
-          .returning()
-        if (!updated) {
-          sendNotFoundError('Company not found')
-        }
-        await tx.delete(companyMember).where(eq(companyMember.companyId, companyId))
-
-        await tx
-          .update(session)
-          .set({ activeCompanyId: null, updatedAt: new Date() })
-          .where(eq(session.activeCompanyId, companyId))
-
-        return updated!
-      })
-    } catch (error: unknown) {
-      if (error instanceof H3Error) {
-        throw error
+    return await withTenant(companyId, null, userId, async (tx) => {
+      const [updated] = await tx
+        .update(company)
+        .set({ isDeleted: true, updatedAt: new Date() })
+        .where(eq(company.id, companyId))
+        .returning()
+      if (!updated) {
+        sendNotFoundError('Company not found')
       }
-      return handleDatabaseError(error)
-    }
+      await tx.delete(companyMember).where(eq(companyMember.companyId, companyId))
+
+      await tx
+        .update(session)
+        .set({ activeCompanyId: null, updatedAt: new Date() })
+        .where(eq(session.activeCompanyId, companyId))
+
+      return updated!
+    })
   }
 
   /**
    * Partially updates a company (only defined fields; empty cnpj/razaoSocial
-   * clears the column). 404 when RLS denies or the company is deleted;
-   * 409 on duplicate CNPJ.
+   * clears the column). 404 when RLS denies or the company is deleted.
    */
   async updateCompany(
     companyId: string,
     userId: string,
     input: Partial<CreateCompanyInput>,
   ): Promise<CompanyResult> {
-    try {
-      return await withTenant(companyId, null, userId, async (tx) => {
-        const updates: Partial<typeof company.$inferInsert> = { updatedAt: new Date() }
-        if (input.name !== undefined) updates.name = input.name
-        if (input.cnpj !== undefined) updates.cnpj = input.cnpj || null
-        if (input.razaoSocial !== undefined) updates.razaoSocial = input.razaoSocial || null
+    return await withTenant(companyId, null, userId, async (tx) => {
+      const updates: Partial<typeof company.$inferInsert> = { updatedAt: new Date() }
+      if (input.name !== undefined) updates.name = input.name
+      if (input.cnpj !== undefined) updates.cnpj = input.cnpj || null
+      if (input.razaoSocial !== undefined) updates.razaoSocial = input.razaoSocial || null
 
-        const [updated] = await tx
-          .update(company)
-          .set(updates)
-          .where(and(eq(company.id, companyId), eq(company.isDeleted, false)))
-          .returning()
+      const [updated] = await tx
+        .update(company)
+        .set(updates)
+        .where(and(eq(company.id, companyId), eq(company.isDeleted, false)))
+        .returning()
 
-        if (!updated) {
-          sendNotFoundError('Company not found')
-        }
-        return updated!
-      })
-    } catch (error: unknown) {
-      if (isPgConflict(error)) {
-        sendConflictError('CNPJ already registered')
+      if (!updated) {
+        sendNotFoundError('Company not found')
       }
-      if (error instanceof H3Error) {
-        throw error
-      }
-      return handleDatabaseError(error)
-    }
+      return updated!
+    })
   }
 }
 
