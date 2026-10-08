@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
-import { handleDatabaseError, sendForbiddenError, sendNotFoundError } from '../../shared/errors'
+import { sendForbiddenError, sendNotFoundError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
 
 export function escapeLikePattern(query: string): string {
@@ -50,58 +50,46 @@ export class MembershipRepository {
    */
   /** Lists non-deleted companies the user belongs to, each with its membership role. */
   async findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>> {
-    try {
-      return await withTenant(null, null, userId, async (tx) => {
-        return await tx
-          .select({
-            id: company.id,
-            name: company.name,
-            cnpj: company.cnpj,
-            razaoSocial: company.razaoSocial,
-            isDeleted: company.isDeleted,
-            createdAt: company.createdAt,
-            updatedAt: company.updatedAt,
-            role: companyMember.role,
-          })
-          .from(companyMember)
-          .innerJoin(company, eq(companyMember.companyId, company.id))
-          .where(and(eq(companyMember.userId, userId), eq(company.isDeleted, false)))
-      })
-    } catch (error: unknown) {
-      return handleDatabaseError(error)
-    }
+    return await withTenant(null, null, userId, async (tx) => {
+      return await tx
+        .select({
+          id: company.id,
+          name: company.name,
+          cnpj: company.cnpj,
+          razaoSocial: company.razaoSocial,
+          isDeleted: company.isDeleted,
+          createdAt: company.createdAt,
+          updatedAt: company.updatedAt,
+          role: companyMember.role,
+        })
+        .from(companyMember)
+        .innerJoin(company, eq(companyMember.companyId, company.id))
+        .where(and(eq(companyMember.userId, userId), eq(company.isDeleted, false)))
+    })
   }
 
   /** True when the user is a member of the company. */
   async isCompanyMember(userId: string, companyId: string): Promise<boolean> {
-    try {
-      return await withTenant(companyId, null, userId, async (tx) => {
-        const [found] = await tx
-          .select({ id: companyMember.id })
-          .from(companyMember)
-          .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
-          .limit(1)
-        return !!found
-      })
-    } catch (error: unknown) {
-      return handleDatabaseError(error)
-    }
+    return await withTenant(companyId, null, userId, async (tx) => {
+      const [found] = await tx
+        .select({ id: companyMember.id })
+        .from(companyMember)
+        .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
+        .limit(1)
+      return !!found
+    })
   }
 
   /** Returns the membership role (`owner`|`member`) or null for non-members. */
   async getCompanyMembershipRole(userId: string, companyId: string): Promise<string | null> {
-    try {
-      return await withTenant(companyId, null, userId, async (tx) => {
-        const [found] = await tx
-          .select({ role: companyMember.role })
-          .from(companyMember)
-          .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
-          .limit(1)
-        return found?.role ?? null
-      })
-    } catch (error: unknown) {
-      return handleDatabaseError(error)
-    }
+    return await withTenant(companyId, null, userId, async (tx) => {
+      const [found] = await tx
+        .select({ role: companyMember.role })
+        .from(companyMember)
+        .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
+        .limit(1)
+      return found?.role ?? null
+    })
   }
 
   /**
@@ -115,30 +103,21 @@ export class MembershipRepository {
     executedByUserId: string,
     targetUserId: string,
   ): Promise<void> {
-    try {
-      return await withTenant(companyId, null, executedByUserId, async (tx) => {
-        const deleted = await tx
-          .delete(companyMember)
-          .where(
-            and(eq(companyMember.companyId, companyId), eq(companyMember.userId, targetUserId)),
-          )
-          .returning({ id: companyMember.id })
+    return await withTenant(companyId, null, executedByUserId, async (tx) => {
+      const deleted = await tx
+        .delete(companyMember)
+        .where(and(eq(companyMember.companyId, companyId), eq(companyMember.userId, targetUserId)))
+        .returning({ id: companyMember.id })
 
-        if (deleted.length === 0) {
-          sendNotFoundError('Company member not found')
-        }
-
-        await tx
-          .update(session)
-          .set({ activeCompanyId: null, updatedAt: new Date() })
-          .where(and(eq(session.userId, targetUserId), eq(session.activeCompanyId, companyId)))
-      })
-    } catch (error: unknown) {
-      if (error instanceof H3Error) {
-        throw error
+      if (deleted.length === 0) {
+        sendNotFoundError('Company member not found')
       }
-      return handleDatabaseError(error)
-    }
+
+      await tx
+        .update(session)
+        .set({ activeCompanyId: null, updatedAt: new Date() })
+        .where(and(eq(session.userId, targetUserId), eq(session.activeCompanyId, companyId)))
+    })
   }
 
   /**
@@ -150,31 +129,24 @@ export class MembershipRepository {
     companyId: string | null,
     userId: string,
   ): Promise<void> {
-    try {
-      await withTenant(companyId, null, userId, async (tx) => {
-        if (companyId !== null) {
-          const [membership] = await tx
-            .select({ id: companyMember.id })
-            .from(companyMember)
-            .where(and(eq(companyMember.companyId, companyId), eq(companyMember.userId, userId)))
-            .limit(1)
+    await withTenant(companyId, null, userId, async (tx) => {
+      if (companyId !== null) {
+        const [membership] = await tx
+          .select({ id: companyMember.id })
+          .from(companyMember)
+          .where(and(eq(companyMember.companyId, companyId), eq(companyMember.userId, userId)))
+          .limit(1)
 
-          if (!membership) {
-            sendForbiddenError('User is not a member of the specified company')
-          }
+        if (!membership) {
+          sendForbiddenError('User is not a member of the specified company')
         }
-
-        await tx
-          .update(session)
-          .set({ activeCompanyId: companyId, updatedAt: new Date() })
-          .where(eq(session.id, sessionId))
-      })
-    } catch (error: unknown) {
-      if (error instanceof H3Error) {
-        throw error
       }
-      return handleDatabaseError(error)
-    }
+
+      await tx
+        .update(session)
+        .set({ activeCompanyId: companyId, updatedAt: new Date() })
+        .where(eq(session.id, sessionId))
+    })
   }
 
   /** Returns the session's active company id, or null. */
