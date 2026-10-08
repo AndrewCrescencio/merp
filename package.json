@@ -33,33 +33,33 @@
     ]
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.6.26",
+    "@better-auth/drizzle-adapter": "^1.7.7",
     "@nuxt/eslint": "^1.17.0",
-    "better-auth": "^1.6.26",
-    "drizzle-orm": "^0.45.2",
-    "nuxt": "^4.5.2",
+    "better-auth": "^1.7.7",
+    "drizzle-orm": "^0.45.3",
+    "nuxt": "^4.6.0",
     "postgres": "^3.4.9",
-    "vue": "^3.5.38",
-    "vue-router": "^5.1.0"
+    "vue": "^3.5.43",
+    "vue-router": "^5.3.1"
   },
   "devDependencies": {
-    "@nuxt/test-utils": "^4.0.3",
-    "@types/node": "^25.9.3",
-    "cspell": "^8.14.0",
-    "drizzle-kit": "^0.31.10",
-    "eslint": "^10.5.0",
+    "@nuxt/test-utils": "^4.3.3",
+    "@types/node": "^25.9.9",
+    "cspell": "^8.19.4",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
-    "glob": "^11.0.0",
+    "glob": "^11.1.0",
     "h3": "^1.15.11",
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.7",
+    "lint-staged": "^17.6.0",
     "markdownlint-cli": "^0.43.0",
     "nitropack": "2.13.4",
-    "prettier": "^3.8.4",
-    "tsx": "^4.19.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
     "typescript": "6.0.3",
     "vitest": "^4.1.11",
-    "yaml": "^2.5.0",
-    "zod": "^3.23.0"
+    "yaml": "^2.9.1",
+    "zod": "^3.25.76"
   }
 }
