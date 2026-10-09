@@ -143,12 +143,14 @@ export default defineEventHandler(async (event) => {
     sessionId: session.session.id,
     userId: session.user.id,
     email: session.user.email,
-    tenantId: (session.session as any)?.activeCompanyId ?? null,
+    tenantId: (session.session as { activeCompanyId?: string | null })?.activeCompanyId ?? null,
     eventType: 'session_validated',
   })
 
   event.context.user = session.user
   event.context.session = session.session
-  event.context.tenantId = (session.session as any)?.activeCompanyId ?? null
+  event.context.tenantId =
+    (session.session as { activeCompanyId?: string | null })?.activeCompanyId ?? null
   event.context.userId = session.user.id
+  event.context.auth = { user: session.user, session: session.session }
 })

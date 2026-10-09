@@ -1,7 +1,7 @@
-import { withTenant } from '../../db/tenant-context'
-import { eq, and, desc, lt } from 'drizzle-orm'
-import { printer, printJob } from '../../schema'
-import type { PrinterSelect, PrintJobSelect } from '../../schema'
+import { withTenant } from '../db/tenant-context'
+import { eq, and, desc, lt, sql } from 'drizzle-orm'
+import { printer, printJob } from '../schema'
+import type { PrinterSelect, PrintJobSelect } from '../schema'
 
 export interface RegisterPrinterInput {
   companyId: string
