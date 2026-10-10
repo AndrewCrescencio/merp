@@ -36,34 +36,28 @@ markdown_extensions:
 nav:
   - Guias:
       - getting-started:
-          - 'Dev Environment — MERP': 01-getting-started/dev-environment
-          - 'Quickstart — MERP': 01-getting-started/quickstart
-          - 'Testing Guide — MERP': 01-getting-started/testing-guide
+          - "Como Criar um Endpoint (handler → Repository) — MERP": 07-reference/create-endpoint-guide
+          - "Dev Environment — MERP": 01-getting-started/dev-environment
+          - "Quickstart — MERP": 01-getting-started/quickstart
+          - "Testing Guide — MERP": 01-getting-started/testing-guide
       - overview:
-          - 'Architecture Overview — MERP': 00-overview/architecture-overview
-          - 'MERP Documentation': 00-overview/README
+          - "Architecture Overview — MERP": 00-overview/architecture-overview
+          - "MERP Documentation": 00-overview/README
   - Especificações:
-      - 'Especificação: Auth Bounded Context': 03-domain/auth/spec
-      - 'Especificação: Restaurant Pack': 06-packs/restaurant/spec
-  - ADRs:
-      - 'ADR Index': specs/decisions/index
-      - auth:
-          - '2FA Deferred': specs/decisions/ADR-010-2fa-deferred
-          - 'Better Auth Drizzle Adapter Origin': specs/decisions/ADR-009-better-auth-adapter-origin
-          - 'Session TTL by Profile': specs/decisions/ADR-004-session-ttl-by-profile
-      - cross-cutting:
-          - 'API Versioning — /api/v1 desde já': specs/decisions/ADR-005-api-versioning
-          - 'Escopo de RLS — Company + Location': specs/decisions/ADR-002-location-scope
-          - 'Estratégia Vertical — Núcleo Comum + Packs': specs/decisions/ADR-001-vertical-strategy
-          - 'Money — numeric(12,2) vs Centavos-Inteiro': specs/decisions/ADR-003-money-numeric-vs-cents
-          - 'Test Suite Runs as merp_app Role': specs/decisions/ADR-007-test-suite-runs-as-merp-app
-          - 'Tipo de PK — uuid nativo (novas tabelas) / text (tabelas auth legadas)': specs/decisions/ADR-006-id-type-uuid
-          - 'Vertical Slices (Package by Feature)': specs/decisions/ADR-008-vertical-slices-package-by-feature
+      - "Especificação: Auth Bounded Context": 03-domain/auth/spec
+      - "Especificação: Restaurant Pack": 06-packs/restaurant/spec
   - Referência:
-      - 'Padrões de Documentação — MERP': _meta/doc-standards
-      - 'Glossário — MERP': 00-overview/glossary
-  - API Reference:
-      - 'API Contract: Auth': specs/001-auth-context/contracts/api-auth
+      - "Padrões de Documentação — MERP (MVP)": _meta/doc-standards
+      - "Glossário — MERP": 00-overview/glossary
+      - reference:
+          - "CLI Commands — MERP": 07-reference/cli-commands
+          - "Database Schema — MERP": 07-reference/database-schema
+          - "Environment Variables — MERP": 07-reference/env-variables
+          - "Error Codes — MERP": 07-reference/error-codes
+  - Auditoria:
+      - architecture:
+          - "Auditoria de Simplificação — 2026-10-03": audit/2026-10-03-simplificacao-auditoria
+          - "Plano de Simplificação — 2026-10-03": audit/2026-10-03-simplificacao-plano
 
 plugins:
   - search:

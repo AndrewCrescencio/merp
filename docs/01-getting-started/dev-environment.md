@@ -27,7 +27,7 @@ replaced-by: null
 # docker-compose.yml (resumo)
 services:
   postgres:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_USER: merp
       POSTGRES_PASSWORD: merp

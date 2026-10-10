@@ -1,7 +1,7 @@
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
-import { H3Error } from 'h3'
+import { H3Error, createError  } from 'h3'
 import {
   TimeoutError,
   withTimeout,
@@ -9,7 +9,6 @@ import {
   handleDatabaseError,
   sendAuthUnavailableError,
 } from '../../shared/errors'
-import { createError } from 'h3'
 
 const BETTER_AUTH_TIMEOUT = 5_000
 

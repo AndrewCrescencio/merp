@@ -1,6 +1,5 @@
 import { vi } from 'vitest'
-import type { H3Event } from 'h3'
-import { createError, type Headers } from 'h3'
+import type { H3Event, createError, type Headers  } from 'h3'
 
 export function createMockEvent(overrides: Partial<H3Event> = {}): H3Event {
   return {
