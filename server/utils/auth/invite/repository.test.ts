@@ -8,10 +8,9 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
   let repo: import('~~/server/utils/auth/invite/repository').InviteRepository
   let company: import('~~/server/utils/auth/company/repository').CompanyRepository
   let membershipRepo: import('~~/server/utils/auth/company/membership').MembershipRepository
-  let _identity: import('~~/server/utils/auth/identity/repository').IdentityRepository
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = INTEGRATION_DB_URL
+    process.env.APP_DATABASE_URL = _INTEGRATION_DB_URL
     repo = new (await import('~~/server/utils/auth/invite/repository')).InviteRepository()
     company = new (await import('~~/server/utils/auth/company/repository')).CompanyRepository()
     membershipRepo = new (
