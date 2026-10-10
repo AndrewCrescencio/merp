@@ -30,7 +30,7 @@ export default defineNuxtConfig({
     },
   },
 
-  compatibilityDate: '2025-07-15',
+  compatibilityDate: '2026-10-10',
 
   nitro: {
     errorHandler: '~~/server/error-handler',

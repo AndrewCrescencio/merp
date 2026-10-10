@@ -85,10 +85,7 @@ docs/
 ├── 05-operations/         # runbooks/, security/, monitoring/
 ├── 06-packs/              # packs verticais (restaurant, ...)
 ├── 07-reference/          # cli-commands, env-variables, database-schema, error-codes
-├── _archive/              # histórico (nunca apagar — git + tag)
-│   ├── deprecated/
-│   ├── future-packs/
-│   └── snapshots/
+├── audit/                 # auditorias históricas (AUD-XXX-*.md) — histórico preservado
 └── _meta/                 # governança da própria docs
     ├── doc-standards.md   # Este arquivo
     ├── templates/         # Templates opcionais
@@ -132,12 +129,12 @@ Comando: `pnpm run docs:new <template> <slug> <titulo>`
 
 ## 6. Arquivamento
 
-| Situação         | Ação                                             |
-| ---------------- | ------------------------------------------------ |
-| Spec substituída | `status: deprecated` + `replaced-by` + banner    |
-| Pack adiado      | Move `_archive/future-packs/` + tag git          |
-| Draft > 30 dias  | Move `_archive/drafts/`                          |
-| Runbook obsoleto | `status: archived` + move `_archive/deprecated/` |
+| Situação         | Ação                                                   |
+| ---------------- | ------------------------------------------------------ |
+| Spec substituída | `status: deprecated` + `replaced-by` + banner          |
+| Pack adiado      | Move `docs/audit/AUD-XXX-pack-name.md` + tag git       |
+| Draft > 30 dias  | Move `docs/audit/AUD-XXX-draft-name.md`                |
+| Runbook obsoleto | `status: archived` + move `docs/audit/AUD-XXX-name.md` |
 
 > **NUNCA `git rm` / `rm` um arquivo `.md` sem PR com revisão e tag de archive.**
 

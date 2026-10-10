@@ -13,9 +13,9 @@ created: '2026-10-03'
 updated: '2026-10-03'
 review-cycle: 'once'
 related:
-  - 'adr-001-vertical-strategy'
-  - 'adr-007-test-suite-runs-as-merp-app'
-  - 'adr-010-2fa-deferred'
+  - 'specs/decisions/ADR-001-vertical-strategy.md'
+  - 'specs/decisions/ADR-007-test-suite-runs-as-merp-app.md'
+  - 'specs/decisions/ADR-010-2fa-deferred.md'
 replaces: []
 replaced-by: null
 ---
@@ -374,7 +374,7 @@ graph TD
 | H19 | **CONFIRMADO**      | S2   | `PENDING_DECISIONS.md` 9x, `ERP_FEATURE_PLAN.md` 6x, `SECURITY_AUDIT.md`, `checklists/*`, `docs/runbooks/grants.md` path errado 3x                                                                                                                                                              | Remover refs quebradas; corrigir paths; criar arquivos se necessários                                                                                                              |
 | H20 | **CONFIRMADO**      | S3   | 368 (specs/README), 372 (ADR-007), 381 (fechamento) congelados                                                                                                                                                                                                                                  | Substituir por `pnpm test` output ou badge CI                                                                                                                                      |
 | H21 | **CONFIRMADO**      | S3   | `two_factor_enabled` em `docs/03-domain/auth/spec.md` e `docs/07-reference/database-schema.md`                                                                                                                                                                                                  | Remover resíduos (migration 0021 dropou tabela)                                                                                                                                    |
-| H22 | **CONFIRMADO**      | S3   | specs/README.md Phase 4 "PENDING" mas 006 tem spec; 007 ausente do quadro; audits `archived` em `docs/audit/` não `_archive/`                                                                                                                                                                   | Atualizar README para refletir estado real; mover audits archived para `_archive/`                                                                                                 |
+| H22 | **CONFIRMADO**      | S3   | specs/README.md Phase 4 "PENDING" mas 006 tem spec; 007 ausente do quadro; audits archived agora em `docs/audit/AUD-XXX-*`                                                                                                                                                                      | Atualizar README para refletir estado real; audits archived movidos para `docs/audit/` com nomenclatura padrão                                                                     |
 
 ---
 

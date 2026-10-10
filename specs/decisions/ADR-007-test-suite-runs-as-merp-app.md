@@ -54,7 +54,7 @@ The integration test suite MUST run as the `merp_app` role (non-superuser, `NOBY
   - Verifica: todas as sequences têm USAGE/SELECT para merp_app
   - Verifica: DEFAULT PRIVILEGES existem em pg_default_acl
   - Verifica: nova tabela criada pelo owner herda grants automaticamente
-- **Runbook**: `docs/runbooks/grants.md` documenta aplicação em dev/CI/staging/prod
+- **Runbook**: `docs/05-operations/runbooks/grants.md` documenta aplicação em dev/CI/staging/prod
 
 ### CI com Docker + APP_DATABASE_URL (GATE D)
 
