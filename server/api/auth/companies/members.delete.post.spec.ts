@@ -27,6 +27,11 @@ vi.mock('~~/server/utils/shared/ip', () => ({
 vi.mock('~~/server/utils/auth/company/repository', () => ({
   companyRepository: {
     findCompanyById: mockFindCompanyById,
+  },
+}))
+
+vi.mock('~~/server/utils/auth/company/membership', () => ({
+  membershipRepository: {
     getCompanyMembershipRole: mockGetCompanyMembershipRole,
     removeCompanyMember: mockRemoveCompanyMember,
   },
