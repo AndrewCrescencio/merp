@@ -20,6 +20,10 @@ replaces: []
 replaced-by: null
 ---
 
+> **Atualização 2026-10-10:** `IdentityRepository` **não existe** como classe em `server/utils/auth/identity/repository.ts`. O módulo `identity/` contém apenas `queries.ts` (funções de negócio) e `client.ts` (wrapper Better Auth). Os 8 handlers de identidade usam `queries.ts` + Better Auth direto. Referências a `IdentityRepository` em testes de integração foram removidas (commit 97788e0). Este doc reflete o estado pré-simplificação; ver seção 2A para o veredito original.
+
+---
+
 # Auditoria de Simplificação — 2026-10-03
 
 ## Resumo Executivo
