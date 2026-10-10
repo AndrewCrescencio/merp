@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { escapeLikePattern } from './repository'
+import { escapeLikePattern, MembershipRepository } from './membership'
 import { CompanyRepository } from './repository'
-import { MembershipRepository } from './membership'
 import { withTenant } from '../../db/tenant-context'
 import { db } from '../../db'
 
