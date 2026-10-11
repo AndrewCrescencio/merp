@@ -157,16 +157,14 @@ export async function registerUser(input: RegisterInput): Promise<UserResult | n
 
     // FR-021: carimbo de aceite via SQL direto — consentTermsAcceptedAt não é
     // additionalField do melhor auth e updateUser exige sessão (401 aqui).
-    if (input.consentTermsVersion) {
-      await db
-        .update(user)
-        .set({
-          consentTermsVersion: input.consentTermsVersion,
-          consentTermsAcceptedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(user.id, createdUser.id))
-    }
+    await db
+      .update(user)
+      .set({
+        consentTermsVersion: input.consentTermsVersion,
+        consentTermsAcceptedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, createdUser.id))
 
     return {
       id: createdUser.id,

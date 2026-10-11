@@ -25,6 +25,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
       email: testEmail,
       password: testPassword,
       name: 'Test User',
+      consentTermsVersion: 'v1',
     })
 
     expect(result).toMatchObject({
@@ -38,7 +39,12 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
 
   it('AUD-03: duplicate email registration resolves without 409 and without creating a second account', async () => {
     const email = `dup-${Date.now()}@example.com`
-    const first = await queries.registerUser({ email, password: testPassword, name: 'First User' })
+    const first = await queries.registerUser({
+      email,
+      password: testPassword,
+      name: 'First User',
+      consentTermsVersion: 'v1',
+    })
 
     const second = await queries.registerUser({
       email,
@@ -51,8 +57,8 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     const found = await queries.findUserByEmail(email)
     expect(found?.id).toBe(first!.id)
     expect(found?.name).toBe('First User')
-    expect(found?.consentTermsVersion).toBeNull()
-    expect(found?.consentTermsAcceptedAt).toBeNull()
+    expect(found?.consentTermsVersion).toBe('v1')
+    expect(found?.consentTermsAcceptedAt).toBeInstanceOf(Date)
   })
 
   it('rejects invalid password with 401', async () => {
@@ -77,6 +83,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
       email,
       password: testPassword,
       name: 'Deactivated User',
+      consentTermsVersion: 'v1',
     })
     await queries.deactivateUser(user!.id)
 
@@ -97,6 +104,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
       email,
       password: testPassword,
       name: 'Aud07 User',
+      consentTermsVersion: 'v1',
     })
     await queries.deactivateUser(userRecord!.id)
 
@@ -134,6 +142,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         email,
         password: testPassword,
         name: 'Consent User',
+        consentTermsVersion: 'v1',
       })
 
       const { db } = await import('~~/server/utils/db')
@@ -169,6 +178,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         email,
         password: testPassword,
         name: 'Consent SignIn',
+        consentTermsVersion: 'v1',
       })
 
       await queries.withdrawConsent(userRecord!.id)
@@ -192,6 +202,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         email,
         password: testPassword,
         name: 'Reset User',
+        consentTermsVersion: 'v1',
       })
 
       await expect(queries.requestPasswordResetBA(email)).resolves.toBeUndefined()
@@ -213,11 +224,13 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         email: emailA,
         password: testPassword,
         name: 'User A',
+        consentTermsVersion: 'v1',
       })
       const userB = await queries.registerUser({
         email: emailB,
         password: testPassword,
         name: 'User B',
+        consentTermsVersion: 'v1',
       })
 
       const { db } = await import('~~/server/utils/db')

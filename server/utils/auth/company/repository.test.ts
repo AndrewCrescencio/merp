@@ -18,7 +18,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
 
   const registerUser = (email: string, name: string) =>
     import('~~/server/utils/auth/identity/queries').then((m) =>
-      m.registerUser({ email, password: 'password123', name }),
+      m.registerUser({ email, password: 'password123', name, consentTermsVersion: 'v1' }),
     )
 
   describe('RLS isolation', () => {
