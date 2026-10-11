@@ -2,7 +2,16 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
 import { withTenant } from '../../db/tenant-context'
+import { isPgConflict, sendConflictError, sendNotFoundError } from '../../shared/errors'
 import { randomUUID } from 'node:crypto'
+
+/** CNPJ tem índice unique — conflito vira 409 em vez de estourar como 500. */
+function rethrowCompanyError(error: unknown): never {
+  if (isPgConflict(error)) {
+    sendConflictError('A company with this CNPJ already exists')
+  }
+  throw error
+}
 
 export function escapeLikePattern(query: string): string {
   return query.replace(/[\\%_]/g, (c) => `\\${c}`)
@@ -54,33 +63,37 @@ export class CompanyRepository {
     data: CreateCompanyInput,
     ownerUserId: string,
   ): Promise<CompanyResult> {
-    return await db.transaction(async (tx) => {
-      const companyId = randomUUID()
-      const created = await withTenant(
-        companyId,
-        null,
-        ownerUserId,
-        async (ctxTx) => {
-          await ctxTx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
-          const [row] = await ctxTx
-            .insert(company)
-            .values({
-              id: companyId,
-              name: data.name,
-              cnpj: data.cnpj,
-              razaoSocial: data.razaoSocial,
-            })
-            .returning()
-          await ctxTx
-            .insert(companyMember)
-            .values({ companyId, userId: ownerUserId, role: 'owner' })
-          return row!
-        },
-        tx,
-      )
+    try {
+      return await db.transaction(async (tx) => {
+        const companyId = randomUUID()
+        const created = await withTenant(
+          companyId,
+          null,
+          ownerUserId,
+          async (ctxTx) => {
+            await ctxTx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
+            const [row] = await ctxTx
+              .insert(company)
+              .values({
+                id: companyId,
+                name: data.name,
+                cnpj: data.cnpj,
+                razaoSocial: data.razaoSocial,
+              })
+              .returning()
+            await ctxTx
+              .insert(companyMember)
+              .values({ companyId, userId: ownerUserId, role: 'owner' })
+            return row!
+          },
+          tx,
+        )
 
-      return created
-    })
+        return created
+      })
+    } catch (error) {
+      rethrowCompanyError(error)
+    }
   }
 
   /** Finds a non-deleted company visible to the user, or null (RLS outsiders get null). */
@@ -130,23 +143,27 @@ export class CompanyRepository {
     userId: string,
     input: Partial<CreateCompanyInput>,
   ): Promise<CompanyResult> {
-    return await withTenant(companyId, null, userId, async (tx) => {
-      const updates: Partial<typeof company.$inferInsert> = { updatedAt: new Date() }
-      if (input.name !== undefined) updates.name = input.name
-      if (input.cnpj !== undefined) updates.cnpj = input.cnpj || null
-      if (input.razaoSocial !== undefined) updates.razaoSocial = input.razaoSocial || null
+    try {
+      return await withTenant(companyId, null, userId, async (tx) => {
+        const updates: Partial<typeof company.$inferInsert> = { updatedAt: new Date() }
+        if (input.name !== undefined) updates.name = input.name
+        if (input.cnpj !== undefined) updates.cnpj = input.cnpj || null
+        if (input.razaoSocial !== undefined) updates.razaoSocial = input.razaoSocial || null
 
-      const [updated] = await tx
-        .update(company)
-        .set(updates)
-        .where(and(eq(company.id, companyId), eq(company.isDeleted, false)))
-        .returning()
+        const [updated] = await tx
+          .update(company)
+          .set(updates)
+          .where(and(eq(company.id, companyId), eq(company.isDeleted, false)))
+          .returning()
 
-      if (!updated) {
-        sendNotFoundError('Company not found')
-      }
-      return updated!
-    })
+        if (!updated) {
+          sendNotFoundError('Company not found')
+        }
+        return updated!
+      })
+    } catch (error) {
+      rethrowCompanyError(error)
+    }
   }
 }
 
