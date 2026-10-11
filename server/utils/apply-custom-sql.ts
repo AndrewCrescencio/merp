@@ -35,9 +35,9 @@ export function customSqlFiles(): string[] {
 
 // 0013_round_half_up.sql está FORA do journal (o slot 0013 ficou com
 // 0013_noisy_mimic), então o `drizzle-kit migrate` nunca a aplica — mas
-// 0014_add_order_tables.sql já usa round_half_up(numeric). Como o drizzle-kit
-// migra numa transação, sem isto o rollback desfaz tudo e o erro nem chega à
-// saída. Ver ADR-012.
+// 0014_add_order_tables.sql já usa round_half_up(numeric). Sem este passo
+// prévio a migração 14 falha e o rollback da transação engole o erro; o
+// porquê completo está no cabeçalho de scripts/pre-migrate.ts.
 //
 // Este arquivo é a ÚNICA definição da função: o passo prévio do migrate e o
 // setup de testes leem daqui, nenhum dos dois reescreve o corpo.

@@ -34,7 +34,6 @@ _(Os specs `naming.md`, `money.md`, `endpoint-pattern.md`, `rls-pattern.md`, `id
 - [x] Fix contradictions F02–F16
 - [x] 2FA removed from scope (see ADR-010)
 - [x] ADR-011: contrato da camada de identidade (AUD-03/07, FR-017/021) + reparo do RLS 0024
-- [x] ADR-012: `db:migrate:full` em banco novo (migração órfã `round_half_up` + `.env` não carregado)
 
 ## Phase 4 — Core Order (Unified) 🚧 IN PROGRESS
 

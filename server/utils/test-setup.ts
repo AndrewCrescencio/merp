@@ -88,8 +88,8 @@ export async function setup(): Promise<void> {
     console.log('[test-setup] Base de dados merp_test já existe')
   }
 
-  // round_half_up vem de drizzle/0013_round_half_up.sql — fora do journal, então
-  // nem `push` nem `migrate` a criam (ver ADR-012). order_item.line_total é
+  // round_half_up vem de drizzle/0013_round_half_up.sql, que está fora do
+  // journal: nem `push` nem `migrate` a criam sozinhos. order_item.line_total é
   // coluna gerada que depende dela.
   await applyPreMigrateSql(TEST_DB_URL)
 

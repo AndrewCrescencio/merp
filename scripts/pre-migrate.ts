@@ -1,11 +1,23 @@
 #!/usr/bin/env tsx
-// Passo prévio do `drizzle-kit migrate`. Aplica 0013_round_half_up.sql, que
-// está fora do journal e portanto nunca é aplicada pelo drizzle-kit — ver
-// ADR-012. Lê do arquivo compartilhado para não redefinir a função.
+// Passo prévio do `drizzle-kit migrate`.
+//
+// 0013_round_half_up.sql está FORA do journal (o slot 0013 ficou com
+// 0013_noisy_mimic), então o drizzle-kit nunca a aplica. Mas
+// 0014_add_order_tables.sql já usa round_half_up(numeric) nas policies de
+// order_items — e o drizzle-kit executa as migrações numa transação só, então o
+// CREATE POLICY falha, o rollback desfaz TUDO e o erro nunca chega à saída: o
+// usuário via só NOTICEs de `DROP POLICY ... skipping` e `exit 1`. Era por isso
+// que `db:migrate:full` morria em silêncio em banco novo.
+//
+// A tentação é embutir a função no topo do próprio 0014. NÃO FAÇA: o drizzle-kit
+// grava o hash de cada migração aplicada em __drizzle_migrations e compara na
+// próxima execução — alterar o arquivo rejeita todo banco que já o aplicou. Este
+// passo não toca em nada já gravado.
+//
+// Lê o arquivo compartilhado em vez de redefinir o corpo da função.
 //
 // Também traduz a falha de conexão numa mensagem acionável: o drizzle-kit
-// engole a exceção e devolve exit 1 em silêncio, então sem isto o usuário só
-// vê a barra de progresso.
+// engole a própria exceção, então sem isto o usuário só vê a barra de progresso.
 import postgres from 'postgres'
 import { PRE_MIGRATE_FILE, preMigrateSql } from '../server/utils/apply-custom-sql'
 
