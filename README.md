@@ -25,9 +25,22 @@ Sistema ERP fullstack com autenticação robusta, multi-tenancy (empresas), conv
 ## Início rápido
 
 ```bash
+# Caminho curto — faz tudo abaixo de uma vez
+make init
+
+# → cria .env apontando para localhost, instala deps, sobe o PostgreSQL
+#   (esperando o healthcheck) e aplica as migrações COMPLETAS com policies de RLS
+pnpm dev
+# → http://localhost:3000
+```
+
+Equivalente passo a passo:
+
+```bash
 # 1. Copie variáveis de ambiente
 cp .env.example .env
-# Edite .env com valores reais (DATABASE_URL, BETTER_AUTH_SECRET, CORS_ORIGIN, etc.)
+# Edite .env: troque o host "postgres" por "localhost" se o Nuxt roda no host,
+# e ajuste DB_PASSWORD, BETTER_AUTH_SECRET e CORS_ORIGIN
 
 # 2. Suba infra (PostgreSQL)
 docker compose up -d postgres
@@ -37,7 +50,6 @@ pnpm db:migrate:full
 
 # 4. Dev server
 pnpm dev
-# → http://localhost:3000
 ```
 
 ### Banco novo do zero

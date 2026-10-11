@@ -70,15 +70,22 @@ Todos os comandos disponíveis via `pnpm` (scripts do `package.json`).
 
 ## Docker (via Makefile)
 
-| Comando             | Descrição                                          |
-| ------------------- | -------------------------------------------------- |
-| `make dev`          | Sobe stack dev (postgres + app)                    |
-| `make dev-d`        | Sobe stack dev em background                       |
-| `make prod`         | Sobe stack prod (app + postgres + nginx + certbot) |
-| `make db`           | Sobe apenas postgres                               |
-| `make migrate`      | Roda migrações no host                             |
-| `make migrate-prod` | Roda migrações dentro do container                 |
-| `make studio`       | Abre Drizzle Studio                                |
+| Comando             | Descrição                                                         |
+| ------------------- | ----------------------------------------------------------------- |
+| `make init`         | Do zero ao banco migrado: `.env`, deps, Postgres, migrações + RLS |
+| `make setup`        | Instala dependências e gera tipos Nuxt                            |
+| `make db`           | Sobe apenas postgres (espera o healthcheck)                       |
+| `make dev`          | Sobe stack dev (postgres + app)                                   |
+| `make dev-d`        | Sobe stack dev em background                                      |
+| `make prod`         | Sobe stack prod (app + postgres + nginx + certbot)                |
+| `make migrate-full` | Migrações completas (journal + RLS) — use em banco novo           |
+| `make migrate`      | Só o journal do Drizzle — **não** aplica policies de RLS          |
+| `make migrate-prod` | Roda migrações dentro do container                                |
+| `make studio`       | Abre Drizzle Studio                                               |
+
+`make init` encadeia `setup` → `db` → `migrate-full` e, se o `.env` não existir,
+cria um a partir do `.env.example` já apontando para `localhost:5432` (fluxo em
+que o Nuxt roda no host).
 
 ## Variáveis de Ambiente para Testes
 
