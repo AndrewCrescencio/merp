@@ -37,10 +37,15 @@ export default defineEventHandler(async (event) => {
   const { companyId, locationId } = auth.session
 
   try {
+    const input = parsed.data
     const printer = await printRepository.registerPrinter({
       companyId,
       locationId,
-      ...parsed.data,
+      name: input.name,
+      type: input.driver === 'escpos' ? 'receipt' : input.driver === 'star' ? 'receipt' : input.driver === 'epson' ? 'receipt' : 'kitchen',
+      connectionType: input.connection.type,
+      connectionConfig: JSON.stringify(input.connection),
+      isDefault: input.isActive,
     })
 
     return printer

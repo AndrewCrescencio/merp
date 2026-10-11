@@ -1,15 +1,53 @@
 import { callBetterAuth } from './client'
 import { createAuthEvent } from '../../shared/audit'
-import { db } from '../../db'
-import { session, verification } from '../../schema'
-import { eq } from 'drizzle-orm'
+import { db } from '../../../utils/db'
+import { verification } from '../../../utils/schema'
+import { eq, and, gt } from 'drizzle-orm'
 import { logger } from '#shared/logger'
 import { handleDatabaseError } from '../../shared/errors'
 import type { AuthInstance } from '#shared/auth'
 import { createError, H3Error } from 'h3'
 import { randomUUID } from 'node:crypto'
 import type { RegisterInput } from '../../shared/validate'
-import type { UserResult } from './user'
+
+// Better Auth user type from the schema
+export interface UserResult {
+  id: string
+  email: string
+  name: string | null
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+  consentTermsVersion?: string | null
+  consentTermsAcceptedAt?: Date | null
+  consentWithdrawnAt?: Date | null
+  emailVerified: boolean
+  image?: string | null
+}
+
+// Better Auth session type
+export interface SessionResult {
+  id: string
+  userId: string
+  token: string
+  expiresAt: Date
+  createdAt: Date
+  updatedAt: Date
+  activeCompanyId?: string | null
+  ipAddress?: string | null
+  userAgent?: string | null
+}
+
+// Better Auth signInEmail response type
+export interface SignInResult {
+  response: {
+    user: UserResult
+    session: SessionResult
+    token: string
+  }
+  headers: Headers
+  setCookie: string[]
+}
 
 const TIMING_PAD_PASSWORD = '__aud07_timing_pad__'
 
@@ -21,10 +59,6 @@ export interface SignInInput {
   email: string
   password: string
   rememberMe?: boolean
-}
-
-export interface SignInResult extends UserResult {
-  setCookie: string[]
 }
 
 export async function validateResetToken(token: string): Promise<boolean> {
@@ -177,12 +211,9 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
     })
 
     return {
-      id: result.response.user.id,
-      email: result.response.user.email,
-      name: result.response.user.name,
-      isActive: true,
-      createdAt: result.response.user.createdAt,
-      updatedAt: result.response.user.updatedAt,
+      user: result.response.user,
+      session: result.response.session,
+      headers: result.headers,
       setCookie: result.headers?.getSetCookie?.() ?? [],
     }
   } catch (error: unknown) {
@@ -276,25 +307,37 @@ export async function resetPasswordBA(token: string, newPassword: string): Promi
 }
 
 export async function withdrawConsentBA(userId: string): Promise<UserResult> {
-  return handleDatabaseError(
-    callBetterAuth(
-      async (auth) =>
-        auth.api.updateUser({
-          body: { isActive: false, consentWithdrawnAt: new Date() },
-        }),
-      { timeout: 5_000 },
-    ).then(() => db.delete(session).where(eq(session.userId, userId))),
+  await callBetterAuth(
+    async (auth) => auth.api.revokeSessions({ body: { userId } }),
+    { timeout: 5_000 }
   )
+
+  // Update user to mark consent as withdrawn (if the field exists)
+  await callBetterAuth(
+    async (auth) =>
+      auth.api.updateUser({
+        body: { consentWithdrawnAt: new Date() },
+      }),
+    { timeout: 5_000 }
+  )
+
+  return { id: userId, email: '', name: '', isActive: false, createdAt: new Date(), updatedAt: new Date() }
 }
 
 export async function deactivateUserBA(userId: string): Promise<UserResult> {
-  return handleDatabaseError(
-    callBetterAuth(
-      async (auth) =>
-        auth.api.updateUser({
-          body: { isActive: false },
-        }),
-      { timeout: 5_000 },
-    ).then(() => db.delete(session).where(eq(session.userId, userId))),
+  await callBetterAuth(
+    async (auth) => auth.api.revokeSessions({ body: { userId } }),
+    { timeout: 5_000 }
   )
+
+  // Update user to mark as inactive (if the field exists)
+  await callBetterAuth(
+    async (auth) =>
+      auth.api.updateUser({
+        body: { isActive: false },
+      }),
+    { timeout: 5_000 }
+  )
+
+  return { id: userId, email: '', name: '', isActive: false, createdAt: new Date(), updatedAt: new Date() }
 }

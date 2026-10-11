@@ -2,6 +2,7 @@ import { defineTask } from 'nitropack'
 import { printRepository } from '~~/server/utils/print/repository'
 import { db } from '~~/server/utils/db'
 import { company, location } from '~~/server/utils/schema'
+import type { PrintJobSelect } from '~~/server/utils/schema'
 import { eq } from 'drizzle-orm'
 
 // This task runs every 30 minutes to process pending print jobs
@@ -70,12 +71,7 @@ async function processLocationPrintQueue(companyId: string, locationId: string) 
   return { processed, failed }
 }
 
-async function sendToPrinter(job: {
-  id: string
-  printerId: string
-  template: string
-  payload: Record<string, unknown>
-}): Promise<void> {
+async function sendToPrinter(job: PrintJobSelect): Promise<void> {
   console.log(`[process-print-queue] Sending job ${job.id} to printer ${job.printerId}`)
   console.log(`  Template: ${job.template}`)
   console.log(`  Payload: ${JSON.stringify(job.payload).substring(0, 100)}...`)

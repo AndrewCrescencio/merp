@@ -78,9 +78,15 @@ export default defineEventHandler(async (event) => {
       partyId: input.partyId,
       createdBy: auth.user.id,
       idempotencyKey: input.idempotencyKey,
-      items: input.items,
+      items: input.items.map(item => ({
+        ...item,
+        bomSnapshot: item.bomSnapshot ?? '',
+      })),
       dineIn: input.dineIn,
-      takeout: input.takeout,
+      takeout: input.takeout ? {
+        ...input.takeout,
+        pickupAt: input.takeout.pickupAt ? new Date(input.takeout.pickupAt) : undefined,
+      } : undefined,
     })
 
     return order
@@ -89,8 +95,8 @@ export default defineEventHandler(async (event) => {
     if (msg.includes('duplicate') || msg.includes('unique')) {
       throw createError({ statusCode: 409, message: 'idempotency_conflict' })
     }
-    if (error.message.includes('not found')) {
-      throw createError({ statusCode: 404, message: error.message })
+    if (msg.includes('not found')) {
+      throw createError({ statusCode: 404, message: 'not found' })
     }
     throw createError({ statusCode: 500, message: 'failed_to_create_order' })
   }

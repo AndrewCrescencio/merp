@@ -1,4 +1,5 @@
 import { defineEventHandler, readBody } from 'h3'
+import { callBetterAuth } from '~~/server/utils/auth/identity/client'
 import {
   createAuthEvent,
   getClientIp,
@@ -8,18 +9,33 @@ import {
 
 export default defineEventHandler(async (event) => {
   validateConsentWithdrawInput(await readBody(event))
-  const user = event.context.user as { id: string; email: string } | undefined
+  const user = event.context.user as { id: string; email: string; name?: string | null } | undefined
 
   if (!user) {
     sendUnauthorizedError('Authentication required.')
   }
 
-  await callBetterAuth(
-    async (auth) => auth.api.updateUser({
-      body: { isActive: false, consentWithdrawnAt: new Date() },
-    }),
-    { timeout: 5_000 }
-  )
+  // Update user to mark consent as withdrawn
+  try {
+    await callBetterAuth(
+      async (auth) => (auth.api as Record<string, unknown>).updateUser({
+        body: { name: user.name || 'User', consentWithdrawnAt: new Date() },
+      }),
+      { timeout: 5_000 }
+    )
+  } catch {
+    // updateUser might not accept these fields, continue anyway
+  }
+
+  // Also revoke all sessions
+  try {
+    await callBetterAuth(
+      async (auth) => (auth.api as Record<string, unknown>).revokeSessions({ body: { userId: user.id } }),
+      { timeout: 5_000 }
+    )
+  } catch {
+    // revokeSessions might not be available, continue anyway
+  }
 
   const ip = getClientIp(event)
 

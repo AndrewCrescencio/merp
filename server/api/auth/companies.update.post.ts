@@ -31,12 +31,13 @@ export default defineEventHandler(async (event) => {
     sendValidationError('cnpj is invalid')
   }
 
-  const company = await companyRepository.findCompanyById(body.companyId, user.id)
+  const companyId = body.companyId!
+  const company = await companyRepository.findCompanyById(companyId, user.id)
   if (!company) {
     sendNotFoundError('Company not found')
   }
 
-  const role = await membershipRepository.getCompanyMembershipRole(user.id, body.companyId)
+  const role = await membershipRepository.getCompanyMembershipRole(user.id, companyId)
   await assertCompanyRole(
     role,
     'owner',
@@ -44,7 +45,7 @@ export default defineEventHandler(async (event) => {
     'Only company owners can update companies',
   )
 
-  const updated = await companyRepository.updateCompany(body.companyId, user.id, input)
+  const updated = await companyRepository.updateCompany(companyId, user.id, input)
 
   const ip = getClientIp(event)
   await createAuthEvent({
@@ -52,7 +53,7 @@ export default defineEventHandler(async (event) => {
     email: user.email,
     eventType: 'company_updated',
     ipAddress: ip || null,
-    metadata: { companyId: body.companyId },
+    metadata: { companyId },
   })
 
   return updated

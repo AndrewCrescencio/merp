@@ -1,7 +1,7 @@
 import { and, eq, like, or, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
-import { sendForbiddenError, sendNotFoundError } from '../../shared/errors'
+import { sendForbiddenError, sendNotFoundError, handleDatabaseError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
 
 export function escapeLikePattern(query: string): string {

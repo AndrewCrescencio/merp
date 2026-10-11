@@ -32,7 +32,7 @@ function getLoginErrorReason(error: unknown): string {
   if (status !== 401 && status !== 403) return 'unknown'
   if (typeof err.message === 'string') {
     try {
-      const parsed = JSON.parse(error.message)
+      const parsed = JSON.parse(err.message)
       if (typeof parsed?.error === 'string') {
         return LOCKOUT_EXEMPT_ERROR_CODES.has(parsed.error) ? parsed.error : 'invalid_credentials'
       }
@@ -72,6 +72,8 @@ export default defineEventHandler(async (event) => {
   } catch {
     // Sem socket (ex.: eventos de teste) — apenas a camada global por email.
   }
+  // Ensure ip is string | null (never undefined)
+  if (ip === undefined) ip = null
 
   await checkEmailRateLimit(event, email)
 
@@ -85,7 +87,10 @@ export default defineEventHandler(async (event) => {
       // um 500 espúrio (sem socket, ex.: eventos de teste) — auditoria sem IP.
       let auditIp: string | null = null
       try {
-        auditIp = getClientIp(event)
+        const clientIp = getClientIp(event)
+        if (clientIp !== undefined) {
+          auditIp = clientIp
+        }
       } catch {
         // Sem socket — auditoria sem IP.
       }
@@ -101,7 +106,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const user = await signInUser(
+    const result = await signInUser(
       {
         email,
         password: body.password,
@@ -109,6 +114,8 @@ export default defineEventHandler(async (event) => {
       },
       event.headers,
     )
+
+    const user = result.response.user
 
     // AUD-14: reset de lockout não pode derrubar um login de sucesso — se a
     // limpeza falhar (DB hiccup), a sessão já foi criada pelo better-auth;
@@ -124,8 +131,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    if (user.setCookie.length > 0) {
-      appendResponseHeaders(event, { 'set-cookie': user.setCookie })
+    if (result.setCookie && result.setCookie.length > 0) {
+      appendResponseHeaders(event, { 'set-cookie': result.setCookie })
     }
 
     // AUD-13: fire-and-forget (padrão FR-023) — o Set-Cookie de sessão já foi

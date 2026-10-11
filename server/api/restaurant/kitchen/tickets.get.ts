@@ -29,9 +29,7 @@ export default defineEventHandler(async (event) => {
   const { companyId, locationId } = auth.session
   const { status, limit, offset } = parsed.data
 
-  const tickets = await restaurantRepository.listKitchenTickets(companyId, locationId, status)
+  const tickets = await restaurantRepository.listKitchenTickets(companyId, locationId, { status, limit, offset })
 
-  const paginated = tickets.slice(offset || 0, (offset || 0) + (limit || 50))
-
-  return { tickets: paginated }
+  return { tickets }
 })

@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   const isValid =
     typeof token === 'string' && token
-      ? (await db
+      ? !!(await db
           .select({ id: verification.id })
           .from(verification)
           .where(
@@ -30,8 +30,8 @@ export default defineEventHandler(async (event) => {
               gt(verification.expiresAt, new Date()),
             ),
           )
-          .limit(1))
-        .then(([found]) => !!found)
+          .limit(1)
+          .then((rows) => rows[0]))
       : false
 
   await sendRedirect(

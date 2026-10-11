@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, setResponseStatus } from 'h3'
 import { registerUser, generateUserId } from '~~/server/utils/auth/identity/queries'
+import { getAuth, type AuthInstance } from '~~/shared/auth'
 import {
   checkEmailRateLimit,
   checkIpRateLimit,
@@ -22,12 +23,10 @@ export default defineEventHandler(async (event) => {
 
   await checkEmailRateLimit(event, email)
 
-  const user = await registerUser({
-    email,
-    password,
-    name,
-    consentTermsVersion,
-  })
+  const user = await registerUser(
+  { email, password, name, consentTermsVersion },
+  (await getAuth()) as AuthInstance
+)
 
   if (user) {
     const ip = getClientIp(event)

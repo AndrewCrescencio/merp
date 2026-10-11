@@ -301,7 +301,7 @@ export const restaurantRepository = {
   async listCashierShifts(
     companyId: string,
     locationId: string,
-    opts?: { status?: string; userId?: string; limit?: number },
+    opts?: { status?: string; userId?: string; limit?: number; offset?: number },
   ): Promise<CashierShiftSelect[]> {
     return withTenant(companyId, locationId, null, async (tx) => {
       const conditions = [
@@ -315,6 +315,7 @@ export const restaurantRepository = {
         where: and(...conditions),
         orderBy: [desc(cashierShift.openedAt)],
         limit: opts?.limit || 50,
+        offset: opts?.offset || 0,
       })
     })
   },

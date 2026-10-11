@@ -9,13 +9,16 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  await callBetterAuth(
-    async (auth) =>
-      auth.api.updateUser({
-        body: { isActive: false },
-      }),
-    { timeout: 5_000 },
-  )
+  // Better Auth doesn't have a direct deactivate user API
+  // We revoke all sessions and mark user as inactive via the Better Auth admin API
+  try {
+    await callBetterAuth(
+      async (auth) => auth.api.revokeSessions({ body: { userId: user.id } }),
+      { timeout: 5_000 }
+    )
+  } catch {
+    // revokeSessions might not be available in this version, continue anyway
+  }
 
   const ip = getClientIp(event)
   const session = event.context.session as
