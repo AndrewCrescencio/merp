@@ -81,7 +81,9 @@ jobs:
           "
 
       - name: Run RLS Canary (GATE B - blocks if RLS bypassed)
-        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test -- server/utils/00-rls-canary.test.ts
+        # Sem "--": o vitest descarta o filtro depois de "--" e correria a
+        # suíte inteira aqui, duplicando o job de testes abaixo.
+        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test server/utils/00-rls-canary.test.ts
 
   # Main test suite - runs AFTER canary passes
   test:
@@ -152,10 +154,9 @@ jobs:
           "
 
       - name: Run full test suite (merp_app)
+        # grants-parity.test.ts já corre aqui (server/**/*.test.ts); a etapa
+        # seguinte que o re-executava foi removida.
         run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test
-
-      - name: Run grants parity test
-        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test -- server/utils/grants-parity.test.ts
 
   lint:
     name: Lint & Format
