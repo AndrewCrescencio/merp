@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm'
 import { pgTable, text, timestamp, integer, index } from 'drizzle-orm/pg-core'
 import { order } from './order'
 import { restaurantTable } from './restaurant-table'

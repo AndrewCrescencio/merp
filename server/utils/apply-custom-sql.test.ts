@@ -142,10 +142,14 @@ function pushSchema(dbUrl: string): void {
       stdio: 'pipe',
       timeout: 240_000,
     })
-  } catch (error: any) {
+  } catch (error) {
     // stdio pipe engole a saída — anexa para o flake ser diagnosticável.
-    const out = [error?.stdout, error?.stderr].filter(Boolean).join('\n')
-    throw new Error(`drizzle-kit push falhou: ${error?.message}${out ? `\n${out}` : ''}`)
+    const err = error as { stdout?: string; stderr?: string; message?: string }
+    const out = [err.stdout, err.stderr].filter(Boolean).join('\n')
+    throw new Error(
+      `drizzle-kit push falhou: ${err.message ?? String(err)}${out ? `\n${out}` : ''}`,
+      { cause: error },
+    )
   }
 }
 

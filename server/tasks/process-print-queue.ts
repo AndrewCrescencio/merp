@@ -60,8 +60,9 @@ async function processLocationPrintQueue(companyId: string, locationId: string) 
       await sendToPrinter(printingJob)
       await printRepository.completeJob(companyId, job.id)
       processed++
-    } catch (error: any) {
-      await printRepository.failJob(companyId, job.id, error.message)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      await printRepository.failJob(companyId, job.id, msg)
       failed++
     }
   }
@@ -69,7 +70,12 @@ async function processLocationPrintQueue(companyId: string, locationId: string) 
   return { processed, failed }
 }
 
-async function sendToPrinter(job: any): Promise<void> {
+async function sendToPrinter(job: {
+  id: string
+  printerId: string
+  template: string
+  payload: Record<string, unknown>
+}): Promise<void> {
   console.log(`[process-print-queue] Sending job ${job.id} to printer ${job.printerId}`)
   console.log(`  Template: ${job.template}`)
   console.log(`  Payload: ${JSON.stringify(job.payload).substring(0, 100)}...`)

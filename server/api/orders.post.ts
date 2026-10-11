@@ -2,35 +2,51 @@ import { createError, defineEventHandler, readBody } from 'h3'
 import { orderRepository } from '~~/server/utils/order/repository'
 import { z } from 'zod'
 
-const createOrderSchema = z.object({
-  orderType: z.enum(['dine_in', 'takeout']),
-  customerId: z.string().uuid().optional(),
-  partyId: z.string().uuid().optional(),
-  items: z.array(z.object({
-    productId: z.string().uuid().optional(),
-    productName: z.string().min(1),
-    unitPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
-    quantity: z.string().regex(/^\d+(\.\d{1,3})?$/),
-    taxSnapshot: z.string(),
-    bomSnapshot: z.string().optional(),
-    discountApplied: z.string().optional(),
-  })).min(1),
-  dineIn: z.object({
-    tableId: z.string().uuid(),
-    coverCount: z.number().int().positive().optional(),
-    waiterId: z.string().uuid().optional(),
-  }).optional(),
-  takeout: z.object({
-    pickupAt: z.string().datetime().optional(),
-    pickupName: z.string().optional(),
-    pickupPhone: z.string().optional(),
-  }).optional(),
-  idempotencyKey: z.string().optional(),
-}).refine((data) => {
-  if (data.orderType === 'dine_in') return !!data.dineIn
-  if (data.orderType === 'takeout') return !!data.takeout
-  return true
-}, { message: 'dine_in required for dine_in orderType, takeout required for takeout orderType', path: ['dineIn'] })
+const createOrderSchema = z
+  .object({
+    orderType: z.enum(['dine_in', 'takeout']),
+    customerId: z.string().uuid().optional(),
+    partyId: z.string().uuid().optional(),
+    items: z
+      .array(
+        z.object({
+          productId: z.string().uuid().optional(),
+          productName: z.string().min(1),
+          unitPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
+          quantity: z.string().regex(/^\d+(\.\d{1,3})?$/),
+          taxSnapshot: z.string(),
+          bomSnapshot: z.string().optional(),
+          discountApplied: z.string().optional(),
+        }),
+      )
+      .min(1),
+    dineIn: z
+      .object({
+        tableId: z.string().uuid(),
+        coverCount: z.number().int().positive().optional(),
+        waiterId: z.string().uuid().optional(),
+      })
+      .optional(),
+    takeout: z
+      .object({
+        pickupAt: z.string().datetime().optional(),
+        pickupName: z.string().optional(),
+        pickupPhone: z.string().optional(),
+      })
+      .optional(),
+    idempotencyKey: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.orderType === 'dine_in') return !!data.dineIn
+      if (data.orderType === 'takeout') return !!data.takeout
+      return true
+    },
+    {
+      message: 'dine_in required for dine_in orderType, takeout required for takeout orderType',
+      path: ['dineIn'],
+    },
+  )
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
@@ -68,8 +84,9 @@ export default defineEventHandler(async (event) => {
     })
 
     return order
-  } catch (error: any) {
-    if (error.message.includes('duplicate') || error.message.includes('unique')) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('duplicate') || msg.includes('unique')) {
       throw createError({ statusCode: 409, message: 'idempotency_conflict' })
     }
     if (error.message.includes('not found')) {

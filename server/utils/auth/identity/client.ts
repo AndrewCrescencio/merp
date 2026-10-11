@@ -1,7 +1,7 @@
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
-import { H3Error, createError  } from 'h3'
+import { H3Error, createError } from 'h3'
 import {
   TimeoutError,
   withTimeout,
@@ -55,7 +55,7 @@ export async function callBetterAuth<T>(
 
   try {
     return await withTimeout(fn(authInstance), timeout)
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof TimeoutError) {
       if (options?.onTimeout) return options.onTimeout()
       return handleUpstreamTimeout()
@@ -79,7 +79,7 @@ export async function callBetterAuthSilent<T>(
 
   try {
     return await withTimeout(fn(authInstance), timeout)
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof TimeoutError) {
       return handleUpstreamTimeout()
     }

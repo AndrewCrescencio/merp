@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return ticket
-  } catch (error: any) {
+  } catch {
     throw createError({ statusCode: 500, message: 'failed_to_update_kitchen_ticket' })
   }
 })

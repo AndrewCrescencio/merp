@@ -51,7 +51,7 @@ export interface SendVerificationEmailInput {
   email: string
 }
 
-export async function validateRegisterInput(body: any): Promise<RegisterInput> {
+export async function validateRegisterInput(body: unknown): Promise<RegisterInput> {
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
 
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
@@ -105,7 +105,7 @@ export async function validateRegisterInput(body: any): Promise<RegisterInput> {
   }
 }
 
-export function validateLoginInput(body: any): LoginInput {
+export function validateLoginInput(body: unknown): LoginInput {
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
 
   if (!email || typeof body?.password !== 'string' || !body.password) {
@@ -123,7 +123,7 @@ export function validateLoginInput(body: any): LoginInput {
   }
 }
 
-export function validateCompanyCreateInput(body: any): CompanyCreateInput {
+export function validateCompanyCreateInput(body: unknown): CompanyCreateInput {
   if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
     sendValidationError('Company name is required')
   }
@@ -155,7 +155,7 @@ export function validateCompanyCreateInput(body: any): CompanyCreateInput {
   }
 }
 
-export function validateInviteInput(body: any): InviteInput {
+export function validateInviteInput(body: unknown): InviteInput {
   if (!body?.companyId || typeof body.companyId !== 'string') {
     sendValidationError('companyId is required')
   }
@@ -172,7 +172,7 @@ export function validateInviteInput(body: any): InviteInput {
   return { companyId: body.companyId, email }
 }
 
-export function validateResetPasswordInput(body: any, query: any): ResetPasswordInput {
+export function validateResetPasswordInput(body: unknown, query: unknown): ResetPasswordInput {
   if (!body?.newPassword || typeof body.newPassword !== 'string' || body.newPassword.length < 8) {
     sendValidationError('Password must be at least 8 characters')
   }
@@ -193,7 +193,7 @@ export function validateResetPasswordInput(body: any, query: any): ResetPassword
   return { token, newPassword: body.newPassword }
 }
 
-export function validateVerifyEmailInput(query: any): VerifyEmailInput {
+export function validateVerifyEmailInput(query: unknown): VerifyEmailInput {
   const token = query.token
   if (typeof token !== 'string' || !token) {
     sendValidationError('Invalid or expired verification link')
@@ -201,7 +201,7 @@ export function validateVerifyEmailInput(query: any): VerifyEmailInput {
   return { token }
 }
 
-export function validateForgetPasswordInput(body: any): ForgetPasswordInput {
+export function validateForgetPasswordInput(body: unknown): ForgetPasswordInput {
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
     sendValidationError('Valid email is required')
@@ -209,7 +209,7 @@ export function validateForgetPasswordInput(body: any): ForgetPasswordInput {
   return { email }
 }
 
-export function validateSendVerificationEmailInput(body: any): SendVerificationEmailInput {
+export function validateSendVerificationEmailInput(body: unknown): SendVerificationEmailInput {
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
     sendValidationError('Valid email is required')
@@ -217,7 +217,7 @@ export function validateSendVerificationEmailInput(body: any): SendVerificationE
   return { email }
 }
 
-export function validateCompanySearchInput(query: any): { q: string } {
+export function validateCompanySearchInput(query: unknown): { q: string } {
   if (!query.q || typeof query.q !== 'string' || query.q.trim().length === 0) {
     sendValidationError('Search query is required')
   }
@@ -227,14 +227,14 @@ export function validateCompanySearchInput(query: any): { q: string } {
   return { q: query.q.trim() }
 }
 
-export function validateCompanySwitchInput(body: any): { companyId: string } {
+export function validateCompanySwitchInput(body: unknown): { companyId: string } {
   if (!body.companyId || typeof body.companyId !== 'string') {
     sendValidationError('Company ID is required')
   }
   return { companyId: body.companyId }
 }
 
-export function validateCompanyUpdateInput(body: any): CompanyCreateInput {
+export function validateCompanyUpdateInput(body: unknown): CompanyCreateInput {
   if (!body?.companyId || typeof body.companyId !== 'string') {
     sendValidationError('companyId is required')
   }
@@ -276,14 +276,14 @@ export function validateCompanyUpdateInput(body: any): CompanyCreateInput {
   return input
 }
 
-export function validateDeleteCompanyInput(body: any): { companyId: string } {
+export function validateDeleteCompanyInput(body: unknown): { companyId: string } {
   if (!body?.companyId || typeof body.companyId !== 'string') {
     sendValidationError('companyId is required')
   }
   return { companyId: body.companyId }
 }
 
-export function validateRemoveMemberInput(body: any): { companyId: string; userId?: string } {
+export function validateRemoveMemberInput(body: unknown): { companyId: string; userId?: string } {
   if (!body?.companyId || typeof body.companyId !== 'string') {
     sendValidationError('companyId is required')
   }
@@ -293,14 +293,14 @@ export function validateRemoveMemberInput(body: any): { companyId: string; userI
   return { companyId: body.companyId, userId: body.userId?.trim() }
 }
 
-export function validateInviteAcceptInput(body: any): { token: string } {
+export function validateInviteAcceptInput(body: unknown): { token: string } {
   if (!body?.token || typeof body.token !== 'string' || body.token.length === 0) {
     sendValidationError('token is required')
   }
   return { token: body.token }
 }
 
-export function validateConsentWithdrawInput(body: any): Record<string, never> {
+export function validateConsentWithdrawInput(_body: unknown): Record<string, never> {
   // No body validation needed for consent withdrawal
   return {}
 }

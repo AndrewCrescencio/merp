@@ -40,6 +40,8 @@ export default defineEventHandler(async (event) => {
 
   const ip = getClientIp(event)
 
+  const sessionWithCompany = session as { id: string; activeCompanyId?: string } | undefined
+
   // FR-023: session_invalidated — sessão encerrada pelo logout.
   await createAuthEvent({
     userId: user?.id ?? null,
@@ -49,7 +51,7 @@ export default defineEventHandler(async (event) => {
     metadata: {
       sessionId: session?.id ?? null,
       userId: user?.id ?? null,
-      tenantId: (session as any)?.activeCompanyId ?? null,
+      tenantId: sessionWithCompany?.activeCompanyId ?? null,
     },
   })
 

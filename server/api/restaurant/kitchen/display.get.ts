@@ -28,19 +28,31 @@ export default defineEventHandler(async (event) => {
   const { companyId, locationId } = auth.session
   const { stationId, status } = parsed.data
 
-  const tickets = await restaurantRepository.listKitchenTickets(companyId, locationId, { status, limit: 100 })
+  const tickets = await restaurantRepository.listKitchenTickets(companyId, locationId, {
+    status,
+    limit: 100,
+  })
 
-  const stationTickets = tickets.filter((t: any) => t.stationId === stationId)
+  const stationTickets = tickets.filter((t: { stationId: string }) => t.stationId === stationId)
 
-  const formatted = stationTickets.map((t: any) => ({
-    id: t.id,
-    orderId: t.orderId,
-    productName: t.items?.[0]?.productName || 'Unknown',
-    quantity: t.items?.[0]?.quantity || '1',
-    status: t.status,
-    priority: t.priority,
-    createdAt: t.createdAt,
-  }))
+  const formatted = stationTickets.map(
+    (t: {
+      id: string
+      orderId: string
+      items?: Array<{ productName?: string; quantity?: string }>
+      status: string
+      priority: number
+      createdAt: Date
+    }) => ({
+      id: t.id,
+      orderId: t.orderId,
+      productName: t.items?.[0]?.productName || 'Unknown',
+      quantity: t.items?.[0]?.quantity || '1',
+      status: t.status,
+      priority: t.priority,
+      createdAt: t.createdAt,
+    }),
+  )
 
   return { tickets: formatted }
 })

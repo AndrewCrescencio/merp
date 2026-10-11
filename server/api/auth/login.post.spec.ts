@@ -1,11 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  mockRateLimitPass,
-  mockRateLimitFail,
-  createMockEvent,
-  createAuthError,
-  mockAuthUser,
-} from '~~/server/utils/test-utils'
+import { createMockEvent, createAuthError } from '~~/server/utils/test-utils'
 
 const mockSignIn = vi.fn()
 const mockCreateAuthEvent = vi.fn().mockResolvedValue(undefined)
@@ -36,8 +30,7 @@ vi.mock('h3', () => ({
 vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
-vi.mock('~~/server/utils/auth/identity/repository', () => ({
-}))
+vi.mock('~~/server/utils/auth/identity/repository', () => ({}))
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   ...(await importOriginal()),
   checkIpRateLimit: mockCheckIpRateLimit,

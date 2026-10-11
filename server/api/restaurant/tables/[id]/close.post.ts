@@ -23,8 +23,9 @@ export default defineEventHandler(async (event) => {
       userId: auth.user.id,
     })
     return table
-  } catch (error: any) {
-    if (error.message.includes('not occupied') || error.message.includes('not found')) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('not occupied') || msg.includes('not found')) {
       throw createError({ statusCode: 400, message: error.message })
     }
     throw createError({ statusCode: 500, message: 'failed_to_close_table' })

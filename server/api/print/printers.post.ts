@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
     })
 
     return printer
-  } catch (error: any) {
+  } catch {
     throw createError({ statusCode: 500, message: 'failed_to_register_printer' })
   }
 })
