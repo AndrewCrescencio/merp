@@ -14,7 +14,7 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 // These flows are tested at the API/handler level instead.
 
 describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
-  let queries: import('~~/server/utils/auth/identity/queries')
+  let queries: typeof import('~~/server/utils/auth/identity/queries')
 
   beforeAll(async () => {
     queries = await import('~~/server/utils/auth/identity/queries')
@@ -85,6 +85,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     await expect(queries.signInUser({ email, password: testPassword }, headers)).rejects.toSatisfy(
       (error: unknown) =>
         error instanceof Error &&
+        'statusCode' in error &&
         error.statusCode === 401 &&
         JSON.parse(error.message).error === 'account_deactivated',
     )
@@ -104,6 +105,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     await expect(queries.signInUser({ email, password: testPassword }, headers)).rejects.toSatisfy(
       (error: unknown) =>
         error instanceof Error &&
+        'statusCode' in error &&
         error.statusCode === 401 &&
         JSON.parse(error.message).error === 'account_deactivated',
     )
@@ -134,25 +136,31 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         name: 'Consent User',
       })
 
-      const session = await queries.createSession(
-        userRecord!.id,
-        `consent-token-${Date.now()}`,
-        new Date(Date.now() + 60_000),
-        false,
-      )
+      const { db } = await import('~~/server/utils/db')
+      const { session, user } = await import('~~/server/utils/schema')
+      const { eq } = await import('drizzle-orm')
+
+      const token = `consent-token-${Date.now()}`
+      await db.insert(session).values({
+        userId: userRecord!.id,
+        token,
+        expiresAt: new Date(Date.now() + 60_000),
+      })
 
       const result = await queries.withdrawConsent(userRecord!.id)
 
       expect(result.isActive).toBe(false)
       expect(result.consentWithdrawnAt).toBeInstanceOf(Date)
 
-      const found = await queries.findUserById(userRecord!.id)
+      const [found] = await db.select().from(user).where(eq(user.id, userRecord!.id))
       expect(found?.isActive).toBe(false)
       expect(found?.consentWithdrawnAt).toBeInstanceOf(Date)
 
-      const sessions = await queries.getUserSessions(userRecord!.id)
-      expect(sessions).toHaveLength(0)
-      expect(await queries.validateSession(session.token)).toBeNull()
+      // FR-021: término de sessão — nem por usuário, nem pelo token criado.
+      expect(
+        await db.select().from(session).where(eq(session.userId, userRecord!.id)),
+      ).toHaveLength(0)
+      expect(await db.select().from(session).where(eq(session.token, token))).toHaveLength(0)
     })
 
     it('rejects sign-in with account_deactivated after consent withdrawal', async () => {
@@ -172,32 +180,21 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
       ).rejects.toSatisfy(
         (error: unknown) =>
           error instanceof Error &&
+          'statusCode' in error &&
           error.statusCode === 401 &&
           JSON.parse(error.message).error === 'account_deactivated',
       )
     })
 
-    it('resets the password with a single-use token and revokes all sessions', async () => {
+    it('sends a password reset for an existing email without throwing', async () => {
       const email = `reset-${Date.now()}@example.com`
-      const userRecord = await queries.registerUser({
+      await queries.registerUser({
         email,
         password: testPassword,
         name: 'Reset User',
       })
 
-      const _session = await queries.createSession(
-        userRecord!.id,
-        `reset-token-${Date.now()}`,
-        new Date(Date.now() + 60_000),
-        false,
-      )
-
-      await queries.requestPasswordResetBA(email)
-
-      // Password reset token not persisted with no-op callback; test the flow
-      // by using the known token format from Better Auth (not practical here).
-      // This test is skipped in integration - tested at API level.
-      // Session revocation is tested at API level where password reset actually occurs.
+      await expect(queries.requestPasswordResetBA(email)).resolves.toBeUndefined()
     })
 
     it('returns generically for unknown emails (anti-enumeration)', async () => {

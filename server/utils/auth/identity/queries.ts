@@ -1,11 +1,10 @@
 import { callBetterAuth } from './client'
 import { createAuthEvent } from '../../shared/audit'
 import { db } from '../../../utils/db'
-import { verification } from '../../../utils/schema'
+import { verification, authEvent, user, session } from '../../../utils/schema'
 import { eq, and, gt } from 'drizzle-orm'
 import { logger } from '#shared/logger'
 import { handleDatabaseError } from '../../shared/errors'
-import type { AuthInstance } from '#shared/auth'
 import { createError, H3Error } from 'h3'
 import { randomUUID } from 'node:crypto'
 import type { RegisterInput } from '../../shared/validate'
@@ -42,7 +41,9 @@ export interface SessionResult {
 export interface SignInResult {
   response: {
     user: UserResult
-    session: SessionResult
+    // null quando a linha de sessão não é localizada logo após o sign-in — o
+    // login não pode falhar por causa de um campo de auditoria.
+    session: SessionResult | null
     token: string
   }
   headers: Headers
@@ -59,6 +60,29 @@ export interface SignInInput {
   email: string
   password: string
   rememberMe?: boolean
+}
+
+// AUD-07: lookup único por email (unique index) usado pelo gate de conta
+// desativada no signInUser.
+export async function findUserByEmail(email: string) {
+  const [row] = await db.select().from(user).where(eq(user.email, email)).limit(1)
+  return row
+}
+
+async function findSessionByToken(token: string) {
+  const [row] = await db.select().from(session).where(eq(session.token, token)).limit(1)
+  return row
+}
+
+// FR-020 (LGPD): exportação lista só os eventos do próprio usuário.
+export async function listUserAuthEvents(
+  userId: string,
+): Promise<(typeof authEvent.$inferSelect)[]> {
+  return await db
+    .select()
+    .from(authEvent)
+    .where(eq(authEvent.userId, userId))
+    .orderBy(authEvent.createdAt)
 }
 
 export async function validateResetToken(token: string): Promise<boolean> {
@@ -91,12 +115,11 @@ async function runTimingPad(email: string, headers?: Headers): Promise<void> {
   )
     .then(async (result: { response?: { token?: string }; headers?: Headers }) => {
       logger.warn('AUD-07: timing pad resolved unexpectedly, revoking session', { email })
-      const sessionToken = result?.response?.token
-      if (sessionToken) {
-        await callBetterAuth(
-          async (auth) => auth.api.revokeSession({ body: { token: sessionToken } }),
-          { timeout: 5_000 },
-        )
+      const leakedToken = result?.response?.token
+      if (leakedToken) {
+        // Remove a linha direto (índice unique em token) — o mesmo efeito do
+        // revoke, sem depender de round-trip Better Auth.
+        await db.delete(session).where(eq(session.token, leakedToken))
       }
     })
     .catch(() => {})
@@ -114,11 +137,12 @@ export async function handleDeactivatedAccount(email: string, headers?: Headers)
   })
 }
 
-export async function registerUser(
-  input: RegisterInput,
-  _authInstance: AuthInstance,
-): Promise<UserResult | null> {
+export async function registerUser(input: RegisterInput): Promise<UserResult | null> {
   try {
+    // AUD-03: duplicata responde null (sem 409, sem segunda conta) — melhor
+    // auth ecoa um perfil que não é persistido, o que devolveria um id falso.
+    if (await findUserByEmail(input.email)) return null
+
     const { user: createdUser } = await callBetterAuth(
       async (auth) =>
         auth.api.signUpEmail({
@@ -126,32 +150,29 @@ export async function registerUser(
             email: input.email,
             password: input.password,
             name: input.name,
-            consentTermsVersion: input.consentTermsVersion,
           },
         }),
       { timeout: 5_000 },
     )
 
-    // Better Auth signUpEmail returns the created user, so no need to check
-    // if email is taken - Better Auth handles this via 422 error
-
+    // FR-021: carimbo de aceite via SQL direto — consentTermsAcceptedAt não é
+    // additionalField do melhor auth e updateUser exige sessão (401 aqui).
     if (input.consentTermsVersion) {
-      await callBetterAuth(
-        async (auth) =>
-          auth.api.updateUser({
-            body: {
-              consentTermsVersion: input.consentTermsVersion,
-              consentTermsAcceptedAt: new Date(),
-            },
-          }),
-        { timeout: 5_000 },
-      )
+      await db
+        .update(user)
+        .set({
+          consentTermsVersion: input.consentTermsVersion,
+          consentTermsAcceptedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, createdUser.id))
     }
 
     return {
       id: createdUser.id,
       email: createdUser.email,
       name: createdUser.name,
+      emailVerified: createdUser.emailVerified,
       isActive: true,
       createdAt: createdUser.createdAt,
       updatedAt: createdUser.createdAt,
@@ -169,6 +190,16 @@ export async function registerUser(
 }
 
 export async function signInUser(input: SignInInput, headers?: Headers): Promise<SignInResult> {
+  // AUD-07: conta desativada ou com consentimento retirado não pode logar.
+  // Fora do try de propósito: o catch abaixo re-mapeia todo 401 para
+  // invalid_credentials, o que apagaria account_deactivated E faria a
+  // tentativa contar para o lockout (que isenta account_deactivated).
+  // handleDeactivatedAccount equaliza o timing com o pad e lança 401.
+  const existing = await findUserByEmail(input.email)
+  if (existing && !existing.isActive) {
+    await handleDeactivatedAccount(input.email, headers)
+  }
+
   try {
     const result = await callBetterAuth(
       async (auth) =>
@@ -184,35 +215,33 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
       { timeout: 5_000 },
     )
 
-    const sessionToken = result.response.token
+    const { user, token } = result.response
 
-    void callBetterAuth(async (auth) => auth.api.revokeSession({ body: { token: sessionToken } }), {
-      timeout: 5_000,
-    }).then(async (validated) => {
-      if (validated) {
-        try {
-          await createAuthEvent({
-            userId: validated.user.id,
-            email: validated.user.email,
-            eventType: 'session_created',
-            metadata: {
-              sessionId: validated.session.id,
-              userId: validated.user.id,
-              tenantId:
-                (validated.session as { activeCompanyId?: string })?.activeCompanyId ?? null,
-            },
-          })
-        } catch (error) {
-          logger.warn('Failed to emit session_created event', {
-            error: error instanceof Error ? error.message : String(error),
-          })
-        }
-      }
+    // FR-023: signInEmail não devolve a sessão — session_id/tenant_id vêm da
+    // linha de sessão (índice unique por token): um lookup, não um round-trip.
+    // createAuthEvent engole falha internamente, então o void não vira
+    // unhandled rejection.
+    const sessionRow = await findSessionByToken(token)
+
+    void createAuthEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: 'session_created',
+      metadata: {
+        sessionId: sessionRow?.id ?? null,
+        userId: user.id,
+        tenantId: sessionRow?.activeCompanyId ?? null,
+      },
     })
 
     return {
-      user: result.response.user,
-      session: result.response.session,
+      // `existing` veio do gate AUD-07 acima: o melhor auth não devolve
+      // isActive (não é additionalField), mas o UserResult exige.
+      response: {
+        user: { ...user, isActive: existing?.isActive ?? true },
+        session: sessionRow ?? null,
+        token,
+      },
       headers: result.headers,
       setCookie: result.headers?.getSetCookie?.() ?? [],
     }
@@ -306,38 +335,39 @@ export async function resetPasswordBA(token: string, newPassword: string): Promi
   }
 }
 
-export async function withdrawConsentBA(userId: string): Promise<UserResult> {
-  await callBetterAuth(
-    async (auth) => auth.api.revokeSessions({ body: { userId } }),
-    { timeout: 5_000 }
-  )
+// FR-017: soft delete — o usuário fica inativo (dados preservados) e perde as
+// sessões. SQL direto: user/session não têm RLS (tabelas do melhor auth) e
+// updateUser/revokeSessions exigem sessão ativa, que estes fluxos não têm.
+// FR-021: a retirada de consentimento reusa este caminho — desativação
+// imediata + término de sessão. A deleção/anonimização de PII é deferida; o
+// registro é o evento consent_withdrawal emitido pelo handler.
+async function deactivateWith(
+  userId: string,
+  set: Partial<typeof user.$inferInsert>,
+): Promise<UserResult> {
+  const [updated] = await db
+    .update(user)
+    .set({ ...set, updatedAt: new Date() })
+    .where(eq(user.id, userId))
+    .returning()
 
-  // Update user to mark consent as withdrawn (if the field exists)
-  await callBetterAuth(
-    async (auth) =>
-      auth.api.updateUser({
-        body: { consentWithdrawnAt: new Date() },
-      }),
-    { timeout: 5_000 }
-  )
+  if (!updated) {
+    throw createError({
+      status: 404,
+      statusText: '404',
+      message: JSON.stringify({ error: 'user_not_found', message: 'User not found' }),
+    })
+  }
 
-  return { id: userId, email: '', name: '', isActive: false, createdAt: new Date(), updatedAt: new Date() }
+  await db.delete(session).where(eq(session.userId, userId))
+
+  return updated
 }
 
-export async function deactivateUserBA(userId: string): Promise<UserResult> {
-  await callBetterAuth(
-    async (auth) => auth.api.revokeSessions({ body: { userId } }),
-    { timeout: 5_000 }
-  )
+export async function deactivateUser(userId: string): Promise<UserResult> {
+  return deactivateWith(userId, { isActive: false })
+}
 
-  // Update user to mark as inactive (if the field exists)
-  await callBetterAuth(
-    async (auth) =>
-      auth.api.updateUser({
-        body: { isActive: false },
-      }),
-    { timeout: 5_000 }
-  )
-
-  return { id: userId, email: '', name: '', isActive: false, createdAt: new Date(), updatedAt: new Date() }
+export async function withdrawConsent(userId: string): Promise<UserResult> {
+  return deactivateWith(userId, { isActive: false, consentWithdrawnAt: new Date() })
 }

@@ -1,52 +1,82 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockDeactivateUser = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockGetClientIp = vi.fn()
+const mockSendUnauthorizedError = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
-  createError: (opts: any) => {
-    const err = new Error(opts.message)
-    ;(err as any).status = opts.status
-    ;(err as any).statusCode = opts.status
-    throw err
-  },
 }))
 vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
-vi.mock('~~/server/utils/shared', () => ({
+vi.mock('~~/server/utils/shared/errors', () => ({
+  sendUnauthorizedError: mockSendUnauthorizedError,
+}))
+vi.mock('~~/server/utils/shared/audit', () => ({
   createAuthEvent: mockCreateAuthEvent,
+}))
+vi.mock('~~/server/utils/auth/identity/queries', () => ({
+  deactivateUser: mockDeactivateUser,
 }))
 
 describe('POST /api/auth/deactivate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSendUnauthorizedError.mockImplementation((msg: string) => {
+      throw new Error(msg)
+    })
+    // FR-017: o soft delete precisa acontecer de fato — antes só se revogava
+    // sessão e a conta continuava logável.
+    mockDeactivateUser.mockResolvedValue({ id: 'user-1', isActive: false })
   })
 
-  it('deactivates user and returns success', async () => {
-    const event = defineEventHandler(async (event) => {
-      const user = event.context.user as { id: string; email: string } | undefined
+  it('deactivates the user and returns success', async () => {
+    const handler = await import('~~/server/api/auth/deactivate.post').then((m) => m.default)
 
-      if (!user) {
-        throw createError({ statusCode: 401, message: 'Authentication required.' })
-      }
+    const event = {
+      context: { user: { id: 'user-1', email: 'test@example.com' } },
+      headers: new Headers(),
+    } as any
 
-      await event.context.auth.api.updateUser({
-        body: { isActive: false },
-      })
-
-      return { message: 'Account deactivated successfully' }
-    })
-
-    const user = { id: 'user-1', email: 'test@example.com' }
-    ;(event.context.user as any) = user
-    ;(event.context.auth as any).api = {
-      updateUser: vi.fn().mockResolvedValue(undefined),
-    }
-
-    const result = await event.handler(event)
+    const result = await handler(event)
 
     expect(result).toEqual({ message: 'Account deactivated successfully' })
+    expect(mockDeactivateUser).toHaveBeenCalledWith('user-1')
+  })
+
+  it('returns 401 when user is not authenticated', async () => {
+    const handler = await import('~~/server/api/auth/deactivate.post').then((m) => m.default)
+
+    await expect(handler({ context: {} } as any)).rejects.toThrow('Authentication required.')
+    expect(mockDeactivateUser).not.toHaveBeenCalled()
+  })
+
+  it('emits session_invalidated with the session context and then deactivation', async () => {
+    const handler = await import('~~/server/api/auth/deactivate.post').then((m) => m.default)
+
+    const event = {
+      context: {
+        user: { id: 'user-1', email: 'test@example.com' },
+        session: { id: 'session-1', activeCompanyId: 'company-1' },
+      },
+      headers: new Headers(),
+    } as any
+
+    await handler(event)
+
+    expect(mockCreateAuthEvent).toHaveBeenNthCalledWith(1, {
+      userId: 'user-1',
+      email: 'test@example.com',
+      eventType: 'session_invalidated',
+      ipAddress: null,
+      metadata: { sessionId: 'session-1', userId: 'user-1', tenantId: 'company-1' },
+    })
+    expect(mockCreateAuthEvent).toHaveBeenNthCalledWith(2, {
+      userId: 'user-1',
+      email: 'test@example.com',
+      eventType: 'deactivation',
+    })
   })
 })

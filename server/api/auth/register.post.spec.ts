@@ -10,7 +10,8 @@ const mockSetResponseStatus = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
 
-vi.mock('h3', () => ({
+vi.mock('h3', async (importOriginal) => ({
+  ...(await importOriginal()),
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
   setResponseStatus: mockSetResponseStatus,
@@ -24,7 +25,8 @@ vi.mock('h3', () => ({
 vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
-vi.mock('~~/server/utils/auth/identity/repository', () => ({
+vi.mock('~~/server/utils/auth/identity/queries', () => ({
+  registerUser: mockRegister,
   generateUserId: () => 'synthetic-user-id-123',
 }))
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
@@ -32,14 +34,15 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   checkIpRateLimit: mockCheckIpRateLimit,
   checkEmailRateLimit: mockCheckEmailRateLimit,
 }))
-vi.mock('~~/server/utils/shared/errors', () => ({
+vi.mock('~~/server/utils/shared/errors', async (importOriginal) => ({
+  ...(await importOriginal()),
   sendValidationError: mockSendValidationError,
 }))
 vi.mock('~~/server/utils/shared/audit', () => ({
   createAuthEvent: mockCreateAuthEvent,
 }))
 vi.mock('#shared/auth', () => ({
-  auth: { api: {} },
+  getAuth: vi.fn(async () => ({ api: {} })),
 }))
 
 describe('POST /api/auth/register', () => {

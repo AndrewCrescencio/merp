@@ -19,10 +19,8 @@ vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
 
-vi.mock('~~/server/utils/auth/identity/repository', () => ({
-  identityRepository: {
-    withdrawConsent: mockWithdrawConsent,
-  },
+vi.mock('~~/server/utils/auth/identity/queries', () => ({
+  withdrawConsent: mockWithdrawConsent,
 }))
 
 vi.mock('~~/server/utils/shared/audit', () => ({

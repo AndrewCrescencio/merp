@@ -16,7 +16,8 @@ const mockGetClientIp = vi.fn()
 const mockAppendResponseHeaders = vi.fn()
 const mockSendDeactivationNotice = vi.fn()
 
-vi.mock('h3', () => ({
+vi.mock('h3', async (importOriginal) => ({
+  ...(await importOriginal()),
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
   appendResponseHeaders: mockAppendResponseHeaders,
@@ -30,7 +31,9 @@ vi.mock('h3', () => ({
 vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
-vi.mock('~~/server/utils/auth/identity/repository', () => ({}))
+vi.mock('~~/server/utils/auth/identity/queries', () => ({
+  signInUser: mockSignIn,
+}))
 vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   ...(await importOriginal()),
   checkIpRateLimit: mockCheckIpRateLimit,
@@ -39,7 +42,8 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   recordFailedAttempt: mockRecordFailedAttempt,
   resetFailedAttempts: mockResetFailedAttempts,
 }))
-vi.mock('~~/server/utils/shared/errors', () => ({
+vi.mock('~~/server/utils/shared/errors', async (importOriginal) => ({
+  ...(await importOriginal()),
   sendValidationError: mockSendValidationError,
   sendUnauthorizedError: mockSendUnauthorizedError,
   sendAuthError: mockSendAuthError,
@@ -121,9 +125,11 @@ describe('POST /api/auth/login', () => {
   it('AUD-14: resetFailedAttempts failure does not fail a successful login', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
     mockResetFailedAttempts.mockRejectedValue(new Error('db hiccup'))
@@ -141,9 +147,11 @@ describe('POST /api/auth/login', () => {
   it('checks IP rate limit before reading the body', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 
@@ -170,9 +178,11 @@ describe('POST /api/auth/login', () => {
   it('calls checkEmailRateLimit with email', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 
@@ -187,9 +197,11 @@ describe('POST /api/auth/login', () => {
   it('normalizes mixed-case email across rate limit, lockout, signIn and reset', async () => {
     mockReadBody.mockResolvedValue({ email: '  User@Example.COM  ', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 
@@ -222,9 +234,11 @@ describe('POST /api/auth/login', () => {
   it('calls checkAccountLockout before authentication', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 
@@ -238,9 +252,11 @@ describe('POST /api/auth/login', () => {
   it('returns user data on successful login', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid-123',
-      email: 'user@example.com',
-      name: 'Test User',
+      response: {
+        user: { id: 'uuid-123', email: 'user@example.com', name: 'Test User' },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 
@@ -258,9 +274,11 @@ describe('POST /api/auth/login', () => {
   it('resets failed attempts on successful login', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 
@@ -290,9 +308,11 @@ describe('POST /api/auth/login', () => {
       rememberMe: true,
     })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 
@@ -311,9 +331,11 @@ describe('POST /api/auth/login', () => {
   it('defaults rememberMe to false', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 
@@ -401,9 +423,11 @@ describe('POST /api/auth/login', () => {
   it('forwards the session Set-Cookie from the repository to the client', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: ['merp-session_token=abc; Path=/; HttpOnly; SameSite=Lax'],
     })
 
@@ -420,9 +444,11 @@ describe('POST /api/auth/login', () => {
   it('does not forward headers when the repository returns no cookie', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
-      id: 'uuid',
-      email: 'user@example.com',
-      name: null,
+      response: {
+        user: { id: 'uuid', email: 'user@example.com', name: null },
+        token: 'session-token',
+      },
+      headers: new Headers(),
       setCookie: [],
     })
 

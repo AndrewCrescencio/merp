@@ -6,7 +6,8 @@ const mockCheckEmailRateLimit = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockReadBody = vi.fn()
 
-vi.mock('h3', () => ({
+vi.mock('h3', async (importOriginal) => ({
+  ...(await importOriginal()),
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
 }))
@@ -17,11 +18,13 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   checkEmailRateLimit: mockCheckEmailRateLimit,
 }))
 
-vi.mock('~~/server/utils/shared/errors', () => ({
+vi.mock('~~/server/utils/shared/errors', async (importOriginal) => ({
+  ...(await importOriginal()),
   sendValidationError: mockSendValidationError,
 }))
 
-vi.mock('~~/server/utils/auth/identity/repository', () => ({
+vi.mock('~~/server/utils/auth/identity/queries', () => ({
+  requestPasswordResetBA: mockRequestPasswordReset,
 }))
 
 describe('POST /api/auth/forget-password (AUD-04)', () => {

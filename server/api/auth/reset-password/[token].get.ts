@@ -1,8 +1,6 @@
 import { defineEventHandler, getRouterParam, sendRedirect } from 'h3'
 import { checkIpRateLimit } from '~~/server/utils/shared'
-import { db } from '~~/server/utils/db'
-import { verification } from '~~/server/utils/schema'
-import { and, eq, gt } from 'drizzle-orm'
+import { validateResetToken } from '~~/server/utils/auth/identity/queries'
 
 // AUD-04/AUD-08: clique no link de reset enviado por email. Valida o token
 // (sem consumir — o consumo único acontece no POST /reset-password) e
@@ -19,20 +17,7 @@ export default defineEventHandler(async (event) => {
   const token = getRouterParam(event, 'token')
   const appOrigin = new URL(process.env.BETTER_AUTH_URL || 'http://localhost:3000').origin
 
-  const isValid =
-    typeof token === 'string' && token
-      ? !!(await db
-          .select({ id: verification.id })
-          .from(verification)
-          .where(
-            and(
-              eq(verification.identifier, `reset-password:${token}`),
-              gt(verification.expiresAt, new Date()),
-            ),
-          )
-          .limit(1)
-          .then((rows) => rows[0]))
-      : false
+  const isValid = typeof token === 'string' && token ? await validateResetToken(token) : false
 
   await sendRedirect(
     event,

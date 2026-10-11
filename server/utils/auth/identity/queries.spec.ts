@@ -17,7 +17,7 @@ const {
   mockVerifyEmail: vi.fn(),
   mockRequestPasswordReset: vi.fn(),
   mockResetPassword: vi.fn(),
-  mockLimit: vi.fn(async () => []),
+  mockLimit: vi.fn(async (): Promise<unknown[]> => []),
   mockWhereDelete: vi.fn(async () => undefined),
   mockLoggerWarn: vi.fn(),
 }))
@@ -92,7 +92,7 @@ describe('signInUser — AUD-07 timing pad', () => {
     })
 
     expect(mockSignInEmail).toHaveBeenCalledTimes(1)
-    const padBody = mockSignInEmail.mock.calls[0][0].body
+    const padBody = mockSignInEmail.mock.calls[0]![0]!.body
     expect(padBody.email).toBe('existing@example.com')
     expect(padBody.password).not.toBe('real-password')
     expect(mockWhereDelete).not.toHaveBeenCalled()
@@ -129,8 +129,8 @@ describe('signInUser — AUD-07 timing pad', () => {
     ).rejects.toMatchObject({ statusCode: 401 })
 
     expect(mockSignInEmail).toHaveBeenCalledTimes(1)
-    expect(mockSignInEmail.mock.calls[0][0].body.password).toBe('real-password')
-    expect(mockSignInEmail.mock.calls[0][0].body.email).toBe('missing@example.com')
+    expect(mockSignInEmail.mock.calls[0]![0]!.body.password).toBe('real-password')
+    expect(mockSignInEmail.mock.calls[0]![0]!.body.email).toBe('missing@example.com')
   })
 
   it('AUD-04: maps 403 email_not_verified from better-auth to the app JSON error shape', async () => {

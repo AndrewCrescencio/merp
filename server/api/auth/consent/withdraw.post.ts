@@ -1,11 +1,11 @@
 import { defineEventHandler, readBody } from 'h3'
-import { callBetterAuth } from '~~/server/utils/auth/identity/client'
 import {
   createAuthEvent,
   getClientIp,
   sendUnauthorizedError,
   validateConsentWithdrawInput,
 } from '~~/server/utils/shared'
+import { withdrawConsent } from '~~/server/utils/auth/identity/queries'
 
 export default defineEventHandler(async (event) => {
   validateConsentWithdrawInput(await readBody(event))
@@ -15,27 +15,10 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  // Update user to mark consent as withdrawn
-  try {
-    await callBetterAuth(
-      async (auth) => (auth.api as Record<string, unknown>).updateUser({
-        body: { name: user.name || 'User', consentWithdrawnAt: new Date() },
-      }),
-      { timeout: 5_000 }
-    )
-  } catch {
-    // updateUser might not accept these fields, continue anyway
-  }
-
-  // Also revoke all sessions
-  try {
-    await callBetterAuth(
-      async (auth) => (auth.api as Record<string, unknown>).revokeSessions({ body: { userId: user.id } }),
-      { timeout: 5_000 }
-    )
-  } catch {
-    // revokeSessions might not be available, continue anyway
-  }
+  // FR-021: desativação imediata da conta + término de todas as sessões.
+  // updateUser/revokeSessions exigiam sessão e eram engolidos pelo catch,
+  // deixando a conta ativa e logável após a retirada.
+  const updated = await withdrawConsent(user.id)
 
   const ip = getClientIp(event)
 
@@ -45,7 +28,7 @@ export default defineEventHandler(async (event) => {
     eventType: 'consent_withdrawal',
     ipAddress: ip || null,
     metadata: {
-      consentWithdrawnAt: new Date(),
+      consentWithdrawnAt: updated.consentWithdrawnAt,
     },
   })
 

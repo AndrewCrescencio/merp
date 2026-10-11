@@ -5,7 +5,8 @@ const mockCheckIpRateLimit = vi.fn()
 const mockSendRedirect = vi.fn()
 const mockGetRouterParam = vi.fn()
 
-vi.mock('h3', () => ({
+vi.mock('h3', async (importOriginal) => ({
+  ...(await importOriginal()),
   defineEventHandler: (fn: any) => fn,
   getRouterParam: mockGetRouterParam,
   sendRedirect: mockSendRedirect,
@@ -16,8 +17,8 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   checkIpRateLimit: mockCheckIpRateLimit,
 }))
 
-vi.mock('~~/server/utils/auth/identity/repository', () => ({
-  identityRepository: { validateResetToken: mockValidateResetToken },
+vi.mock('~~/server/utils/auth/identity/queries', () => ({
+  validateResetToken: mockValidateResetToken,
 }))
 
 describe('GET /api/auth/reset-password/[token] (AUD-04/AUD-08)', () => {

@@ -14,7 +14,9 @@ export interface RegisterInput {
   email: string
   password: string
   name: string
-  consentTermsVersion: string
+  // Obrigatório na fronteira HTTP (validateRegisterInput exige o aceite, FR-021);
+  // opcional aqui porque o registro interno/testes não passam consentimento.
+  consentTermsVersion?: string
 }
 
 export interface LoginInput {

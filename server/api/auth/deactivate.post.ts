@@ -1,6 +1,6 @@
 import { defineEventHandler } from 'h3'
 import { createAuthEvent, getClientIp, sendUnauthorizedError } from '~~/server/utils/shared'
-import { callBetterAuth } from '~~/server/utils/auth/identity/client'
+import { deactivateUser } from '~~/server/utils/auth/identity/queries'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string; email: string } | undefined
@@ -9,21 +9,13 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  // Better Auth doesn't have a direct deactivate user API
-  // We revoke all sessions and mark user as inactive via the Better Auth admin API
-  try {
-    await callBetterAuth(
-      async (auth) => auth.api.revokeSessions({ body: { userId: user.id } }),
-      { timeout: 5_000 }
-    )
-  } catch {
-    // revokeSessions might not be available in this version, continue anyway
-  }
+  // FR-017: soft delete de verdade — sem este UPDATE o usuário continuava
+  // ativo e voltava a logar com sessão nova.
+  await deactivateUser(user.id)
 
   const ip = getClientIp(event)
   const session = event.context.session as
-    | { id: string; activeCompanyId?: string | null }
-    | undefined
+    { id: string; activeCompanyId?: string | null } | undefined
 
   await createAuthEvent({
     userId: user.id,
