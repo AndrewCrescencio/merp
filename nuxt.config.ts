@@ -35,10 +35,24 @@ export default defineNuxtConfig({
   nitro: {
     errorHandler: '~~/server/error-handler',
     imports: {
-      dirs: ['server/utils/auth'],
+      dirs: [
+        'server/utils/auth',
+        'server/utils/print',
+        'server/utils/restaurant',
+        'server/utils/order',
+        'server/utils/shared',
+        'server/utils/db',
+      ],
     },
     experimental: {
       tasks: true,
+    },
+    externals: {
+      inline: [],
+      external: ['nitropack'],
+    },
+    rollupConfig: {
+      external: ['nitropack'],
     },
   },
 

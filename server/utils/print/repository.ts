@@ -206,6 +206,39 @@ export const printRepository = {
       return result.rowCount || 0
     })
   },
+
+  async getJobById(companyId: string, locationId: string, jobId: string): Promise<PrintJobSelect | null> {
+    return withTenant(companyId, locationId, null, async (tx) => {
+      return tx.query.printJob.findFirst({
+        where: and(
+          eq(printJob.companyId, companyId),
+          eq(printJob.locationId, locationId),
+          eq(printJob.id, jobId),
+        ),
+      })
+    })
+  },
+
+  async listJobs(
+    companyId: string,
+    locationId: string,
+    opts?: { status?: string; limit?: number; offset?: number },
+  ): Promise<PrintJobSelect[]> {
+    return withTenant(companyId, locationId, null, async (tx) => {
+      const conditions = [
+        eq(printJob.companyId, companyId),
+        eq(printJob.locationId, locationId),
+      ]
+      if (opts?.status) conditions.push(eq(printJob.status, opts.status))
+
+      return tx.query.printJob.findMany({
+        where: and(...conditions),
+        orderBy: [desc(printJob.priority), desc(printJob.createdAt)],
+        limit: opts?.limit || 50,
+        offset: opts?.offset || 0,
+      })
+    })
+  },
 }
 
 export type PrintRepository = typeof printRepository

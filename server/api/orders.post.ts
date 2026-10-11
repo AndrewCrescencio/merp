@@ -1,59 +1,80 @@
 import { createError, defineEventHandler, readBody } from 'h3'
-import { orderRepository } from '#utils/order/repository'
+import { orderRepository } from '~~/server/utils/order/repository'
+import { z } from 'zod'
+
+const createOrderSchema = z.object({
+  orderType: z.enum(['dine_in', 'takeout']),
+  customerId: z.string().uuid().optional(),
+  partyId: z.string().uuid().optional(),
+  items: z.array(z.object({
+    productId: z.string().uuid().optional(),
+    productName: z.string().min(1),
+    unitPrice: z.string().regex(/^\d+(\.\d{1,2})?$/),
+    quantity: z.string().regex(/^\d+(\.\d{1,3})?$/),
+    taxSnapshot: z.string(),
+    bomSnapshot: z.string().optional(),
+    discountApplied: z.string().optional(),
+  })).min(1),
+  dineIn: z.object({
+    tableId: z.string().uuid(),
+    coverCount: z.number().int().positive().optional(),
+    waiterId: z.string().uuid().optional(),
+  }).optional(),
+  takeout: z.object({
+    pickupAt: z.string().datetime().optional(),
+    pickupName: z.string().optional(),
+    pickupPhone: z.string().optional(),
+  }).optional(),
+  idempotencyKey: z.string().optional(),
+}).refine((data) => {
+  if (data.orderType === 'dine_in') return !!data.dineIn
+  if (data.orderType === 'takeout') return !!data.takeout
+  return true
+}, { message: 'dine_in required for dine_in orderType, takeout required for takeout orderType', path: ['dineIn'] })
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
   const auth = event.context.auth
 
   if (!auth?.user) {
     throw createError({ statusCode: 401, message: 'unauthenticated' })
   }
 
-  const { companyId } = auth.session
+  const body = await readBody(event)
+  const parsed = createOrderSchema.safeParse(body)
 
-  if (!VALID_ORDER_TYPES.includes(body.orderType)) {
-    throw createError({ statusCode: 400, message: 'invalid_order_type' })
+  if (!parsed.success) {
+    throw createError({
+      statusCode: 400,
+      message: 'validation_error',
+      data: parsed.error.flatten(),
+    })
   }
 
-  if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
-    throw createError({ statusCode: 400, message: 'items_required' })
-  }
-
-  for (const item of body.items) {
-    if (
-      !item.productName ||
-      !item.unitPrice ||
-      !item.quantity ||
-      !item.taxSnapshot ||
-      !item.bomSnapshot
-    ) {
-      throw createError({ statusCode: 400, message: 'invalid_item_data' })
-    }
-  }
+  const input = parsed.data
+  const { companyId, locationId } = auth.session
 
   try {
     const order = await orderRepository.create({
       companyId,
-      locationId: body.locationId,
-      orderType: body.orderType,
-      customerId: body.customerId,
-      partyId: body.partyId,
+      locationId,
+      orderType: input.orderType,
+      customerId: input.customerId,
+      partyId: input.partyId,
       createdBy: auth.user.id,
-      idempotencyKey: body.idempotencyKey,
-      items: body.items,
-      dineIn: body.dineIn,
-      takeout: body.takeout,
+      idempotencyKey: input.idempotencyKey,
+      items: input.items,
+      dineIn: input.dineIn,
+      takeout: input.takeout,
     })
+
     return order
-  } catch (error: unknown) {
-    if (
-      error instanceof Error &&
-      (error.message.includes('duplicate key') || error.message.includes('idempotency'))
-    ) {
-      throw createError({ statusCode: 409, message: 'idempotency_key_conflict' })
+  } catch (error: any) {
+    if (error.message.includes('duplicate') || error.message.includes('unique')) {
+      throw createError({ statusCode: 409, message: 'idempotency_conflict' })
     }
-    throw error
+    if (error.message.includes('not found')) {
+      throw createError({ statusCode: 404, message: error.message })
+    }
+    throw createError({ statusCode: 500, message: 'failed_to_create_order' })
   }
 })
-
-const VALID_ORDER_TYPES = ['dine_in', 'takeout'] as const

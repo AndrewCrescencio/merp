@@ -1,7 +1,7 @@
 import { defineTask } from 'nitropack'
-import { printRepository } from '#utils/print/repository'
-import { db } from '#utils/db'
-import { company, location } from '#utils/schema'
+import { printRepository } from '~~/server/utils/print/repository'
+import { db } from '~~/server/utils/db'
+import { company, location } from '~~/server/utils/schema'
 import { eq } from 'drizzle-orm'
 
 // This task runs every 30 minutes to process pending print jobs
