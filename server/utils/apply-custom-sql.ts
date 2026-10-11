@@ -1,7 +1,7 @@
-import { execSync } from 'child_process'
 import { readdirSync, readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import postgres from 'postgres'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DRIZZLE_DIR = resolve(__dirname, '../../drizzle')
@@ -41,11 +41,14 @@ export function buildCustomSql(): string {
     .join('\n')
 }
 
-export function applyCustomSql(dbName: string, composeFile: string): void {
-  const sql = buildCustomSql()
-
-  execSync(
-    `docker compose -f "${composeFile}" exec -T postgres psql -U merp -d ${dbName} -v ON_ERROR_STOP=1`,
-    { input: sql, encoding: 'utf-8', stdio: 'pipe' },
-  )
+// Roda por TCP em vez de `docker compose exec psql`: o setup passa a
+// funcionar contra qualquer servidor acessível (container, host, CI) e não
+// quebra quando o container do compose está preso/ausente.
+export async function applyCustomSql(dbUrl: string): Promise<void> {
+  const sql = postgres(dbUrl, { onnotice: () => {}, connect_timeout: 5 })
+  try {
+    await sql.unsafe(buildCustomSql())
+  } finally {
+    await sql.end()
+  }
 }
