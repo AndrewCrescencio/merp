@@ -1,6 +1,6 @@
 import { defineEventHandler } from 'h3'
-import { db } from '~~/server/db'
-import { authEvent } from '~~/server/schema'
+import { db } from '~~/server/utils/db'
+import { authEvent } from '~~/server/utils/schema'
 import { callBetterAuth } from '~~/server/utils/auth/identity/client'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 

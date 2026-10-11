@@ -205,7 +205,7 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
 // readBody nas rotas públicas: bloqueia corpos grandes sem parseá-los.
 /** Sliding-window rate limit per IP (20/min). No-op without a socket IP. Throws 429 with `Retry-After` headers. */
 export async function checkIpRateLimit(event: H3Event): Promise<void> {
-  let ip: string | null = null
+  let ip: string | null
   try {
     ip = getClientIp(event)
   } catch {

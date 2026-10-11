@@ -1,183 +1,65 @@
 [
   {
-    "title": "2FA Deferred",
-    "slug": "adr-010-2fa-deferred",
-    "path": "02-architecture/adr/adr-010-2fa-deferred",
-    "category": "adr",
-    "module": "auth",
+    "title": "Mapa de Contextos — MERP",
+    "slug": "context-map",
+    "path": "07-reference/context-map",
+    "category": "architecture",
+    "module": "architecture",
     "tags": [
+      "bounded-context",
       "architecture",
-      "decision",
-      "2fa",
-      "mfa",
-      "deferred"
+      "domain-map",
+      "status"
     ],
-    "status": "deferred",
-    "updated": "2026-09-22"
+    "status": "active",
+    "updated": "2026-10-10"
   },
   {
-    "title": "Better Auth Drizzle Adapter Origin",
-    "slug": "adr-009-better-auth-adapter-origin",
-    "path": "02-architecture/adr/adr-009-better-auth-adapter-origin",
-    "category": "adr",
-    "module": "auth",
+    "title": "Auditoria de Simplificação — 2026-10-03",
+    "slug": "audit-2026-10-03-simplificacao-auditoria",
+    "path": "audit/2026-10-03-simplificacao-auditoria",
+    "category": "audit",
+    "module": "architecture",
     "tags": [
-      "architecture",
-      "decision",
-      "better-auth",
-      "adapter"
+      "audit",
+      "simplification",
+      "mvp",
+      "ponytail"
     ],
-    "status": "accepted",
-    "updated": "2026-09-22"
-  },
-  {
-    "title": "Session TTL by Profile",
-    "slug": "adr-004-session-ttl-by-profile",
-    "path": "02-architecture/adr/adr-004-session-ttl-by-profile",
-    "category": "adr",
-    "module": "auth",
-    "tags": [
-      "architecture",
-      "decision",
-      "session",
-      "ttl"
-    ],
-    "status": "accepted",
-    "updated": "2026-09-22"
-  },
-  {
-    "title": "API Versioning — /api/v1 desde já",
-    "slug": "adr-005-api-versioning",
-    "path": "02-architecture/adr/adr-005-api-versioning",
-    "category": "adr",
-    "module": "cross-cutting",
-    "tags": [
-      "architecture",
-      "decision",
-      "api",
-      "versioning"
-    ],
-    "status": "deferred",
-    "updated": "2026-09-22"
-  },
-  {
-    "title": "Escopo de RLS — Company + Location",
-    "slug": "adr-002-location-scope",
-    "path": "02-architecture/adr/adr-002-location-scope",
-    "category": "adr",
-    "module": "cross-cutting",
-    "tags": [
-      "architecture",
-      "decision",
-      "rls",
-      "location"
-    ],
-    "status": "accepted",
-    "updated": "2026-09-22"
-  },
-  {
-    "title": "Estratégia Vertical — Núcleo Comum + Packs",
-    "slug": "adr-001-vertical-strategy",
-    "path": "02-architecture/adr/adr-001-vertical-strategy",
-    "category": "adr",
-    "module": "cross-cutting",
-    "tags": [
-      "architecture",
-      "decision",
-      "vertical-strategy"
-    ],
-    "status": "accepted",
-    "updated": "2026-09-22"
-  },
-  {
-    "title": "Money — numeric(12,2) vs Centavos-Inteiro",
-    "slug": "adr-003-money-numeric-vs-cents",
-    "path": "02-architecture/adr/adr-003-money-numeric-vs-cents",
-    "category": "adr",
-    "module": "cross-cutting",
-    "tags": [
-      "architecture",
-      "decision",
-      "money",
-      "schema"
-    ],
-    "status": "accepted",
-    "updated": "2026-09-22"
-  },
-  {
-    "title": "Test Suite Runs as merp_app Role",
-    "slug": "adr-007-test-suite-runs-as-merp-app",
-    "path": "02-architecture/adr/adr-007-test-suite-runs-as-merp-app",
-    "category": "adr",
-    "module": "cross-cutting",
-    "tags": [
-      "architecture",
-      "decision",
-      "testing",
-      "rls",
-      "ci"
-    ],
-    "status": "accepted",
-    "updated": "2026-09-22"
-  },
-  {
-    "title": "Tipo de PK — uuid nativo (novas tabelas) / text (tabelas auth legadas)",
-    "slug": "adr-006-id-type-uuid",
-    "path": "02-architecture/adr/adr-006-id-type-uuid",
-    "category": "adr",
-    "module": "cross-cutting",
-    "tags": [
-      "architecture",
-      "decision",
-      "schema",
-      "uuid"
-    ],
-    "status": "accepted",
+    "status": "draft",
     "updated": "2026-10-03"
   },
   {
-    "title": "Vertical Slices (Package by Feature)",
-    "slug": "adr-008-vertical-slices-package-by-feature",
-    "path": "02-architecture/adr/adr-008-vertical-slices-package-by-feature",
-    "category": "adr",
-    "module": "cross-cutting",
+    "title": "Plano de Simplificação — 2026-10-03",
+    "slug": "audit-2026-10-03-simplificacao-plano",
+    "path": "audit/2026-10-03-simplificacao-plano",
+    "category": "audit",
+    "module": "architecture",
     "tags": [
-      "architecture",
-      "decision",
-      "vertical-slices",
-      "package-by-feature"
+      "audit",
+      "simplification",
+      "mvp",
+      "plan",
+      "ponytail"
     ],
-    "status": "accepted",
-    "updated": "2026-09-22"
+    "status": "draft",
+    "updated": "2026-10-03"
   },
   {
-    "title": "API Contract: Auth",
-    "slug": "api-auth",
-    "path": "04-api/auth-api",
-    "category": "api",
-    "module": "auth",
-    "tags": [
-      "api",
-      "contract",
-      "auth",
-      "openapi"
-    ],
-    "status": "active",
-    "updated": "2026-09-22"
-  },
-  {
-    "title": "Debug & Troubleshooting — MERP",
-    "slug": "debug-troubleshooting",
-    "path": "01-getting-started/debug-troubleshooting",
+    "title": "Como Criar um Endpoint (handler → Repository) — MERP",
+    "slug": "create-endpoint-guide",
+    "path": "07-reference/create-endpoint-guide",
     "category": "guide",
     "module": "getting-started",
     "tags": [
-      "debug",
-      "troubleshooting",
-      "errors"
+      "handler",
+      "repository",
+      "endpoint",
+      "tutorial",
+      "pattern"
     ],
     "status": "active",
-    "updated": "2026-10-03"
+    "updated": "2026-10-10"
   },
   {
     "title": "Dev Environment — MERP",
@@ -222,21 +104,6 @@
     "updated": "2026-10-03"
   },
   {
-    "title": "Runbook: Grants e DEFAULT PRIVILEGES para merp_app",
-    "slug": "runbook-grants",
-    "path": "05-operations/runbooks/grants",
-    "category": "guide",
-    "module": "operations",
-    "tags": [
-      "runbook",
-      "grants",
-      "rls",
-      "postgresql"
-    ],
-    "status": "active",
-    "updated": "2026-09-22"
-  },
-  {
     "title": "Architecture Overview — MERP",
     "slug": "architecture-overview",
     "path": "00-overview/architecture-overview",
@@ -265,29 +132,14 @@
     "updated": "2026-10-03"
   },
   {
-    "title": "ADR Index",
-    "slug": "adr-index",
-    "path": "02-architecture/adr/index",
-    "category": "reference",
-    "module": "architecture",
-    "tags": [
-      "adr",
-      "index",
-      "decisions"
-    ],
-    "status": "active",
-    "updated": "2026-10-03"
-  },
-  {
-    "title": "Padrões de Documentação — MERP",
+    "title": "Padrões de Documentação — MERP (MVP)",
     "slug": "doc-standards",
     "path": "_meta/doc-standards",
     "category": "reference",
     "module": "meta",
     "tags": [
       "standards",
-      "governance",
-      "templates"
+      "governance"
     ],
     "status": "active",
     "updated": "2026-10-03"
@@ -315,11 +167,11 @@
     "tags": [
       "cli",
       "commands",
-      "pnpm",
-      "drizzle"
+      "scripts",
+      "pnpm"
     ],
     "status": "active",
-    "updated": "2026-10-03"
+    "updated": "2026-10-10"
   },
   {
     "title": "Database Schema — MERP",
@@ -328,13 +180,14 @@
     "category": "reference",
     "module": "reference",
     "tags": [
+      "database",
       "schema",
       "drizzle",
-      "postgresql",
+      "tables",
       "rls"
     ],
     "status": "active",
-    "updated": "2026-10-03"
+    "updated": "2026-10-10"
   },
   {
     "title": "Environment Variables — MERP",
@@ -344,12 +197,13 @@
     "module": "reference",
     "tags": [
       "env",
+      "environment",
       "variables",
       "config",
-      "production"
+      "docker"
     ],
     "status": "active",
-    "updated": "2026-10-03"
+    "updated": "2026-10-10"
   },
   {
     "title": "Error Codes — MERP",
@@ -359,12 +213,13 @@
     "module": "reference",
     "tags": [
       "errors",
+      "http",
       "codes",
       "api",
-      "http"
+      "better-auth"
     ],
     "status": "active",
-    "updated": "2026-10-03"
+    "updated": "2026-10-10"
   },
   {
     "title": "Especificação: Auth Bounded Context",

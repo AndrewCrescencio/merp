@@ -15,12 +15,9 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
   let queries: import('~~/server/utils/auth/identity/queries')
-  let repo: import('~~/server/utils/auth/identity/repository').IdentityRepository
 
   beforeAll(async () => {
     queries = await import('~~/server/utils/auth/identity/queries')
-    const mod = await import('~~/server/utils/auth/identity/repository')
-    repo = new mod.IdentityRepository()
   })
 
   it('registers a new user (AUD-04 sendOnSignUp)', async () => {
@@ -51,7 +48,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     })
 
     expect(second).toBeNull()
-    const found = await repo.findByEmail(email)
+    const found = await queries.findUserByEmail(email)
     expect(found?.id).toBe(first!.id)
     expect(found?.name).toBe('First User')
     expect(found?.consentTermsVersion).toBeNull()
@@ -81,7 +78,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
       password: testPassword,
       name: 'Deactivated User',
     })
-    await repo.deactivateUser(user!.id)
+    await queries.deactivateUser(user!.id)
 
     const headers = new Headers()
 
@@ -100,7 +97,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
       password: testPassword,
       name: 'Aud07 User',
     })
-    await repo.deactivateUser(userRecord!.id)
+    await queries.deactivateUser(userRecord!.id)
 
     const headers = new Headers()
 
@@ -120,7 +117,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
   })
 
   it('finds user by email after registration', async () => {
-    const found = await repo.findByEmail(testEmail)
+    const found = await queries.findUserByEmail(testEmail)
 
     expect(found).toMatchObject({
       email: testEmail,
@@ -137,25 +134,25 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         name: 'Consent User',
       })
 
-      const session = await repo.createSession(
+      const session = await queries.createSession(
         userRecord!.id,
         `consent-token-${Date.now()}`,
         new Date(Date.now() + 60_000),
         false,
       )
 
-      const result = await repo.withdrawConsent(userRecord!.id)
+      const result = await queries.withdrawConsent(userRecord!.id)
 
       expect(result.isActive).toBe(false)
       expect(result.consentWithdrawnAt).toBeInstanceOf(Date)
 
-      const found = await repo.findById(userRecord!.id)
+      const found = await queries.findUserById(userRecord!.id)
       expect(found?.isActive).toBe(false)
       expect(found?.consentWithdrawnAt).toBeInstanceOf(Date)
 
-      const sessions = await repo.getUserSessions(userRecord!.id)
+      const sessions = await queries.getUserSessions(userRecord!.id)
       expect(sessions).toHaveLength(0)
-      expect(await repo.validateSession(session.token)).toBeNull()
+      expect(await queries.validateSession(session.token)).toBeNull()
     })
 
     it('rejects sign-in with account_deactivated after consent withdrawal', async () => {
@@ -166,7 +163,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         name: 'Consent SignIn',
       })
 
-      await repo.withdrawConsent(userRecord!.id)
+      await queries.withdrawConsent(userRecord!.id)
 
       const headers = new Headers()
 
@@ -188,7 +185,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         name: 'Reset User',
       })
 
-      const _session = await repo.createSession(
+      const _session = await queries.createSession(
         userRecord!.id,
         `reset-token-${Date.now()}`,
         new Date(Date.now() + 60_000),
@@ -234,8 +231,8 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
         metadata: { note: 'user-less row' },
       })
 
-      const eventsA = await repo.listUserAuthEvents(userA!.id)
-      const eventsB = await repo.listUserAuthEvents(userB!.id)
+      const eventsA = await queries.listUserAuthEvents(userA!.id)
+      const eventsB = await queries.listUserAuthEvents(userB!.id)
 
       expect(eventsA.every((e) => e.userId === userA!.id)).toBe(true)
       expect(eventsB.every((e) => e.userId === userB!.id)).toBe(true)

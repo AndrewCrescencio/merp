@@ -1,6 +1,5 @@
 import { vi } from 'vitest'
-import type { H3Event } from 'h3'
-import { createError, type Headers } from 'h3'
+import type { H3Event, type Headers } from 'h3'
 
 export function createMockEvent(overrides: Partial<H3Event> = {}): H3Event {
   return {
@@ -22,20 +21,23 @@ export function mockAuthUser(user = { id: 'uuid', email: 'test@example.com', nam
 }
 
 export function createRateLimitError(retryAfter = 30) {
-  const err: any = new Error(
+  const err = new Error(
     JSON.stringify({
       error: 'rate_limit_exceeded',
       message: 'Too many requests. Try again later.',
       retryAfter,
     }),
-  )
+  ) as Error & { status: number; statusCode: number }
   err.status = 429
   err.statusCode = 429
   return err
 }
 
 export function createAuthError(status: number, error: string, message: string) {
-  const err: any = new Error(JSON.stringify({ error, message }))
+  const err = new Error(JSON.stringify({ error, message })) as Error & {
+    status: number
+    statusCode: number
+  }
   err.status = status
   err.statusCode = status
   return err
@@ -45,12 +47,12 @@ export const mockRateLimitPass = () => vi.fn().mockResolvedValue(undefined)
 export const mockRateLimitFail = (retryAfter = 30) =>
   vi.fn().mockRejectedValue(createRateLimitError(retryAfter))
 
-export function mockRepositoryMethod<T>(mock: ReturnType<typeof vi.fn>, value: T) {
+export function mockRepositoryMethod(mock: ReturnType<typeof vi.fn>, value: unknown) {
   mock.mockResolvedValue(value)
   return mock
 }
 
-export function mockRepositoryError<T>(mock: ReturnType<typeof vi.fn>, error: Error) {
+export function mockRepositoryError(mock: ReturnType<typeof vi.fn>, error: Error) {
   mock.mockRejectedValue(error)
   return mock
 }

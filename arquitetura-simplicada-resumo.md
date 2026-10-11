@@ -1,5 +1,7 @@
 # Arquitetura Simplificada: Análise e Plano de Refatoração
 
+> **Atualização 2026-10-10:** `IdentityRepository` **não existe** como classe separada. O módulo `identity/` contém apenas `queries.ts` (funções de negócio) e `client.ts` (wrapper Better Auth). Os handlers usam `queries.ts` + Better Auth direto. Este doc reflete o plano de refatoração original; a remoção de `IdentityRepository` já era o plano (não existia como classe concreta, apenas como conceito de fachada).
+
 ## Resumo Executivo
 
 **Projeto:** Merp (Nuxt 4 + TypeScript + Drizzle + Better Auth + PostgreSQL com RLS)  
@@ -13,17 +15,17 @@
 
 ## Diagnóstico por Módulo (Tabela Classificação)
 
-| Repository | Classificação | Justificativa | Ação |
-|------------|---------------|---------------|------|
-| **UserRepository** | **Remover** | 1:1 pass-through para Better Auth drizzleAdapter; nenhum ganho de isolamento; testing facilitado por Better Auth helpers | Remover arquivo + atualizar chamadores para `auth.users.*` |
-| **SessionRepository** | **Remover** | 1:1 pass-through para Better Auth; lifecycle já gerenciado pelo adapter | Remover arquivo + atualizar chamadores para `auth.sessions.*` |
-| **IdentityRepository** | **Remover** | Fassade pura delegando para user/session repos; desaparece quando underlying repos removidos | Remover arquivo + diretos calls a Better Auth |
-| **InviteRepository** | **Manter** | Lógica única: tokens 256-bit, SHA-256 hash, claim race-safe TTL 7d — NÃO está no Better Auth | Manter como está; lógica de domínio real |
-| **CompanyRepository** | **Simplificar** | CRUD + RLS + soft-delete + conflict CNPJ; grande parte é infra-cross-cutting; pode reduzir superfície mantendo RLS | Simplificar: remover try/catch duplicado, extrair helpers de erro |
-| **MembershipRepository** | **Manter** | Operações multi-tenant: validação de papel, ativação de company, remoção de membro — núcleo de domínio | Manter como está; lógica essencial |
-| **PrintRepository** | **Simplificar** | Máquina de estados (pending→printing→completed/failed) com attempt tracking — útil mas não crítico para MVP | Simplificar: remover `attempts`/`startedAt`; preservar transições de status essenciais |
-| **OrderRepository** | **Manter** | Lógica real: idempotency, enriquecimento com itens, fluxo de status open→completed/cancelled — não é CRUD 1:1 | Manter como está; lógica de negócio complexa |
-| **RestaurantRepository** | **Manter** | Máquinas de estado: ocupação de mesas, progressão de tickets, reconciliação de shifts — domínio real | Manter como está; estado machines complexas |
+| Repository               | Classificação   | Justificativa                                                                                                            | Ação                                                                                   |
+| ------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| **UserRepository**       | **Remover**     | 1:1 pass-through para Better Auth drizzleAdapter; nenhum ganho de isolamento; testing facilitado por Better Auth helpers | Remover arquivo + atualizar chamadores para `auth.users.*`                             |
+| **SessionRepository**    | **Remover**     | 1:1 pass-through para Better Auth; lifecycle já gerenciado pelo adapter                                                  | Remover arquivo + atualizar chamadores para `auth.sessions.*`                          |
+| **IdentityRepository**   | **Remover**     | Fassade pura delegando para user/session repos; desaparece quando underlying repos removidos                             | Remover arquivo + diretos calls a Better Auth                                          |
+| **InviteRepository**     | **Manter**      | Lógica única: tokens 256-bit, SHA-256 hash, claim race-safe TTL 7d — NÃO está no Better Auth                             | Manter como está; lógica de domínio real                                               |
+| **CompanyRepository**    | **Simplificar** | CRUD + RLS + soft-delete + conflict CNPJ; grande parte é infra-cross-cutting; pode reduzir superfície mantendo RLS       | Simplificar: remover try/catch duplicado, extrair helpers de erro                      |
+| **MembershipRepository** | **Manter**      | Operações multi-tenant: validação de papel, ativação de company, remoção de membro — núcleo de domínio                   | Manter como está; lógica essencial                                                     |
+| **PrintRepository**      | **Simplificar** | Máquina de estados (pending→printing→completed/failed) com attempt tracking — útil mas não crítico para MVP              | Simplificar: remover `attempts`/`startedAt`; preservar transições de status essenciais |
+| **OrderRepository**      | **Manter**      | Lógica real: idempotency, enriquecimento com itens, fluxo de status open→completed/cancelled — não é CRUD 1:1            | Manter como está; lógica de negócio complexa                                           |
+| **RestaurantRepository** | **Manter**      | Máquinas de estado: ocupação de mesas, progressão de tickets, reconciliação de shifts — domínio real                     | Manter como está; estado machines complexas                                            |
 
 ---
 
@@ -47,15 +49,18 @@ Drizzle ORM → PostgreSQL with RLS policies (via withTenant())
 ```
 
 **Camadas removidas:**
+
 - ❌ UserRepository → Better Auth direct API
 - ❌ SessionRepository → Better Auth direct API
 - ❌ IdentityRepository → facade removida (desnecessária)
 
 **Camadas simplificadas:**
+
 - ⚡ CompanyRepository → método enxuto + helpers de erro compartilhados
 - ⚡ PrintRepository → máquina de estados reduzida para MVP
 
 **Camadas mantidas (lógica de domínio):**
+
 - ✅ InviteRepository — regra de negócio única
 - ✅ MembershipRepository — controle de acesso multi-tenant
 - ✅ OrderRepository — fluxo de pedido complexo
@@ -70,35 +75,35 @@ Drizzle ORM → PostgreSQL with RLS policies (via withTenant())
 #### **Fase 1: Remover repositórios de auth (3 steps, menor risco)**
 
 1. **Remover UserRepository** — substituir por `auth.users.getByEmail()`, `auth.users.getUserById()`, etc.
-   - *Arquivos afetados:* `server/utils/auth/identity/user.ts` (remover), `identity/repository.ts`, `queries.ts`, testes
-   - *Validação:* login/signup/verification ainda funcionam
-   - *Rollback:* git restore dos 3 arquivos
+   - _Arquivos afetados:_ `server/utils/auth/identity/user.ts` (remover), `identity/repository.ts`, `queries.ts`, testes
+   - _Validação:_ login/signup/verification ainda funcionam
+   - _Rollback:_ git restore dos 3 arquivos
 
 2. **Remover SessionRepository** — substituir por `auth.sessions.createSession()`, `validateSession()`, etc.
-   - *Arquivos afetados:* `server/utils/auth/identity/session.ts`, `identity/repository.ts`, testes
-   - *Validação:* sessões persistem, login mantém state, logout funciona
+   - _Arquivos afetados:_ `server/utils/auth/identity/session.ts`, `identity/repository.ts`, testes
+   - _Validação:_ sessões persistem, login mantém state, logout funciona
 
 3. **Remover IdentityRepository** — deletar fachada; atualizar chamadores para Better Auth direto ou repositórios restantes
-   - *Arquivos afetados:* `server/utils/auth/identity/repository.ts` (deletar)
-   - *Validação:* todos os operations auth ainda funcionam pelos novos paths
+   - _Arquivos afetados:_ `server/utils/auth/identity/repository.ts` (deletar)
+   - _Validação:_ todos os operations auth ainda funcionam pelos novos paths
 
 #### **Fase 2: Simplify Company + Membership (2 steps)**
 
 4. **Simplificar CompanyRepository** — remover try/catch + isPgConflict duplicado em cada método; extrair para helper centralizado
-   - *Manter:* todos os métodos (createCompany, findCompanyById, softDeleteCompany, updateCompany) + RLS withTenant
-   - *Remover:* boilerplate de erro em cada método
-   - *Validação:* POST /api/auth/companies ainda cria companies; GET por id ainda funciona
+   - _Manter:_ todos os métodos (createCompany, findCompanyById, softDeleteCompany, updateCompany) + RLS withTenant
+   - _Remover:_ boilerplate de erro em cada método
+   - _Validação:_ POST /api/auth/companies ainda cria companies; GET por id ainda funciona
 
 5. **Simplificar/Merged MembershipRepository** — remover `searchCompanies` (pode ser coberto por CompanyRepository simplificado); manter métodos essenciais de papel/associação
-   - *Manter:* isCompanyMember, getCompanyMembershipRole, findUserCompanies, removeCompanyMember, setActiveCompany
-   - *Remover:* searchCompanies (busca simplificada via CompanyRepository se necessário)
+   - _Manter:_ isCompanyMember, getCompanyMembershipRole, findUserCompanies, removeCompanyMember, setActiveCompany
+   - _Remover:_ searchCompanies (busca simplificada via CompanyRepository se necessário)
 
 #### **Fase 3: Simplificar PrintRepository (1 step)**
 
 6. **Simplificar PrintRepository** — remover `attempts` e `startedAt` da máquina de estados; simplificar completeJob/failJob/retryJob/cleanupOldJobs
-   - *Manter:* registerPrinter, getPrinters, enqueuePrintJob, getPendingJobs (core)
-   - *Remover:* tracking de attempts, timestamps não-criticos para MVP
-   - *Validação:* task process-print-queue ainda processa jobs; API enqueue ainda funciona
+   - _Manter:_ registerPrinter, getPrinters, enqueuePrintJob, getPendingJobs (core)
+   - _Remover:_ tracking de attempts, timestamps não-criticos para MVP
+   - _Validação:_ task process-print-queue ainda processa jobs; API enqueue ainda funciona
 
 #### **Fase 4: Manter como está (já têm lógica de domínio)**
 
@@ -130,6 +135,7 @@ Drizzle ORM → PostgreSQL with RLS policies (via withTenant())
 ### Exemplo 1: UserRepository → Better Auth Direto
 
 **Before** (`server/utils/auth/identity/user.ts:24-32`):
+
 ```typescript
 export class UserRepository {
   async findByEmail(email: string): Promise<UserResult | null> {
@@ -151,6 +157,7 @@ Fassade delegando para `userRepository.` + `sessionRepository.` — 68 linhas de
 ### Exemplo 2: CompanyRepository → Simplificado
 
 **Before** (`server/utils/auth/company/repository.ts:40-69` — createCompany):
+
 ```typescript
 async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
   try {
@@ -169,6 +176,7 @@ async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
 ```
 
 **After** (`server/utils/auth/company/repository.ts:40-55` — simplified):
+
 ```typescript
 async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
   const companyId = randomUUID()
@@ -180,6 +188,7 @@ async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
 ```
 
 **Novo helper** (opcional, em `shared/errors.ts`):
+
 ```typescript
 export function handleRepoError(error: unknown, operation: string) {
   if (isPgConflict(error)) {
@@ -199,6 +208,7 @@ Todos os 5 métodos da empresa seguem esse padrão — reduzido de ~170 linhas d
 ### Exemplo 3: PrintRepository → Simplificado para MVP
 
 **Before** (`server/utils/print/repository.ts:140-156` — markJobPrinting):
+
 ```typescript
 async markJobPrinting(companyId: string, jobId: string): Promise<PrintJobSelect | null> {
   return withTenant(companyId, null, null, async (tx) => {
@@ -213,6 +223,7 @@ async markJobPrinting(companyId: string, jobId: string): Promise<PrintJobSelect 
 ```
 
 **After** (simplified — MVP):
+
 ```typescript
 async markJobPrinting(companyId: string, jobId: string): Promise<PrintJobSelect | null> {
   return withTenant(companyId, null, null, async (tx) => {
@@ -227,12 +238,14 @@ async markJobPrinting(companyId: string, jobId: string): Promise<PrintJobSelect 
 ```
 
 **Changes:**
+
 - ❌ Removido: `attempts: sql`${printJob.attempts} + 1``
 - ❌ Removido: `startedAt: new Date()`
 - ✅ Mantido: `withTenant` (RLS essential)
 - ✅ Mantido: transição pending → printing + guard de status
 
 Outros métodos simplificados igualmente:
+
 - `completeJob`: remove attempts reset, mantém só status + completedAt
 - `failJob`: remove lastError complexity, mantém só status: 'failed'
 - `retryJob`: simplificado para status: 'pending' (sem attempts decrement)
@@ -243,6 +256,7 @@ Outros métodos simplificados igualmente:
 ## Checklist de Validação
 
 ### Antes de iniciar:
+
 - [ ] Git commit de backup: `git commit -m "pre-repo-simplification: backup original repo files"`
 - [ ] TypeScript: `npx tsc --noEmit` passa
 - [ ] Ambiente de teste limpo
@@ -250,12 +264,14 @@ Outros métodos simplificados igualmente:
 ### Após cada fase:
 
 **Fase 1 (remover auth repos):**
+
 - [ ] `POST /api/auth/sign-in` → 200 + session created
 - [ ] `POST /api/auth/sign-up` → 201 + user created + verification sent (no-op log)
 - [ ] `GET /api/auth/session` → user data retornado
 - [ ] `POST /api/auth/sign-out` → session terminated
 
 **Fase 2 (simplify Company/Membership):**
+
 - [ ] `POST /api/auth/companies` → company criada com CNPJ validation
 - [ ] `GET /api/auth/companies/[id]` → company encontrada (RLS)
 - [ ] `POST /api/auth/companies/switch` → active company setada
@@ -263,6 +279,7 @@ Outros métodos simplificados igualmente:
 - [ ] `isCompanyMember()`, `getCompanyMembershipRole()` → boolean/role correto
 
 **Fase 3 (simplify Print):**
+
 - [ ] `POST /api/print/jobs` → job enfileirada com status pending
 - [ ] Task `process-print-queue` processa jobs (sem depender de attempts)
 - [ ] `GET /api/print/jobs/pending` → jobs pendentes retornados
@@ -270,6 +287,7 @@ Outros métodos simplificados igualmente:
 **Fases 4 (manter):** — nenhum teste novo necessário, suites existentes passam
 
 ### Após todas as fases:
+
 - [ ] Suite de testes: `pnpm test` (ou `npm test`) — passa 100% ou com ajustes esperados (~41 testes menores precisam de adaptação)
 - [ ] TypeScript: `npx tsc --noEmit` — sem erros
 - [ ] Nenhuma API externa quebrada (contratos mantidos)
@@ -294,4 +312,5 @@ Outros métodos simplificados igualmente:
 7. **Ordem de prioridade real:** O MVP precisa das simplificações de PrintRepository ou seria mais seguro mantê-las e simplificar apenas os repositórios de auth primeiro? Há prazo que dita qual fase vem primeiro?
 
 ---
-*Gerado em: 2026-10-06 por arquiteto de software sênior especializado em DDD pragmático e simplificação arquitetural.*
+
+_Gerado em: 2026-10-06 por arquiteto de software sênior especializado em DDD pragmático e simplificação arquitetural._

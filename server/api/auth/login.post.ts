@@ -26,10 +26,11 @@ import {
 // interna, exceto email_not_verified (403 explícito — ver abaixo).
 const LOCKOUT_EXEMPT_ERROR_CODES = new Set(['account_deactivated', 'email_not_verified'])
 
-function getLoginErrorReason(error: any): string {
-  const status = error?.statusCode ?? error?.status
+function getLoginErrorReason(error: unknown): string {
+  const err = error as { statusCode?: number; status?: number; message?: unknown }
+  const status = err.statusCode ?? err.status
   if (status !== 401 && status !== 403) return 'unknown'
-  if (typeof error?.message === 'string') {
+  if (typeof err.message === 'string') {
     try {
       const parsed = JSON.parse(error.message)
       if (typeof parsed?.error === 'string') {
@@ -146,7 +147,7 @@ export default defineEventHandler(async (event) => {
       email: user.email,
       name: user.name,
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const reason = getLoginErrorReason(error)
 
     await createAuthEvent({
@@ -187,7 +188,8 @@ export default defineEventHandler(async (event) => {
       )
     }
 
-    if (error?.statusCode === 401) {
+    const err = error as { statusCode?: number }
+    if (err.statusCode === 401) {
       sendUnauthorizedError('Invalid email or password')
     }
 

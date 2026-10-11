@@ -66,7 +66,7 @@ describe.skipIf(!dbAvailable)('Tenant isolation under concurrent load', () => {
             const [countRow] = await tx.execute(
               sql`SELECT COUNT(*) FROM company WHERE id LIKE ${`${tenantId.replace(/-/g, '').slice(0, 8)}%`}`,
             )
-            const ownCount = Number((countRow as any).count)
+            const _ownCount = Number((countRow as any).count)
 
             const [otherCountRow] = await tx.execute(
               sql`SELECT COUNT(*) FROM company WHERE id LIKE ${`${(isTenantA ? TENANT_B : TENANT_A).replace(/-/g, '').slice(0, 8)}%`}`,

@@ -30,15 +30,29 @@ export default defineNuxtConfig({
     },
   },
 
-  compatibilityDate: '2025-07-15',
+  compatibilityDate: '2026-10-10',
 
   nitro: {
     errorHandler: '~~/server/error-handler',
     imports: {
-      dirs: ['server/utils/auth'],
+      dirs: [
+        'server/utils/auth',
+        'server/utils/print',
+        'server/utils/restaurant',
+        'server/utils/order',
+        'server/utils/shared',
+        'server/utils/db',
+      ],
     },
     experimental: {
       tasks: true,
+    },
+    externals: {
+      inline: [],
+      external: ['nitropack'],
+    },
+    rollupConfig: {
+      external: ['nitropack'],
     },
   },
 

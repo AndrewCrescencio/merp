@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { db, createOwnerDbForSetupOnly } from '../db'
+import { createOwnerDbForSetupOnly } from '../db'
 import { sql } from 'drizzle-orm'
-import { orderItem } from './order-item'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 

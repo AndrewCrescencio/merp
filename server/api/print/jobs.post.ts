@@ -1,41 +1,48 @@
 import { createError, defineEventHandler, readBody } from 'h3'
-import { printRepository } from '#utils/print/repository'
+import { printRepository } from '~~/server/utils/print/repository'
+import { z } from 'zod'
+
+const enqueuePrintJobSchema = z.object({
+  printerId: z.string().uuid().optional(),
+  orderId: z.string().uuid(),
+  template: z.enum(['receipt', 'kitchen-ticket']),
+  payload: z.record(z.unknown()),
+  priority: z.number().int().optional(),
+})
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
   const auth = event.context.auth
 
   if (!auth?.user) {
     throw createError({ statusCode: 401, message: 'unauthenticated' })
   }
 
+  const body = await readBody(event)
+  const parsed = enqueuePrintJobSchema.safeParse(body)
+
+  if (!parsed.success) {
+    throw createError({
+      statusCode: 400,
+      message: 'validation_error',
+      data: parsed.error.flatten(),
+    })
+  }
+
   const { companyId, locationId } = auth.session
-
-  const { printerId, orderId, template, payload, priority } = body
-
-  if (!orderId || !template || !payload) {
-    throw createError({ statusCode: 400, message: 'missing_required_fields' })
-  }
-
-  if (!['receipt', 'kitchen-ticket'].includes(template)) {
-    throw createError({ statusCode: 400, message: 'invalid_template' })
-  }
 
   try {
     const job = await printRepository.enqueuePrintJob({
       companyId,
       locationId,
-      printerId,
-      orderId,
-      template,
-      payload,
-      priority,
+      ...parsed.data,
     })
+
     return job
-  } catch (error: any) {
-    if (error.message.includes('No default printer')) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('No default printer')) {
       throw createError({ statusCode: 400, message: error.message })
     }
-    throw createError({ statusCode: 500, message: 'print_job_enqueue_failed' })
+    throw createError({ statusCode: 500, message: 'failed_to_enqueue_print_job' })
   }
 })

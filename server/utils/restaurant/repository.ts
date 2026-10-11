@@ -1,7 +1,7 @@
-import { withTenant } from '../../db/tenant-context'
+import { withTenant } from '~~/server/utils/db/tenant-context'
 import { eq, and, desc } from 'drizzle-orm'
-import { restaurantTable, kitchenTicket, cashierShift } from '../../schema'
-import type { RestaurantTableSelect, KitchenTicketSelect, CashierShiftSelect } from '../../schema'
+import { restaurantTable, kitchenTicket, cashierShift } from '~~/server/utils/schema'
+import type { RestaurantTableSelect, KitchenTicketSelect, CashierShiftSelect } from '~~/server/utils/schema'
 
 export interface OpenTableInput {
   companyId: string
@@ -200,19 +200,20 @@ export const restaurantRepository = {
   async listKitchenTickets(
     companyId: string,
     locationId: string,
-    status?: string,
+    opts?: { status?: string; limit?: number; offset?: number },
   ): Promise<KitchenTicketSelect[]> {
     return withTenant(companyId, locationId, null, async (tx) => {
       const conditions = [
         eq(kitchenTicket.companyId, companyId),
         eq(kitchenTicket.locationId, locationId),
       ]
-      if (status) conditions.push(eq(kitchenTicket.status, status))
+      if (opts?.status) conditions.push(eq(kitchenTicket.status, opts.status))
 
       return tx.query.kitchenTicket.findMany({
         where: and(...conditions),
         orderBy: [desc(kitchenTicket.createdAt)],
-        limit: 100,
+        limit: opts?.limit || 50,
+        offset: opts?.offset || 0,
       })
     })
   },

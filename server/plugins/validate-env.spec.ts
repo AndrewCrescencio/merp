@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 
+import { missingProductionEnv } from './validate-env'
+
 vi.mock('nitropack/runtime', () => ({
   defineNitroPlugin: (fn: any) => fn,
 }))
-
-import { missingProductionEnv } from './validate-env'
 
 describe('missingProductionEnv (AUD-05 + AUD-24)', () => {
   it('returns empty outside production (BETTER_AUTH_SECRET ausente = ok)', () => {

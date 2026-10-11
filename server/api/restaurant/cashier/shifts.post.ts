@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, readBody } from 'h3'
-import { restaurantRepository } from '#utils/restaurant/repository'
+import { restaurantRepository } from '~~/server/utils/restaurant/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
@@ -25,8 +25,9 @@ export default defineEventHandler(async (event) => {
       openingFloat,
     })
     return shift
-  } catch (error: any) {
-    if (error.message.includes('already has an open shift')) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('already has an open shift')) {
       throw createError({ statusCode: 400, message: error.message })
     }
     throw createError({ statusCode: 500, message: 'failed_to_open_cashier_shift' })
