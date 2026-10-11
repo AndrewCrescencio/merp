@@ -2,14 +2,14 @@ services:
   adminer:
     image: adminer:latest
     ports:
-      - '8080:8080'
+      - '127.0.0.1:8080:8080'
     networks:
       - merp_network
 
   mailpit:
     image: axllent/mailpit:latest
     ports:
-      - '1025:1025'
-      - '8025:8025'
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
     networks:
       - merp_network
