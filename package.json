@@ -17,7 +17,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "db:migrate:full": "drizzle-kit migrate && tsx scripts/apply-custom-sql.ts",
+    "db:migrate:full": "tsx --env-file-if-exists=.env scripts/pre-migrate.ts && drizzle-kit migrate && tsx --env-file-if-exists=.env scripts/apply-custom-sql.ts",
     "docs:index": "tsx docs/_meta/scripts/generate-index.ts",
     "docs:new": "tsx docs/_meta/scripts/new-doc.ts",
     "docs:deprecate": "tsx docs/_scripts/deprecate.ts",

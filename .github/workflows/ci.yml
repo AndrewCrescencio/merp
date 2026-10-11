@@ -62,11 +62,11 @@ jobs:
       - name: Create test database
         run: createdb -h localhost -U merp merp_test || true
 
-      - name: Run Drizzle migrations (owner)
-        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm exec drizzle-kit migrate
-
-      - name: Apply custom SQL (RLS, policies)
-        run: npx tsx scripts/apply-custom-sql.ts
+      - name: Run Drizzle migrations + RLS (owner)
+        # db:migrate:full e não `drizzle-kit migrate`: a migração 0014 usa
+        # round_half_up(numeric), que vive num .sql fora do journal. Sem o
+        # passo prévio a migração 14 falha em banco novo. Inclui o custom SQL.
+        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm db:migrate:full
 
       - name: Ensure merp_app role exists
         run: |
@@ -135,11 +135,11 @@ jobs:
       - name: Create test database
         run: createdb -h localhost -U merp merp_test || true
 
-      - name: Run Drizzle migrations (owner)
-        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm exec drizzle-kit migrate
-
-      - name: Apply custom SQL (RLS, policies)
-        run: npx tsx scripts/apply-custom-sql.ts
+      - name: Run Drizzle migrations + RLS (owner)
+        # db:migrate:full e não `drizzle-kit migrate`: a migração 0014 usa
+        # round_half_up(numeric), que vive num .sql fora do journal. Sem o
+        # passo prévio a migração 14 falha em banco novo. Inclui o custom SQL.
+        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm db:migrate:full
 
       - name: Ensure merp_app role exists
         run: |
