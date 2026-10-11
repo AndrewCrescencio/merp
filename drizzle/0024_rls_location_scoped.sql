@@ -1,19 +1,19 @@
 -- Fix RLS policies to be location-scoped: company_id = get_tenant_id() AND (location_id = get_location_id() OR get_location_id() IS NULL)
 -- Applies to all tables that have both company_id and location_id
 
--- location
+-- location (uses id, not location_id)
 DROP POLICY IF EXISTS "location_select_policy" ON "location";
 CREATE POLICY "location_select_policy" ON "location" FOR SELECT
-  USING (company_id = get_tenant_id() AND (location_id = get_location_id() OR get_location_id() IS NULL));
+  USING (company_id = get_tenant_id() AND (id = get_location_id() OR get_location_id() IS NULL));
 DROP POLICY IF EXISTS "location_insert_policy" ON "location";
 CREATE POLICY "location_insert_policy" ON "location" FOR INSERT
-  WITH CHECK (company_id = get_tenant_id() AND (location_id = get_location_id() OR get_location_id() IS NULL));
+  WITH CHECK (company_id = get_tenant_id() AND (id = get_location_id() OR get_location_id() IS NULL));
 DROP POLICY IF EXISTS "location_update_policy" ON "location";
 CREATE POLICY "location_update_policy" ON "location" FOR UPDATE
-  USING (company_id = get_tenant_id() AND (location_id = get_location_id() OR get_location_id() IS NULL));
+  USING (company_id = get_tenant_id() AND (id = get_location_id() OR get_location_id() IS NULL));
 DROP POLICY IF EXISTS "location_delete_policy" ON "location";
 CREATE POLICY "location_delete_policy" ON "location" FOR DELETE
-  USING (company_id = get_tenant_id() AND (location_id = get_location_id() OR get_location_id() IS NULL));
+  USING (company_id = get_tenant_id() AND (id = get_location_id() OR get_location_id() IS NULL));
 
 -- party
 DROP POLICY IF EXISTS "party_select_policy" ON "party";
