@@ -1,21 +1,13 @@
 #!/usr/bin/env tsx
-// 0013_round_half_up.sql está FORA do journal (só o 0013_noisy_mimic entrou),
-// então `drizzle-kit migrate` nunca a aplica. Mas 0014_add_order_tables.sql já
-// usa round_half_up(numeric) nas policies de order_items — e como o drizzle-kit
-// roda as migrações numa transação, o CREATE POLICY falha, o rollback desfaz
-// TUDO e o erro nem chega à saída (só NOTICEs). Resultado: `db:migrate:full`
-// nunca funcionava em banco novo.
+// Passo prévio do `drizzle-kit migrate`. Aplica 0013_round_half_up.sql, que
+// está fora do journal e portanto nunca é aplicada pelo drizzle-kit — ver
+// ADR-012. Lê do arquivo compartilhado para não redefinir a função.
 //
-// Este passo aplica o arquivo órfão antes do migrate. É idempotente e lê o
-// próprio .sql, sem duplicar a definição da função. Também traduz a falha de
-// conexão numa mensagem acionável: o drizzle-kit engole a exceção e devolve
-// exit 1 em silêncio, então sem isto o usuário só vê a barra de progresso.
-import { readFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+// Também traduz a falha de conexão numa mensagem acionável: o drizzle-kit
+// engole a exceção e devolve exit 1 em silêncio, então sem isto o usuário só
+// vê a barra de progresso.
 import postgres from 'postgres'
-
-const ORPHAN = '0013_round_half_up.sql'
+import { PRE_MIGRATE_FILE, preMigrateSql } from '../server/utils/apply-custom-sql'
 
 const url = process.env.DATABASE_URL
 if (!url) {
@@ -48,10 +40,8 @@ try {
 }
 
 try {
-  await sql.unsafe(
-    readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../drizzle', ORPHAN), 'utf-8'),
-  )
-  console.log(`[pre-migrate] ${ORPHAN} aplicada (round_half_up garantida)`)
+  await sql.unsafe(preMigrateSql())
+  console.log(`[pre-migrate] ${PRE_MIGRATE_FILE} aplicada (round_half_up garantida)`)
 } finally {
   await sql.end()
 }

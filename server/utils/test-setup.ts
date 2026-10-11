@@ -1,7 +1,7 @@
 import { execSync } from 'child_process'
 import { resolve } from 'path'
 import postgres from 'postgres'
-import { applyCustomSql } from './apply-custom-sql'
+import { applyCustomSql, applyPreMigrateSql } from './apply-custom-sql'
 
 const COMPOSE_FILE = resolve(__dirname, '../../docker-compose.yml')
 const ADMIN_URL = process.env.TEST_ADMIN_URL ?? 'postgres://merp:merp@localhost:5432/postgres'
@@ -88,12 +88,10 @@ export async function setup(): Promise<void> {
     console.log('[test-setup] Base de dados merp_test já existe')
   }
 
-  console.log('[test-setup] A criar função round_half_up...')
-  await admin(
-    `DROP FUNCTION IF EXISTS round_half_up(numeric) CASCADE;
-     CREATE OR REPLACE FUNCTION round_half_up(v numeric) RETURNS numeric(12,2)
-       LANGUAGE sql IMMUTABLE AS $$ SELECT floor(v * 100 + 0.5) / 100.0; $$`,
-  )
+  // round_half_up vem de drizzle/0013_round_half_up.sql — fora do journal, então
+  // nem `push` nem `migrate` a criam (ver ADR-012). order_item.line_total é
+  // coluna gerada que depende dela.
+  await applyPreMigrateSql(TEST_DB_URL)
 
   console.log('[test-setup] A sincronizar schema...')
   // --force: sem TTY o push não pode perguntar; merp_test é descartável.

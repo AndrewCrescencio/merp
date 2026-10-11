@@ -33,6 +33,29 @@ export function customSqlFiles(): string[] {
     .sort()
 }
 
+// 0013_round_half_up.sql está FORA do journal (o slot 0013 ficou com
+// 0013_noisy_mimic), então o `drizzle-kit migrate` nunca a aplica — mas
+// 0014_add_order_tables.sql já usa round_half_up(numeric). Como o drizzle-kit
+// migra numa transação, sem isto o rollback desfaz tudo e o erro nem chega à
+// saída. Ver ADR-012.
+//
+// Este arquivo é a ÚNICA definição da função: o passo prévio do migrate e o
+// setup de testes leem daqui, nenhum dos dois reescreve o corpo.
+export const PRE_MIGRATE_FILE = '0013_round_half_up.sql'
+
+export function preMigrateSql(): string {
+  return readFileSync(resolve(DRIZZLE_DIR, PRE_MIGRATE_FILE), 'utf-8')
+}
+
+export async function applyPreMigrateSql(dbUrl: string): Promise<void> {
+  const sql = postgres(dbUrl, { onnotice: () => {}, connect_timeout: 5 })
+  try {
+    await sql.unsafe(preMigrateSql())
+  } finally {
+    await sql.end()
+  }
+}
+
 // SQL idempotente concatenado, sem depender de docker — os testes de
 // regressão de ordering aplicam o mesmo conteúdo via driver pg.
 export function buildCustomSql(): string {
