@@ -40,11 +40,11 @@ vi.mock('../db', () => ({
   db: mockTx,
 }))
 
-vi.mock('../../db/tenant-context', () => ({
+vi.mock('../db/tenant-context', () => ({
   withTenant: mockWithTenant,
 }))
 
-vi.mock('../../schema', () => ({
+vi.mock('../schema', () => ({
   printer: {},
   printJob: {},
   company: { isDeleted: 'is_deleted' },

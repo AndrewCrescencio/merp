@@ -256,16 +256,18 @@ describe('CompanyRepository (unit)', () => {
 
 describe('MembershipRepository (unit)', () => {
   let repo: MembershipRepository
+  let mockTx: ReturnType<typeof makeMockTx>
 
   beforeEach(() => {
     vi.clearAllMocks()
     repo = new MembershipRepository()
+    mockTx = makeMockTx()
     ;(withTenant as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       async (
         _companyId: string | null,
         _locationId: string | null,
         _userId: string | null,
-        fn: (tx: typeof mockTx) => Promise<unknown>,
+        fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>,
       ) => {
         return fn(mockTx)
       },

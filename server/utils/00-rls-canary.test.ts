@@ -7,28 +7,46 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 describe.skipIf(!dbAvailable)('RLS Canary — MUST fail if suite runs as owner/superuser', () => {
   const ownerDb = createOwnerDbForSetupOnly()
 
+  // As seeds usam ids fixos, mas o email tem índice unique: uma execução
+  // anterior com outro id deixava a linha órfã, o ON CONFLICT DO NOTHING
+  // mascarava o conflito e o INSERT seguinte estourava no FK de
+  // company_member. Limpa antes de semear para o teste ser hermético.
+  async function seedTenant(
+    companyIds: [string, string],
+    companyNames: [string, string],
+    userId: string,
+    userEmail: string,
+  ) {
+    const [companyA, companyB] = companyIds
+    await ownerDb.transaction(async (tx) => {
+      await tx.execute(sql`
+        DELETE FROM company_member
+        WHERE user_id = ${userId}
+           OR user_id IN (SELECT id FROM "user" WHERE email = ${userEmail})
+      `)
+      await tx.execute(sql`DELETE FROM "user" WHERE id = ${userId} OR email = ${userEmail}`)
+      await tx.execute(sql`DELETE FROM company WHERE id = ${companyA}`)
+      await tx.execute(sql`DELETE FROM company WHERE id = ${companyB}`)
+
+      await tx.execute(sql`INSERT INTO company (id, name) VALUES (${companyA}, ${companyNames[0]})`)
+      await tx.execute(sql`INSERT INTO company (id, name) VALUES (${companyB}, ${companyNames[1]})`)
+      await tx.execute(
+        sql`INSERT INTO "user" (id, email, name) VALUES (${userId}, ${userEmail}, 'User')`,
+      )
+      await tx.execute(sql`
+        INSERT INTO company_member (company_id, user_id, role)
+        VALUES (${companyA}, ${userId}, 'member')
+      `)
+    })
+  }
+
   it('prevents cross-tenant read: tenant A cannot read tenant B data', async () => {
     const companyA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
     const companyB = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
     const userA = 'uuuuuuuu-uuuu-uuuu-uuuu-uuuuuuuuuuuu'
 
-    // Setup: create two companies and a user member of company A only (as owner, bypasses RLS)
-    await ownerDb.transaction(async (tx) => {
-      await tx.execute(
-        sql`INSERT INTO company (id, name) VALUES (${companyA}, 'Company A') ON CONFLICT DO NOTHING`,
-      )
-      await tx.execute(
-        sql`INSERT INTO company (id, name) VALUES (${companyB}, 'Company B') ON CONFLICT DO NOTHING`,
-      )
-      await tx.execute(
-        sql`INSERT INTO "user" (id, email, name) VALUES (${userA}, 'userA@test.com', 'User A') ON CONFLICT DO NOTHING`,
-      )
-      await tx.execute(sql`
-        INSERT INTO company_member (company_id, user_id, role)
-        VALUES (${companyA}, ${userA}, 'member')
-        ON CONFLICT DO NOTHING
-      `)
-    })
+    // Setup (as owner, bypasses RLS): two companies and a member of A only.
+    await seedTenant([companyA, companyB], ['Company A', 'Company B'], userA, 'userA@test.com')
 
     // ACT: connect as merp_app (RLS enforced), set tenant to company A
     // Try to read company B — MUST return 0 rows
@@ -51,22 +69,7 @@ describe.skipIf(!dbAvailable)('RLS Canary — MUST fail if suite runs as owner/s
     const companyB = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
     const userA = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
 
-    await ownerDb.transaction(async (tx) => {
-      await tx.execute(
-        sql`INSERT INTO company (id, name) VALUES (${companyA}, 'Company C') ON CONFLICT DO NOTHING`,
-      )
-      await tx.execute(
-        sql`INSERT INTO company (id, name) VALUES (${companyB}, 'Company D') ON CONFLICT DO NOTHING`,
-      )
-      await tx.execute(
-        sql`INSERT INTO "user" (id, email, name) VALUES (${userA}, 'userB@test.com', 'User B') ON CONFLICT DO NOTHING`,
-      )
-      await tx.execute(sql`
-        INSERT INTO company_member (company_id, user_id, role)
-        VALUES (${companyA}, ${userA}, 'member')
-        ON CONFLICT DO NOTHING
-      `)
-    })
+    await seedTenant([companyA, companyB], ['Company C', 'Company D'], userA, 'userB@test.com')
 
     // Set tenant to company A, try to read company_member rows for company B
     const count = await db.transaction(async (tx) => {

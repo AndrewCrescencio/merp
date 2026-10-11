@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { withTenant } from '../../db/tenant-context'
+import { withTenant } from '../db/tenant-context'
 import { restaurantRepository } from './repository'
-import type { RestaurantTableSelect, KitchenTicketSelect, CashierShiftSelect } from '../../schema'
+import type { RestaurantTableSelect, KitchenTicketSelect, CashierShiftSelect } from '../schema'
 
 // Mock withTenant
-vi.mock('../../db/tenant-context', () => ({
+vi.mock('../db/tenant-context', () => ({
   withTenant: vi.fn(),
 }))
 
 // Mock schema
-vi.mock('../../schema', () => ({
+vi.mock('../schema', () => ({
   restaurantTable: {},
   kitchenTicket: {},
   cashierShift: {},
@@ -201,8 +201,13 @@ describe('restaurantRepository (unit)', () => {
         companyId,
         locationId,
         orderId: 'o1',
+        orderItemId: 'oi1',
+        stationId: 'ks1',
         status: 'pending',
+        priority: 0,
         items: [{ productName: 'Pizza', quantity: '2' }],
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as KitchenTicketSelect
 
       mockTx.insert.mockReturnValue({
@@ -282,7 +287,11 @@ describe('restaurantRepository (unit)', () => {
       const tickets = [{ id: 'kt1', status: 'pending' } as KitchenTicketSelect]
       mockTx.query.kitchenTicket.findMany.mockResolvedValue(tickets)
 
-      const result = await restaurantRepository.listKitchenTickets(companyId, locationId, 'pending')
+      // opts é objeto: passar a string solteira silenciava o filtro (opts?.status
+      // em string é undefined) e o teste passava sem exercitar a condição.
+      const result = await restaurantRepository.listKitchenTickets(companyId, locationId, {
+        status: 'pending',
+      })
 
       expect(result).toEqual(tickets)
     })
