@@ -1,21 +1,41 @@
-import { defineEventHandler, getQuery } from 'h3'
-import { restaurantRepository } from '#utils/restaurant/repository'
+import { createError, defineEventHandler, getQuery } from 'h3'
+import { restaurantRepository } from '~~/server/utils/restaurant/repository'
+import { z } from 'zod'
+
+const listShiftsSchema = z.object({
+  status: z.enum(['open', 'closed', 'reconciled', 'discrepancy']).optional(),
+  userId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().positive().max(100).optional(),
+  offset: z.coerce.number().int().nonnegative().optional(),
+})
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
 
   if (!auth?.user) {
-    return createError({ statusCode: 401, message: 'unauthenticated' })
+    throw createError({ statusCode: 401, message: 'unauthenticated' })
   }
 
   const query = getQuery(event)
+  const parsed = listShiftsSchema.safeParse(query)
+
+  if (!parsed.success) {
+    throw createError({
+      statusCode: 400,
+      message: 'validation_error',
+      data: parsed.error.flatten(),
+    })
+  }
+
   const { companyId, locationId } = auth.session
+  const { status, userId, limit, offset } = parsed.data
 
   const shifts = await restaurantRepository.listCashierShifts(companyId, locationId, {
-    status: query.status as string,
-    userId: query.userId as string,
-    limit: query.limit ? Number(query.limit) : 50,
+    status,
+    userId,
+    limit,
+    offset,
   })
 
-  return shifts
+  return { shifts }
 })

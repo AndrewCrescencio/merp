@@ -172,5 +172,5 @@ Cada bloco = 1 commit (conforme regra):
 18. `docs(specs): 006-core-order spec + data-model + contracts`
 19. `docs(specs): restaurant pack skeleton (spec + data-model + contracts)`
 20. `docs(foundation): fiscal-br.md`
-21. `docs: update specs/README.md + PENDING_DECISIONS.md`
+21. `docs: update specs/README.md` (pending decisions tracked in specs/README.md)
 22. `fix(utils): __dirname → import.meta.dirname in apply-custom-sql.ts`

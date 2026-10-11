@@ -18,6 +18,11 @@ vi.mock('h3', () => ({
 vi.mock('~~/server/utils/auth/company/repository', () => ({
   companyRepository: {
     findCompanyById: mockFindCompanyById,
+  },
+}))
+
+vi.mock('~~/server/utils/auth/company/membership', () => ({
+  membershipRepository: {
     getCompanyMembershipRole: mockGetCompanyMembershipRole,
   },
 }))

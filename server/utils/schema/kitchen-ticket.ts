@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { pgTable, text, timestamp, boolean, integer, index } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, integer, index } from 'drizzle-orm/pg-core'
 import { company } from './company'
 import { location } from './location'
 import { order } from './order'

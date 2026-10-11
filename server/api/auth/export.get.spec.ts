@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, vi, beforeEach } from 'vitest'
 
 const mockFindUserCompanies = vi.fn()
 
@@ -12,8 +12,8 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/company/repository', () => ({
-  companyRepository: {
+vi.mock('~~/server/utils/auth/company/membership', () => ({
+  membershipRepository: {
     findUserCompanies: mockFindUserCompanies,
   },
 }))

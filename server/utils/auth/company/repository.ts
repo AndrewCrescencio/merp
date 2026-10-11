@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
 import { withTenant } from '../../db/tenant-context'
+import { randomUUID } from 'node:crypto'
 
 export function escapeLikePattern(query: string): string {
   return query.replace(/[\\%_]/g, (c) => `\\${c}`)

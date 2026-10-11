@@ -1,7 +1,8 @@
 import { defineEventHandler, getRouterParam, sendRedirect } from 'h3'
 import { checkIpRateLimit } from '~~/server/utils/shared'
-import { db } from '~~/server/db'
-import { verification } from '~~/server/schema'
+import { db } from '~~/server/utils/db'
+import { verification } from '~~/server/utils/schema'
+import { and, eq, gt } from 'drizzle-orm'
 
 // AUD-04/AUD-08: clique no link de reset enviado por email. Valida o token
 // (sem consumir — o consumo único acontece no POST /reset-password) e

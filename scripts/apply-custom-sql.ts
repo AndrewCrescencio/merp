@@ -104,8 +104,11 @@ async function main(): Promise<void> {
       await client.unsafe(stmt)
     }
     console.log(`✓ ${statements.length} statements aplicados com sucesso`)
-  } catch (error: any) {
-    console.error('Erro ao aplicar custom SQL:', error.message)
+  } catch (error: unknown) {
+    console.error(
+      'Erro ao aplicar custom SQL:',
+      error instanceof Error ? error.message : String(error),
+    )
     process.exit(1)
   } finally {
     await client.end()

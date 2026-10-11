@@ -61,6 +61,7 @@ services:
           memory: 256M
 
   postgres:
+    image: postgres:17-alpine
     ports: []
     restart: always
     logging:

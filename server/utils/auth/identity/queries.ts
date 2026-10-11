@@ -55,13 +55,13 @@ async function runTimingPad(email: string, headers?: Headers): Promise<void> {
       }),
     { timeout: 5_000 },
   )
-    .then(async (result: any) => {
+    .then(async (result: { response?: { token?: string }; headers?: Headers }) => {
       logger.warn('AUD-07: timing pad resolved unexpectedly, revoking session', { email })
       const sessionToken = result?.response?.token
       if (sessionToken) {
         await callBetterAuth(
           async (auth) => auth.api.revokeSession({ body: { token: sessionToken } }),
-          { timeout: 5_000 }
+          { timeout: 5_000 },
         )
       }
     })
@@ -93,7 +93,7 @@ export async function registerUser(
             password: input.password,
             name: input.name,
             consentTermsVersion: input.consentTermsVersion,
-          } as any,
+          },
         }),
       { timeout: 5_000 },
     )
@@ -108,7 +108,7 @@ export async function registerUser(
             body: {
               consentTermsVersion: input.consentTermsVersion,
               consentTermsAcceptedAt: new Date(),
-            } as any,
+            },
           }),
         { timeout: 5_000 },
       )
@@ -122,8 +122,9 @@ export async function registerUser(
       createdAt: createdUser.createdAt,
       updatedAt: createdUser.createdAt,
     }
-  } catch (error: any) {
-    if (error?.statusCode === 422) {
+  } catch (error: unknown) {
+    const err = error as { statusCode?: number }
+    if (err.statusCode === 422) {
       return null
     }
     if (error instanceof H3Error) {
@@ -151,11 +152,9 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
 
     const sessionToken = result.response.token
 
-    void callBetterAuth(
-      async (auth) =>
-        auth.api.revokeSession({ body: { token: sessionToken } }),
-      { timeout: 5_000 }
-    ).then(async (validated) => {
+    void callBetterAuth(async (auth) => auth.api.revokeSession({ body: { token: sessionToken } }), {
+      timeout: 5_000,
+    }).then(async (validated) => {
       if (validated) {
         try {
           await createAuthEvent({
@@ -165,7 +164,8 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
             metadata: {
               sessionId: validated.session.id,
               userId: validated.user.id,
-              tenantId: (validated.session as any)?.activeCompanyId ?? null,
+              tenantId:
+                (validated.session as { activeCompanyId?: string })?.activeCompanyId ?? null,
             },
           })
         } catch (error) {
@@ -185,8 +185,9 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
       updatedAt: result.response.user.updatedAt,
       setCookie: result.headers?.getSetCookie?.() ?? [],
     }
-  } catch (error: any) {
-    const status = error?.statusCode ?? error?.status
+  } catch (error: unknown) {
+    const err = error as { statusCode?: number; status?: number }
+    const status = err.statusCode ?? err.status
     if (status === 403) {
       throw createError({
         status: 403,
@@ -222,8 +223,9 @@ export async function verifyEmailBA(token: string): Promise<void> {
     await callBetterAuth(async (auth) => auth.api.verifyEmail({ query: { token } }), {
       timeout: 5_000,
     })
-  } catch (error: any) {
-    if (error?.statusCode === 400 || error?.statusCode === 401) {
+  } catch (error: unknown) {
+    const err = error as { statusCode?: number }
+    if (err.statusCode === 400 || err.statusCode === 401) {
       throw createError({
         status: 400,
         statusText: '400',
@@ -254,8 +256,9 @@ export async function resetPasswordBA(token: string, newPassword: string): Promi
       async (auth) => auth.api.resetPassword({ query: { token }, body: { newPassword } }),
       { timeout: 5_000 },
     )
-  } catch (error: any) {
-    if (error?.statusCode === 400) {
+  } catch (error: unknown) {
+    const err = error as { statusCode?: number }
+    if (err.statusCode === 400) {
       throw createError({
         status: 400,
         statusText: '400',
@@ -275,10 +278,11 @@ export async function resetPasswordBA(token: string, newPassword: string): Promi
 export async function withdrawConsentBA(userId: string): Promise<UserResult> {
   return handleDatabaseError(
     callBetterAuth(
-      async (auth) => auth.api.updateUser({
-        body: { isActive: false, consentWithdrawnAt: new Date() } as any,
-      }),
-      { timeout: 5_000 }
+      async (auth) =>
+        auth.api.updateUser({
+          body: { isActive: false, consentWithdrawnAt: new Date() },
+        }),
+      { timeout: 5_000 },
     ).then(() => db.delete(session).where(eq(session.userId, userId))),
   )
 }
@@ -286,10 +290,11 @@ export async function withdrawConsentBA(userId: string): Promise<UserResult> {
 export async function deactivateUserBA(userId: string): Promise<UserResult> {
   return handleDatabaseError(
     callBetterAuth(
-      async (auth) => auth.api.updateUser({
-        body: { isActive: false } as any,
-      }),
-      { timeout: 5_000 }
+      async (auth) =>
+        auth.api.updateUser({
+          body: { isActive: false },
+        }),
+      { timeout: 5_000 },
     ).then(() => db.delete(session).where(eq(session.userId, userId))),
   )
 }

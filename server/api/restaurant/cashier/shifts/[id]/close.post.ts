@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, readBody } from 'h3'
-import { restaurantRepository } from '#utils/restaurant/repository'
+import { restaurantRepository } from '~~/server/utils/restaurant/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
@@ -34,8 +34,9 @@ export default defineEventHandler(async (event) => {
     }
 
     return shift
-  } catch (error: any) {
-    if (error.message.includes('not open') || error.message.includes('not found')) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('not open') || msg.includes('not found')) {
       throw createError({ statusCode: 400, message: error.message })
     }
     throw createError({ statusCode: 500, message: 'failed_to_close_cashier_shift' })

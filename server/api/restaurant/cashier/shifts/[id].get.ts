@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, getRouterParam } from 'h3'
-import { restaurantRepository } from '#utils/restaurant/repository'
+import { restaurantRepository } from '~~/server/utils/restaurant/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth

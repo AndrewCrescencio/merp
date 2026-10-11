@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, getRouterParam } from 'h3'
-import { printRepository } from '#utils/print/repository'
+import { printRepository } from '~~/server/utils/print/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth

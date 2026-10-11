@@ -3,17 +3,8 @@ import { registerUser, generateUserId } from '~~/server/utils/auth/identity/quer
 import {
   checkEmailRateLimit,
   checkIpRateLimit,
-  checkPasswordBreach,
   createAuthEvent,
-  EMAIL_REGEX,
   getClientIp,
-  isWeakPassword,
-  MAX_CONSENT_VERSION_LENGTH,
-  MAX_EMAIL_LENGTH,
-  MAX_NAME_LENGTH,
-  MAX_PASSWORD_LENGTH,
-  normalizeEmail,
-  sendValidationError,
   validateRegisterInput,
 } from '~~/server/utils/shared'
 

@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_USER: ${DB_USER:-merp}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-merp}

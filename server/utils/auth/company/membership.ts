@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, like, or, sql } from 'drizzle-orm'
 import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
 import { sendForbiddenError, sendNotFoundError } from '../../shared/errors'
@@ -6,6 +6,16 @@ import { withTenant } from '../../db/tenant-context'
 
 export function escapeLikePattern(query: string): string {
   return query.replace(/[\\%_]/g, (c) => `\\${c}`)
+}
+
+export interface CompanyResult {
+  id: string
+  name: string
+  cnpj: string | null
+  razaoSocial: string | null
+  isDeleted: boolean
+  createdAt: Date
+  updatedAt: Date
 }
 
 export interface CompanyMemberResult {
@@ -48,6 +58,36 @@ export class MembershipRepository {
    * Searches non-deleted companies the user belongs to (max 20, LIKE on
    * name/CNPJ with escaped wildcards).
    */
+  async searchCompanies(
+    query: string,
+    userId: string,
+  ): Promise<Array<CompanyResult & { role: string }>> {
+    const pattern = `%${escapeLikePattern(query)}%`
+    return await withTenant(null, null, userId, async (tx) => {
+      return await tx
+        .select({
+          id: company.id,
+          name: company.name,
+          cnpj: company.cnpj,
+          razaoSocial: company.razaoSocial,
+          isDeleted: company.isDeleted,
+          createdAt: company.createdAt,
+          updatedAt: company.updatedAt,
+          role: companyMember.role,
+        })
+        .from(companyMember)
+        .innerJoin(company, eq(companyMember.companyId, company.id))
+        .where(
+          and(
+            eq(companyMember.userId, userId),
+            eq(company.isDeleted, false),
+            or(like(company.name, pattern), like(company.cnpj, pattern)),
+          ),
+        )
+        .limit(20)
+    })
+  }
+
   /** Lists non-deleted companies the user belongs to, each with its membership role. */
   async findUserCompanies(userId: string): Promise<Array<CompanyResult & { role: string }>> {
     return await withTenant(null, null, userId, async (tx) => {
