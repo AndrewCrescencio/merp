@@ -33,6 +33,7 @@ _(Os specs `naming.md`, `money.md`, `endpoint-pattern.md`, `rls-pattern.md`, `id
 
 - [x] Fix contradictions F02–F16
 - [x] 2FA removed from scope (see ADR-010)
+- [x] ADR-011: contrato da camada de identidade (AUD-03/07, FR-017/021) + reparo do RLS 0024
 
 ## Phase 4 — Core Order (Unified) 🚧 IN PROGRESS
 
@@ -70,6 +71,7 @@ A numeração 003–005 fica reservada (não reutilizar). `006-core-order` e
 
 ## Dívidas Conhecidas
 
+- **RLS 0024 precisa ser reexecutado em produção** (ver ADR-011) — a versão antiga referenciava a coluna inexistente `location_id` em `location` e abortava a meio caminho, deixando as policies de `location` pela metade. `scripts/apply-custom-sql.ts` é idempotente e repara por completo; reexecutar no próximo deploy.
 - **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.
 - **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).
 - **`006-core-order`** tem spec + data-model + contracts; implementação em andamento (T12).
