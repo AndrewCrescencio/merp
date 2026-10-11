@@ -1,4 +1,4 @@
-import { getQuery, createError } from 'h3'
+import { getQuery } from 'h3'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import { defineAuthHandler, validateCompanySearchInput } from '~~/server/utils/shared'
 

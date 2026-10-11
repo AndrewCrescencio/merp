@@ -1,11 +1,9 @@
-import { defineEventHandler, readBody, type H3Event } from 'h3'
-import { createError } from 'h3'
+import { defineEventHandler, readBody, type H3Event, createError } from 'h3'
 import {
   background,
   checkIpRateLimit,
   checkUserRateLimit,
   createAuthEvent,
-  sendAuthError,
   sendAuthUnavailableError,
 } from './index'
 
@@ -14,9 +12,9 @@ import {
  * Validates session via middleware (user/session/tenantId already in context).
  * Runs user rate limit (60/min) and emits session_validated event.
  */
-export function defineAuthHandler<T extends Record<string, any> = { id: string; email: string }>(
-  handler: (event: H3Event, user: T) => Promise<any>,
-) {
+export function defineAuthHandler<
+  T extends Record<string, unknown> = { id: string; email: string },
+>(handler: (event: H3Event, user: T) => Promise<unknown>) {
   return defineEventHandler(async (event) => {
     const user = event.context.user as T | undefined
     const session = event.context.session as { id: string } | undefined
@@ -45,8 +43,8 @@ export function defineAuthHandler<T extends Record<string, any> = { id: string; 
  * Runs checkIpRateLimit before readBody (blocks large bodies without parsing).
  */
 export function definePublicHandler(
-  handler: (event: H3Event, body: any) => Promise<any>,
-  options?: { rateLimit?: 'ip' | 'email'; validateBody?: (body: any) => void },
+  handler: (event: H3Event, body: unknown) => Promise<unknown>,
+  options?: { rateLimit?: 'ip' | 'email'; validateBody?: (body: unknown) => void },
 ) {
   return defineEventHandler(async (event) => {
     if (options?.rateLimit === 'ip') {
@@ -75,8 +73,8 @@ export function defineBetterAuthHandler(
   handler: (
     event: H3Event,
     auth: Awaited<ReturnType<typeof import('#shared/auth').getAuth>>,
-    body: any,
-  ) => Promise<any>,
+    body: unknown,
+  ) => Promise<unknown>,
 ) {
   return defineEventHandler(async (event) => {
     const body = await readBody(event)
@@ -85,7 +83,7 @@ export function defineBetterAuthHandler(
     try {
       const { getAuth } = await import('#shared/auth')
       authInstance = await getAuth()
-    } catch (error) {
+    } catch {
       sendAuthUnavailableError()
     }
 
