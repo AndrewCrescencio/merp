@@ -1,4 +1,5 @@
 import { defineEventHandler, readBody, type H3Event, createError } from 'h3'
+import type { AuthContextUser } from './auth-context'
 import {
   background,
   checkIpRateLimit,
@@ -12,9 +13,9 @@ import {
  * Validates session via middleware (user/session/tenantId already in context).
  * Runs user rate limit (60/min) and emits session_validated event.
  */
-export function defineAuthHandler<
-  T extends Record<string, unknown> = { id: string; email: string },
->(handler: (event: H3Event, user: T) => Promise<unknown>) {
+export function defineAuthHandler<T extends AuthContextUser = AuthContextUser>(
+  handler: (event: H3Event, user: T) => Promise<unknown>,
+) {
   return defineEventHandler(async (event) => {
     const user = event.context.user as T | undefined
     const session = event.context.session as { id: string } | undefined

@@ -42,7 +42,7 @@ export async function checkPasswordBreach(password: string): Promise<{
     const lines = text.split('\n')
 
     for (const line of lines) {
-      const [foundSuffix, countStr] = line.split(':')
+      const [foundSuffix, countStr = ''] = line.split(':')
       if (foundSuffix === suffix) {
         return { breached: true, count: parseInt(countStr, 10) }
       }

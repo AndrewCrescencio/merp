@@ -42,7 +42,7 @@ export function isValidCnpj(input: string): boolean {
 
   const checkDigit = (base: string, weights: number[]): number => {
     let sum = 0
-    for (let i = 0; i < weights.length; i++) sum += Number(base[i]) * weights[i]
+    for (const [i, weight] of weights.entries()) sum += Number(base[i]) * weight
     const remainder = sum % 11
     return remainder < 2 ? 0 : 11 - remainder
   }
@@ -117,7 +117,8 @@ export function evaluateRateLimit(
   const recent = (entry?.window ?? []).filter((hit) => Date.parse(hit) > windowStartMs)
 
   if (recent.length >= maxRequests) {
-    const oldest = recent[0]
+    // janela nunca vazia aqui (length >= maxRequests); '' preserva o NaN de antes
+    const oldest = recent[0] ?? ''
     return {
       allowed: false,
       retryAfter: Math.ceil((Date.parse(oldest) + RATE_WINDOW_MS - nowMs) / 1000),
@@ -182,10 +183,13 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
     return
   }
 
+  // allowed=false implica retryAfter definido pelo evaluateRateLimit
+  const retryAfter = decision.retryAfter ?? 0
+
   setResponseHeaders(event, {
-    'Retry-After': String(decision.retryAfter),
+    'Retry-After': String(retryAfter),
     'RateLimit-Reset': String(
-      Math.ceil((Date.parse(decision.nextWindow[0]) + RATE_WINDOW_MS) / 1000),
+      Math.ceil((Date.parse(decision.nextWindow[0] ?? '') + RATE_WINDOW_MS) / 1000),
     ),
     'RateLimit-Remaining': '0',
   })
@@ -196,7 +200,7 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
     message: JSON.stringify({
       error: 'rate_limit_exceeded',
       message: 'Too many requests. Try again later.',
-      retryAfter: decision.retryAfter,
+      retryAfter,
     } satisfies ApiError & { retryAfter: number }),
   })
 }
@@ -207,7 +211,7 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
 export async function checkIpRateLimit(event: H3Event): Promise<void> {
   let ip: string | null
   try {
-    ip = getClientIp(event)
+    ip = getClientIp(event) ?? null
   } catch {
     // Sem socket (ex.: eventos de teste) — sem limite por IP.
     ip = null

@@ -326,7 +326,7 @@ describe.skipIf(!dbAvailable)('migration ordering 0015/0017 (integration)', () =
     })
 
     it('só enxerga rows do tenant corrente (policy ativa)', async () => {
-      const rows = await asApp(CO_A, OWNER, (sql) =>
+      const rows = await asApp<postgres.Row[]>(CO_A, OWNER, (sql) =>
         sql.unsafe(`SELECT id FROM company ORDER BY id`),
       )
       expect(rows.map((r: any) => r.id)).toEqual([CO_A])

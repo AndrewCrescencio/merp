@@ -52,6 +52,10 @@ export const printRepository = {
         })
         .returning()
 
+      if (!newPrinter) {
+        throw new Error('Printer not created')
+      }
+
       return newPrinter
     })
   },
@@ -108,12 +112,18 @@ export const printRepository = {
           printerId: targetPrinterId,
           orderId: input.orderId,
           template: input.template,
-          payload: input.payload,
+          // Schema tipa payload como text, mas a coluna é jsonb: o objeto vai
+          // como parâmetro bind, exatamente como antes.
+          payload: sql`${input.payload}`,
           priority: input.priority || 0,
           status: 'pending',
           attempts: 0,
         })
         .returning()
+
+      if (!job) {
+        throw new Error('Print job not created')
+      }
 
       return job
     })
@@ -203,19 +213,26 @@ export const printRepository = {
             sql`${printJob.status} IN ('completed', 'failed')`,
           ),
         )
-      return result.rowCount || 0
+      // shortcut: o driver tipa o resultado como lista de linhas (sem rowCount);
+      // lê rowCount apenas quando presente para manter o comportamento atual.
+      return 'rowCount' in result && typeof result.rowCount === 'number' ? result.rowCount : 0
     })
   },
 
-  async getJobById(companyId: string, locationId: string, jobId: string): Promise<PrintJobSelect | null> {
+  async getJobById(
+    companyId: string,
+    locationId: string,
+    jobId: string,
+  ): Promise<PrintJobSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
-      return tx.query.printJob.findFirst({
+      const job = await tx.query.printJob.findFirst({
         where: and(
           eq(printJob.companyId, companyId),
           eq(printJob.locationId, locationId),
           eq(printJob.id, jobId),
         ),
       })
+      return job ?? null
     })
   },
 
@@ -225,10 +242,7 @@ export const printRepository = {
     opts?: { status?: string; limit?: number; offset?: number },
   ): Promise<PrintJobSelect[]> {
     return withTenant(companyId, locationId, null, async (tx) => {
-      const conditions = [
-        eq(printJob.companyId, companyId),
-        eq(printJob.locationId, locationId),
-      ]
+      const conditions = [eq(printJob.companyId, companyId), eq(printJob.locationId, locationId)]
       if (opts?.status) conditions.push(eq(printJob.status, opts.status))
 
       return tx.query.printJob.findMany({

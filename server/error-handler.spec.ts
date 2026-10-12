@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { H3Error, H3Event } from 'h3'
+import type { NitroErrorHandler } from 'nitropack'
 
 const mockSetResponseStatus = vi.fn()
 const mockSetResponseHeaders = vi.fn()
@@ -20,6 +22,16 @@ vi.mock('#shared/logger', () => ({
 }))
 
 describe('error-handler (FR-026)', () => {
+  // NitroErrorHandler recebe um 3º argumento (config com defaultHandler) que o
+  // handler real ignora; stub falha se algum dia passar a usá-lo.
+  const nitroErrorHandlerConfig = {
+    defaultHandler: () => {
+      throw new Error('defaultHandler não deve ser chamado')
+    },
+  }
+  const callHandler = (handler: NitroErrorHandler, error: unknown, event: unknown) =>
+    handler(error as H3Error, event as H3Event, nitroErrorHandlerConfig)
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -32,7 +44,7 @@ describe('error-handler (FR-026)', () => {
     const event = {} as any
 
     const handler = await import('~~/server/error-handler').then((m) => m.default)
-    await handler(error, event)
+    await callHandler(handler, error, event)
 
     expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 401)
     expect(mockSend).toHaveBeenCalledWith(
@@ -50,7 +62,7 @@ describe('error-handler (FR-026)', () => {
     const event = {} as any
 
     const handler = await import('~~/server/error-handler').then((m) => m.default)
-    await handler(error, event)
+    await callHandler(handler, error, event)
 
     expect(mockSetResponseHeaders).toHaveBeenCalledWith(event, {
       'content-type': 'application/json',
@@ -63,7 +75,7 @@ describe('error-handler (FR-026)', () => {
     const event = {} as any
 
     const handler = await import('~~/server/error-handler').then((m) => m.default)
-    await handler(error, event)
+    await callHandler(handler, error, event)
 
     expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 500)
     expect(mockSend).toHaveBeenCalledWith(
@@ -71,7 +83,7 @@ describe('error-handler (FR-026)', () => {
       JSON.stringify({ error: 'internal_error', message: 'Internal server error' }),
     )
 
-    const body = mockSend.mock.calls[0][1]
+    const body = mockSend.mock.calls[0]?.[1]
     expect(body).not.toContain('database connection refused')
     expect(body).not.toContain(error.stack)
 
@@ -92,7 +104,7 @@ describe('error-handler (FR-026)', () => {
     const event = {} as any
 
     const handler = await import('~~/server/error-handler').then((m) => m.default)
-    await handler(error, event)
+    await callHandler(handler, error, event)
 
     expect(mockSend).toHaveBeenCalledWith(
       event,
@@ -106,7 +118,7 @@ describe('error-handler (FR-026)', () => {
     const event = {} as any
 
     const handler = await import('~~/server/error-handler').then((m) => m.default)
-    await handler(error, event)
+    await callHandler(handler, error, event)
 
     expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 500)
     expect(mockSend).toHaveBeenCalledWith(

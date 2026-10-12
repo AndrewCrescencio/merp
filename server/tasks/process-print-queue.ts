@@ -1,4 +1,4 @@
-import { defineTask } from 'nitropack'
+import { defineTask } from 'nitropack/runtime'
 import { printRepository } from '~~/server/utils/print/repository'
 import { db } from '~~/server/utils/db'
 import { company, location } from '~~/server/utils/schema'
@@ -43,7 +43,7 @@ export default defineTask({
     console.log(
       `[process-print-queue] Completed: ${totalProcessed} processed, ${totalFailed} failed`,
     )
-    return { processed: totalProcessed, failed: totalFailed }
+    return { result: { processed: totalProcessed, failed: totalFailed } }
   },
 })
 

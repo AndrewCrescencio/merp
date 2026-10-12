@@ -6,7 +6,7 @@ export function appVerificationLink(url: string): string {
     parsed.searchParams.delete('callbackURL')
     return parsed.toString()
   } catch {
-    return url.split('&callbackURL=')[0]
+    return url.split('&callbackURL=')[0] ?? url
   }
 }
 

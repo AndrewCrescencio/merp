@@ -1,7 +1,11 @@
 import { withTenant } from '~~/server/utils/db/tenant-context'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { restaurantTable, kitchenTicket, cashierShift } from '~~/server/utils/schema'
-import type { RestaurantTableSelect, KitchenTicketSelect, CashierShiftSelect } from '~~/server/utils/schema'
+import type {
+  RestaurantTableSelect,
+  KitchenTicketSelect,
+  CashierShiftSelect,
+} from '~~/server/utils/schema'
 
 export interface OpenTableInput {
   companyId: string
@@ -88,6 +92,10 @@ export const restaurantRepository = {
         .where(eq(restaurantTable.id, input.tableId))
         .returning()
 
+      if (!updated) {
+        throw new Error('Table not updated')
+      }
+
       return updated
     })
   },
@@ -119,6 +127,10 @@ export const restaurantRepository = {
         .where(eq(restaurantTable.id, input.tableId))
         .returning()
 
+      if (!updated) {
+        throw new Error('Table not updated')
+      }
+
       return updated
     })
   },
@@ -129,13 +141,14 @@ export const restaurantRepository = {
     tableId: string,
   ): Promise<RestaurantTableSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
-      return tx.query.restaurantTable.findFirst({
+      const table = await tx.query.restaurantTable.findFirst({
         where: and(
           eq(restaurantTable.companyId, companyId),
           eq(restaurantTable.locationId, locationId),
           eq(restaurantTable.id, tableId),
         ),
       })
+      return table ?? null
     })
   },
 
@@ -161,9 +174,17 @@ export const restaurantRepository = {
           locationId: input.locationId,
           orderId: input.orderId,
           status: 'pending',
-          items: input.items,
+          // shortcut: kitchen_ticket não tem coluna `items` (o Drizzle descartava a chave) e
+          // exige os dois FKs; `default` mantém o SQL atual — o INSERT falha em NOT NULL
+          // até o input passar orderItemId/stationId.
+          orderItemId: sql`default`,
+          stationId: sql`default`,
         })
         .returning()
+
+      if (!ticket) {
+        throw new Error('Kitchen ticket not created')
+      }
 
       return ticket
     })
@@ -191,9 +212,10 @@ export const restaurantRepository = {
     ticketId: string,
   ): Promise<KitchenTicketSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
-      return tx.query.kitchenTicket.findFirst({
+      const ticket = await tx.query.kitchenTicket.findFirst({
         where: and(eq(kitchenTicket.companyId, companyId), eq(kitchenTicket.id, ticketId)),
       })
+      return ticket ?? null
     })
   },
 
@@ -245,6 +267,10 @@ export const restaurantRepository = {
         })
         .returning()
 
+      if (!shift) {
+        throw new Error('Cashier shift not created')
+      }
+
       return shift
     })
   },
@@ -282,6 +308,10 @@ export const restaurantRepository = {
         .where(eq(cashierShift.id, input.shiftId))
         .returning()
 
+      if (!updated) {
+        throw new Error('Cashier shift not updated')
+      }
+
       return updated
     })
   },
@@ -292,9 +322,10 @@ export const restaurantRepository = {
     shiftId: string,
   ): Promise<CashierShiftSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
-      return tx.query.cashierShift.findFirst({
+      const shift = await tx.query.cashierShift.findFirst({
         where: and(eq(cashierShift.companyId, companyId), eq(cashierShift.id, shiftId)),
       })
+      return shift ?? null
     })
   },
 
@@ -326,13 +357,14 @@ export const restaurantRepository = {
     userId: string,
   ): Promise<CashierShiftSelect | null> {
     return withTenant(companyId, locationId, userId, async (tx) => {
-      return tx.query.cashierShift.findFirst({
+      const shift = await tx.query.cashierShift.findFirst({
         where: and(
           eq(cashierShift.companyId, companyId),
           eq(cashierShift.userId, userId),
           eq(cashierShift.status, 'open'),
         ),
       })
+      return shift ?? null
     })
   },
 }

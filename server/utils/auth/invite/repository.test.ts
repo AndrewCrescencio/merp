@@ -18,10 +18,15 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     ).MembershipRepository()
   })
 
-  const registerUser = (email: string, name: string) =>
-    import('~~/server/utils/auth/identity/queries').then((m) =>
+  // Um seed que não cria a conta deve falhar alto: o resto do teste usaria
+  // `owner.id` como se existisse.
+  const registerUser = async (email: string, name: string) => {
+    const result = await import('~~/server/utils/auth/identity/queries').then((m) =>
       m.registerUser({ email, password: 'password123', name, consentTermsVersion: 'v1' }),
     )
+    if (!result) throw new Error(`registerUser falhou para ${email}`)
+    return result
+  }
 
   it('creates, lists, finds and accepts an invite by token', async () => {
     const ownerEmail = `owner-${Date.now()}@example.com`

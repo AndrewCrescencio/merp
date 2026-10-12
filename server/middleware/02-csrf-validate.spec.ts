@@ -14,7 +14,7 @@ vi.mock('h3', () => ({
 
 vi.mock('~~/server/utils/shared/csrf', () => ({
   validateCsrf: (...args: any[]) => mockValidateCsrf(...args),
-  isCsrfExempt: (...args: any[]) => mockIsCsrfExempt(...args),
+  isCsrfExempt: (path: string) => mockIsCsrfExempt(path),
 }))
 
 vi.mock('~~/server/utils/shared/errors', () => ({

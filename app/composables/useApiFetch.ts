@@ -1,11 +1,13 @@
-import { getCookie } from 'h3'
-
 const CSRF_COOKIE_NAME = 'merp-csrf_token'
 const CSRF_HEADER_NAME = 'x-csrf-token'
 
 function getCsrfTokenFromCookie(): string | null {
   if (typeof document === 'undefined') return null
-  const cookie = getCookie(CSRF_COOKIE_NAME)
+  // h3.getCookie exige um H3Event (server-side); aqui lemos document.cookie.
+  const cookie = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`))
+    ?.slice(CSRF_COOKIE_NAME.length + 1)
   if (!cookie) return null
   const [token] = cookie.split('.')
   return token || null
@@ -21,7 +23,9 @@ export function useApiFetch() {
     }
 
     try {
-      return await $fetch<T>(url, { ...options, headers })
+      // url é string dinâmica: a resposta é o payload do servidor, sem reescrita
+      // de tipos de rota — TypedInternalResponse se resume a T em runtime.
+      return (await $fetch<T>(url, { ...options, headers })) as T
     } catch (error: unknown) {
       const err = error as { data?: unknown; status?: number }
       if (err.data && typeof err.data === 'object' && 'error' in err.data) {

@@ -14,7 +14,7 @@ export function parseTrustedProxyCidrs(
   for (const part of (raw || '').split(',')) {
     const entry = part.trim()
     if (!entry) continue
-    const [addr, prefixStr] = entry.split('/')
+    const [addr = '', prefixStr] = entry.split('/')
     const prefix = prefixStr === undefined ? (isIP(addr) === 6 ? 128 : 32) : Number(prefixStr)
     if (isIP(addr) === 0 || !Number.isInteger(prefix) || prefix < 0 || prefix > 128) {
       throw new Error(`TRUSTED_PROXY_CIDRS inválido: "${entry}" — use CIDR (ex.: 10.0.0.0/8)`)

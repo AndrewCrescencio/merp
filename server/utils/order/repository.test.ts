@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { createOwnerDbForSetupOnly } from '../db'
 import { sql } from 'drizzle-orm'
 import { orderRepository } from './repository'

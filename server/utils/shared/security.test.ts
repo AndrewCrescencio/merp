@@ -1,18 +1,12 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import type { H3Event } from 'h3'
 
 const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_test'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
-  let helpers: {
-    checkIpRateLimit: (event: unknown) => Promise<void>
-    checkEmailRateLimit: (event: unknown, email: string) => Promise<void>
-    checkUserRateLimit: (event: unknown, userId: string) => Promise<void>
-    checkAccountLockout: (email: string, ip?: string | null) => Promise<void>
-    recordFailedAttempt: (email: string, ip?: string | null) => Promise<void>
-    resetFailedAttempts: (email: string, ip?: string | null) => Promise<void>
-  }
+  let helpers: typeof import('~~/server/utils/shared/security')
   let db: any
   let authSecurityState: any
   let eq: any
@@ -25,13 +19,15 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     eq = (await import('drizzle-orm')).eq
   })
 
-  const mockEvent = (ip?: string) => ({
-    context: {},
-    node: {
-      req: { socket: { remoteAddress: ip ?? undefined } },
-      res: { setHeader: () => {} },
-    },
-  })
+  // Duck-typed H3Event: o módulo lê apenas context/node.req/node.res.
+  const mockEvent = (ip?: string) =>
+    ({
+      context: {},
+      node: {
+        req: { socket: { remoteAddress: ip ?? undefined } },
+        res: { setHeader: () => {} },
+      },
+    }) as unknown as H3Event
 
   it('allows 5 requests per email, then blocks the 6th with 429 (FR-010)', async () => {
     const email = `rate-${Date.now()}@example.com`

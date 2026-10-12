@@ -13,7 +13,7 @@ vi.mock('h3', () => ({
 
 vi.mock('~~/server/utils/shared/csrf', () => ({
   getOrCreateCsrfToken: (...args: any[]) => mockGetOrCreateCsrfToken(...args),
-  isCsrfExempt: (...args: any[]) => mockIsCsrfExempt(...args),
+  isCsrfExempt: (path: string) => mockIsCsrfExempt(path),
 }))
 
 describe('01-csrf-token middleware', () => {

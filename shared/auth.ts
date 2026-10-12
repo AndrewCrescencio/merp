@@ -46,13 +46,16 @@ function createAuth() {
       revokeSessionsOnPasswordReset: true,
       // MVP: email queue removed — callbacks are no-op (log only).
       // Better Auth generates correct links; user copies manually if needed.
-      sendResetPassword: ({ user, url }) => {
+      sendResetPassword: async ({ user, url }) => {
         void logger.info('reset password email (no-op)', { email: user.email, url })
       },
     },
     emailVerification: {
-      sendVerificationEmail: ({ user, url }) => {
-        void logger.info('verification email (no-op)', { email: user.email, url: appVerificationLink(url) })
+      sendVerificationEmail: async ({ user, url }) => {
+        void logger.info('verification email (no-op)', {
+          email: user.email,
+          url: appVerificationLink(url),
+        })
       },
       sendOnSignUp: true,
       sendOnSignIn: true,

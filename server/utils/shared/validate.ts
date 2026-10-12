@@ -53,7 +53,8 @@ export interface SendVerificationEmailInput {
   email: string
 }
 
-export async function validateRegisterInput(body: unknown): Promise<RegisterInput> {
+export async function validateRegisterInput(rawBody: unknown): Promise<RegisterInput> {
+  const body = rawBody as Record<string, unknown>
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
 
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
@@ -107,7 +108,8 @@ export async function validateRegisterInput(body: unknown): Promise<RegisterInpu
   }
 }
 
-export function validateLoginInput(body: unknown): LoginInput {
+export function validateLoginInput(rawBody: unknown): LoginInput {
+  const body = rawBody as Record<string, unknown>
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
 
   if (!email || typeof body?.password !== 'string' || !body.password) {
@@ -125,7 +127,8 @@ export function validateLoginInput(body: unknown): LoginInput {
   }
 }
 
-export function validateCompanyCreateInput(body: unknown): CompanyCreateInput {
+export function validateCompanyCreateInput(rawBody: unknown): CompanyCreateInput {
+  const body = rawBody as Record<string, unknown>
   if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
     sendValidationError('Company name is required')
   }
@@ -157,7 +160,8 @@ export function validateCompanyCreateInput(body: unknown): CompanyCreateInput {
   }
 }
 
-export function validateInviteInput(body: unknown): InviteInput {
+export function validateInviteInput(rawBody: unknown): InviteInput {
+  const body = rawBody as Record<string, unknown>
   if (!body?.companyId || typeof body.companyId !== 'string') {
     sendValidationError('companyId is required')
   }
@@ -174,7 +178,12 @@ export function validateInviteInput(body: unknown): InviteInput {
   return { companyId: body.companyId, email }
 }
 
-export function validateResetPasswordInput(body: unknown, query: unknown): ResetPasswordInput {
+export function validateResetPasswordInput(
+  rawBody: unknown,
+  rawQuery: unknown,
+): ResetPasswordInput {
+  const body = rawBody as Record<string, unknown>
+  const query = rawQuery as Record<string, unknown>
   if (!body?.newPassword || typeof body.newPassword !== 'string' || body.newPassword.length < 8) {
     sendValidationError('Password must be at least 8 characters')
   }
@@ -195,7 +204,8 @@ export function validateResetPasswordInput(body: unknown, query: unknown): Reset
   return { token, newPassword: body.newPassword }
 }
 
-export function validateVerifyEmailInput(query: unknown): VerifyEmailInput {
+export function validateVerifyEmailInput(rawQuery: unknown): VerifyEmailInput {
+  const query = rawQuery as Record<string, unknown>
   const token = query.token
   if (typeof token !== 'string' || !token) {
     sendValidationError('Invalid or expired verification link')
@@ -203,7 +213,8 @@ export function validateVerifyEmailInput(query: unknown): VerifyEmailInput {
   return { token }
 }
 
-export function validateForgetPasswordInput(body: unknown): ForgetPasswordInput {
+export function validateForgetPasswordInput(rawBody: unknown): ForgetPasswordInput {
+  const body = rawBody as Record<string, unknown>
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
     sendValidationError('Valid email is required')
@@ -211,7 +222,8 @@ export function validateForgetPasswordInput(body: unknown): ForgetPasswordInput 
   return { email }
 }
 
-export function validateSendVerificationEmailInput(body: unknown): SendVerificationEmailInput {
+export function validateSendVerificationEmailInput(rawBody: unknown): SendVerificationEmailInput {
+  const body = rawBody as Record<string, unknown>
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
     sendValidationError('Valid email is required')
@@ -219,7 +231,8 @@ export function validateSendVerificationEmailInput(body: unknown): SendVerificat
   return { email }
 }
 
-export function validateCompanySearchInput(query: unknown): { q: string } {
+export function validateCompanySearchInput(rawQuery: unknown): { q: string } {
+  const query = rawQuery as Record<string, unknown>
   if (!query.q || typeof query.q !== 'string' || query.q.trim().length === 0) {
     sendValidationError('Search query is required')
   }
@@ -229,19 +242,22 @@ export function validateCompanySearchInput(query: unknown): { q: string } {
   return { q: query.q.trim() }
 }
 
-export function validateCompanySwitchInput(body: unknown): { companyId: string } {
+export function validateCompanySwitchInput(rawBody: unknown): { companyId: string } {
+  const body = rawBody as Record<string, unknown>
   if (!body.companyId || typeof body.companyId !== 'string') {
     sendValidationError('Company ID is required')
   }
   return { companyId: body.companyId }
 }
 
-export function validateCompanyUpdateInput(body: unknown): CompanyCreateInput {
+// Update aceita campos opcionais (o caller lê `name?`), ao contrário do create.
+export function validateCompanyUpdateInput(rawBody: unknown): Partial<CompanyCreateInput> {
+  const body = rawBody as Record<string, unknown>
   if (!body?.companyId || typeof body.companyId !== 'string') {
     sendValidationError('companyId is required')
   }
 
-  const input: CompanyCreateInput = {}
+  const input: Partial<CompanyCreateInput> = {}
   if (body.name !== undefined) {
     if (typeof body.name !== 'string' || body.name.trim().length === 0) {
       sendValidationError('Company name must be a non-empty string')
@@ -278,14 +294,19 @@ export function validateCompanyUpdateInput(body: unknown): CompanyCreateInput {
   return input
 }
 
-export function validateDeleteCompanyInput(body: unknown): { companyId: string } {
+export function validateDeleteCompanyInput(rawBody: unknown): { companyId: string } {
+  const body = rawBody as Record<string, unknown>
   if (!body?.companyId || typeof body.companyId !== 'string') {
     sendValidationError('companyId is required')
   }
   return { companyId: body.companyId }
 }
 
-export function validateRemoveMemberInput(body: unknown): { companyId: string; userId?: string } {
+export function validateRemoveMemberInput(rawBody: unknown): {
+  companyId: string
+  userId?: string
+} {
+  const body = rawBody as Record<string, unknown>
   if (!body?.companyId || typeof body.companyId !== 'string') {
     sendValidationError('companyId is required')
   }
@@ -295,7 +316,8 @@ export function validateRemoveMemberInput(body: unknown): { companyId: string; u
   return { companyId: body.companyId, userId: body.userId?.trim() }
 }
 
-export function validateInviteAcceptInput(body: unknown): { token: string } {
+export function validateInviteAcceptInput(rawBody: unknown): { token: string } {
+  const body = rawBody as Record<string, unknown>
   if (!body?.token || typeof body.token !== 'string' || body.token.length === 0) {
     sendValidationError('token is required')
   }

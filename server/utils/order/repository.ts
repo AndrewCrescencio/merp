@@ -1,8 +1,10 @@
 import { withTenant } from '../db/tenant-context'
-import type { Tx } from '../db'
 import { eq, and, desc } from 'drizzle-orm'
 import { order, orderItem, orderDineIn, orderTakeout } from '../schema'
 import type { OrderSelect, OrderItemSelect } from '../schema'
+
+// '../db' não exporta Tx; deriva do contrato do próprio withTenant (mesmo tipo).
+type Tx = Parameters<Parameters<typeof withTenant>[3]>[0]
 
 const _VALID_STATUSES = ['open', 'completed', 'cancelled'] as const
 const _VALID_ORDER_TYPES = ['dine_in', 'takeout'] as const
@@ -45,7 +47,10 @@ interface OrderWithItems extends OrderSelect {
   takeout?: { pickupAt: Date | null; pickupName: string | null; pickupPhone: string | null }
 }
 
-async function enrichOrder(tx: Tx, orderRow: OrderSelect): Promise<OrderWithItems | null> {
+async function enrichOrder(
+  tx: Tx,
+  orderRow: OrderSelect | undefined,
+): Promise<OrderWithItems | null> {
   if (!orderRow) return null
 
   const items = await tx.query.orderItem.findMany({
@@ -111,6 +116,10 @@ export const orderRepository = {
           totalAmount: '0',
         })
         .returning()
+
+      if (!newOrder) {
+        throw new Error('Order not created')
+      }
 
       let totalAmount = 0
       const itemRows = input.items.map((item, _index) => {
