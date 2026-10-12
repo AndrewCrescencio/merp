@@ -298,7 +298,7 @@ O journal Drizzle termina na 0014; 0015–0025 são aplicadas por `apply-custom-
 
 O volume `merp_pgdata` continha PG16; o compose exige `postgres:17-alpine` → `docker compose up`
 falhava. Não existe `docker volume rename`. **Resolução (2026-10-12, aprovada pelo utilizador)**:
-backup `pg_dumpall` do cluster PG16 para `/tmp/opencode/backup-merp_pgdata-2026-10-12.sql.gz`,
+backup `pg_dumpall` do cluster PG16 para `/home/o/Work/merp-backups/backup-merp_pgdata-2026-10-12.sql.gz`,
 remoção dos containers/volumes da auditoria e do `merp_pgdata`, e `docker compose up` do zero —
 PostgreSQL 17 healthy em volume novo; `db:migrate:full` do zero = 856/856 statements; catálogo
 idêntico ao desta auditoria (16 tabelas RLS+FORCE, 65 policies); fail-closed re-confirmado.
