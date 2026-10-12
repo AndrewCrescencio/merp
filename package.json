@@ -17,6 +17,7 @@
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest",
     "lint": "eslint .",
+    "typecheck": "tsc -b --noEmit",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",

@@ -246,7 +246,7 @@ pnpm test server/utils/restaurant/repository.spec.ts
 DB_AVAILABLE=true pnpm test server/utils/restaurant/repository.test.ts
 
 # Lint + Typecheck
-pnpm lint && npx tsc --noEmit
+pnpm lint && pnpm typecheck
 ```
 
 ---

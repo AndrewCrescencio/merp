@@ -23,7 +23,7 @@ Instruções para agentes (IA/automação) trabalhando neste repositório. Basea
 | Testes (unit)                    | `pnpm test`                               |
 | Testes (integração, precisa PG)  | `DB_AVAILABLE=true pnpm test`             |
 | Lint                             | `pnpm lint`                               |
-| Typecheck                        | `npx tsc --noEmit`                        |
+| Typecheck                        | `pnpm typecheck`                          |
 | Format                           | `pnpm format`                             |
 | Migrações completas (banco novo) | `pnpm db:migrate:full`                    |
 | Nova migração                    | `pnpm drizzle-kit generate --name <nome>` |
@@ -108,7 +108,7 @@ docs/                     # Documentação operacional
 - ❌ Hard delete em dados fiscais (soft delete only)
 - ❌ `CREATE POLICY` com `OR get_location_id() IS NULL` (fail-open)
 - ❌ Importar entre contextos (ex: identity ⤳ company) — ESLint bloqueia
-- ❌ Commits sem `pnpm lint` + `npx tsc --noEmit` verdes
+- ❌ Commits sem `pnpm lint` + `pnpm typecheck` verdes
 - ❌ Push/merge/PR sem revisão humana
 
 ---
