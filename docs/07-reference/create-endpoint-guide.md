@@ -137,7 +137,7 @@ export const restaurantRepository = {
 **Pontos-chave:**
 
 - `withTenant(companyId, locationId, userId, fn)` — **obrigatório** para RLS
-- Seta GUCs: `app.current_company_id`, `app.current_location_id`, `app.current_user_id`
+- Seta GUCs: `app.tenant_id`, `app.location_id`, `app.user_id` (lidas por `get_tenant_id()`/`get_location_id()`/`get_user_id()`, fail-closed via `NULLIF`)
 - Recebe `tx` (transaction) do `withTenant` — usa para todas as queries
 - RLS policies no PostgreSQL garantem isolamento (fail-closed)
 - Erros lançados com `createError` (h3) → middleware converte para HTTP
@@ -187,18 +187,18 @@ export const restaurantTable = pgTable(
 
 ### 4. RLS Policy (aplicada via `scripts/apply-custom-sql.ts`)
 
+O padrão real é **uma policy por operação** (`SELECT`/`INSERT`/`UPDATE`/`DELETE`), não `FOR ALL`, usando os helpers `get_tenant_id()`/`get_location_id()` (fail-closed: `NULLIF(current_setting(..., true), '')`):
+
 ```sql
-CREATE POLICY restaurant_table_isolation ON restaurant_table
-  FOR ALL TO merp_app
-  USING (
-    company_id = current_setting('app.current_company_id')::uuid
-    AND location_id = current_setting('app.current_location_id')::uuid
-  )
-  WITH CHECK (
-    company_id = current_setting('app.current_company_id')::uuid
-    AND location_id = current_setting('app.current_location_id')::uuid
-  );
+-- Exemplo: restaurant_table (location-scoped)
+CREATE POLICY restaurant_table_select ON restaurant_table FOR SELECT TO merp_app
+  USING (company_id = get_tenant_id() AND location_id = get_location_id());
+CREATE POLICY restaurant_table_insert ON restaurant_table FOR INSERT TO merp_app
+  WITH CHECK (company_id = get_tenant_id() AND location_id = get_location_id());
+-- + restaurant_table_update / restaurant_table_delete
 ```
+
+Tabelas company-scoped (sem `location_id`) usam só `get_tenant_id()`; `order_dine_in`/`order_takeout` usam `EXISTS` sobre `order`. Detalhe em `docs/07-reference/database-schema.md`.
 
 ---
 

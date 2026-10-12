@@ -56,7 +56,7 @@ handler (server/api/...)
 Isolamento multi-tenant no banco, não na aplicação (ADR-002):
 
 - Todas as tabelas operacionais: `company_id` + `location_id` NOT NULL
-- `withTenant` seta GUCs: `app.current_company_id`, `app.current_location_id`, `app.current_user_id`
+- `withTenant` seta GUCs: `app.tenant_id`, `app.location_id`, `app.user_id`
 - Policies: `USING = WITH CHECK = company_id = get_tenant_id() AND location_id = get_location_id()`
 - Role `merp_app` = `NOBYPASSRLS` (runtime); role `merp` = superuser (apenas migrações)
 - **Canary test roda primeiro na CI** — falha = pipeline para
@@ -164,7 +164,7 @@ Isolamento multi-tenant no banco, não na aplicação (ADR-002):
 | ------------------- | --------------------------------------------------------------- |
 | **Tenant**          | = `company` — unidade de isolamento de dados                    |
 | **RLS**             | Row Level Security — policies PostgreSQL para isolamento        |
-| **GUC**             | Grand Unified Configuration — `app.current_company_id`, etc.    |
+| **GUC**             | Grand Unified Configuration — `app.tenant_id`, etc.             |
 | **withTenant**      | Helper que seta GUCs e roda callback em transação               |
 | **Vertical Slice**  | Feature completa: API + Repository + Schema + Testes            |
 | **Bounded Context** | Contexto delimitado (auth, order, print, restaurant...)         |

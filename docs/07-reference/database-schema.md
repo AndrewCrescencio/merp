@@ -80,20 +80,25 @@ Visão geral das tabelas do schema Drizzle. Fonte da verdade: `server/utils/sche
 Tabelas tenant-scoped usam policies **por operação** (o Drizzle `db` só tem `SELECT`, o `ownerDb` também escreve):
 
 ```sql
--- Exemplo real (drizzle/0023 + 0024): tabela location-scoped
+-- Padrão real (drizzle/0024 + 0025): tabela location-scoped
+-- NOTA: o location-scoped permite qualquer location do tenant quando a GUC
+-- de location não está setada (fail-closed só no nível do tenant — ADR-002).
 CREATE POLICY product_select ON product FOR SELECT TO merp_app
-  USING (company_id = get_company_id() AND location_id = get_location_id());
+  USING (company_id = get_tenant_id()
+     AND (location_id = get_location_id() OR get_location_id() IS NULL));
 CREATE POLICY product_insert ON product FOR INSERT TO merp_app
-  WITH CHECK (company_id = get_company_id() AND location_id = get_location_id());
--- + product_update (USING/WHERE = get_company_id()), product_delete (USING = get_company_id())
+  WITH CHECK (company_id = get_tenant_id()
+     AND (location_id = get_location_id() OR get_location_id() IS NULL));
+-- + product_update / product_delete (mesmo predicado)
 
 -- Exceções documentadas: company tem company_select_policy (USING = EXISTS membership)
--- e company_insert_policy (WITH CHECK true — requerimento RLS-007/SEC);
+-- e company_insert_policy (WITH CHECK true — requerimento RLS-005);
 -- company_member_insert permite bootstrap do próprio membership;
--- tabelas company-scoped sem location (invite, location) usam só get_company_id().
+-- tabelas company-scoped sem location (invite, location) usam só get_tenant_id()
+-- (location usa id, não location_id); order_dine_in/order_takeout usam EXISTS sobre order.
 ```
 
-GUCs definidas por `withTenant(companyId, locationId, userId, fn)` em `server/utils/db/tenant-context.ts`; helpers em `public` (`get_company_id()`, `get_location_id()`, `current_company_id()` — só em policies legadas).
+GUCs definidas por `withTenant(tenantId, locationId, userId, fn)` em `server/utils/db/tenant-context.ts` (`app.tenant_id`, `app.location_id`, `app.user_id`); helpers `STABLE` em `public`: `get_tenant_id()`, `get_location_id()`, `get_user_id()`, `is_company_owner(cid)` — todos `NULLIF(current_setting(..., true), '')` (fail-closed).
 
 Catálogo real (matriz tabela × policies): `docs/audit/2026-10-12-auditoria-sql-modeling-rls.md`.
 

@@ -129,16 +129,16 @@ docs/                     # Documentação operacional
 
 ## Glossário Rápido
 
-| Termo           | Significado                                                                |
-| --------------- | -------------------------------------------------------------------------- |
-| Tenant          | = `company`                                                                |
-| RLS             | Row Level Security (PostgreSQL policies)                                   |
-| GUC             | `app.current_company_id`, `app.current_location_id`, `app.current_user_id` |
-| withTenant      | Helper que seta GUCs + roda callback em transação                          |
-| Vertical Slice  | Feature completa: API + Repo + Schema + Testes                             |
-| Bounded Context | Contexto delimitado (auth, order, print, restaurant)                       |
-| ADR             | Architecture Decision Record                                               |
-| FR / SC         | Functional Requirement / Success Criteria                                  |
+| Termo           | Significado                                          |
+| --------------- | ---------------------------------------------------- |
+| Tenant          | = `company`                                          |
+| RLS             | Row Level Security (PostgreSQL policies)             |
+| GUC             | `app.tenant_id`, `app.location_id`, `app.user_id`    |
+| withTenant      | Helper que seta GUCs + roda callback em transação    |
+| Vertical Slice  | Feature completa: API + Repo + Schema + Testes       |
+| Bounded Context | Contexto delimitado (auth, order, print, restaurant) |
+| ADR             | Architecture Decision Record                         |
+| FR / SC         | Functional Requirement / Success Criteria            |
 
 ---
 
