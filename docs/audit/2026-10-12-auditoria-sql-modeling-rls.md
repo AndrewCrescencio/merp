@@ -294,13 +294,15 @@ O journal Drizzle termina na 0014; 0015–0025 são aplicadas por `apply-custom-
 0025 — quem rodar só `drizzle-kit migrate` fica sem o FORCE. **Ação**: rodar `db:migrate:full`
 (documentado) e/ou registrar num ADR de runbook. Sem SQL proposto (é processo).
 
-### DRIFT-003 🔴 — Volume Docker PG16 × `docker-compose.yml` PG17
+### DRIFT-003 ✅ resolvido — Volume Docker PG16 × `docker-compose.yml` PG17
 
-O volume `merp_pgdata` contém PG16; o compose exige `postgres:17-alpine` → `docker compose up`
-falha. Não existe `docker volume rename`; mitigação usada nesta auditoria = containers ad-hoc
-(`merp-pg` PG16 e `merp-pg17-audit` PG17 descartável). **Opções**: (a) dump/restore do volume
-para PG17 (migração de dados — destrutiva se feita às cegas), (b) mudar o compose para PG16.
-**Ação**: decisão humana — apagar/recriar volume **destrói dados locais**.
+O volume `merp_pgdata` continha PG16; o compose exige `postgres:17-alpine` → `docker compose up`
+falhava. Não existe `docker volume rename`. **Resolução (2026-10-12, aprovada pelo utilizador)**:
+backup `pg_dumpall` do cluster PG16 para `/tmp/opencode/backup-merp_pgdata-2026-10-12.sql.gz`,
+remoção dos containers/volumes da auditoria e do `merp_pgdata`, e `docker compose up` do zero —
+PostgreSQL 17 healthy em volume novo; `db:migrate:full` do zero = 856/856 statements; catálogo
+idêntico ao desta auditoria (16 tabelas RLS+FORCE, 65 policies); fail-closed re-confirmado.
+A causa era o volume velho, não o compose.
 
 ---
 
@@ -331,8 +333,8 @@ para PG17 (migração de dados — destrutiva se feita às cegas), (b) mudar o c
    (CHECK constraints com expand/contract) e alinha spec × código (uma fonte por fato).
 3. **Decidir DRIFT-001** (fonte normativa: `schema.ts` ou migrações) → migração de alinhamento
    forward-only para os 5 drifts.
-4. **DRIFT-003** (volume PG16 vs compose PG17) — escolher migração de dados ou pinar PG16;
-   nunca apagar volume sem backup.
+4. ~~**DRIFT-003** (volume PG16 vs compose PG17)~~ — **resolvido** (backup + volume novo PG17;
+   ver §6).
 5. **RLS-006**: começar por `auth_event` (user-scoped), deixar o core Better Auth para depois
    de decidir como o adapter opera sob GUC; exige ADR.
 6. **RLS-005** (`company_insert WITH CHECK true`): confirmar que criação self-service é
