@@ -24,7 +24,7 @@ Visão geral das tabelas do schema Drizzle. Fonte da verdade: `server/utils/sche
 ## Convenções
 
 - **PK**: `uuid` nativo para tabelas novas; `text` para tabelas Better Auth legadas (`user`, `session`, `account`, `verification`)
-- **RLS**: Todas as tabelas operacionais têm RLS habilitado com policies `company_id` + `location_id`
+- **RLS**: 16 tabelas operacionais têm RLS **+ `FORCE ROW LEVEL SECURITY`** com policies `company_id` (+ `location_id` onde aplica). Sem RLS (auth/globais): `user`, `session`, `account`, `verification`, `auth_event`, `auth_security_state`, `email_queue`
 - **Dinheiro**: `numeric(12,2)` com arredondamento half-up por linha (ver `money.md`)
 - **Timestamps**: `timestamptz` com `defaultNow()`
 - **Soft delete**: Coluna `is_deleted` + `deleted_at` onde aplicável
@@ -42,7 +42,7 @@ Visão geral das tabelas do schema Drizzle. Fonte da verdade: `server/utils/sche
 | `company`        | `uuid` | Tenant/empresa                                      | Company-only                     |
 | `company_member` | `uuid` | Membro da empresa (role, default_location_id)       | Company-only                     |
 | `invite`         | `uuid` | Convite para empresa (token hash, expiração)        | Company-only                     |
-| `auth_event`     | `uuid` | Auditoria: login, logout, failed, session lifecycle | Company-only                     |
+| `auth_event`     | `uuid` | Auditoria: login, logout, failed, session lifecycle | Sem RLS (ver achado)             |
 
 ### Core Order (Em Progresso — Spec `specs/006-core-order/`)
 
@@ -77,25 +77,25 @@ Visão geral das tabelas do schema Drizzle. Fonte da verdade: `server/utils/sche
 
 ## RLS Policies (Resumo)
 
-Todas as tabelas operacionais usam padrão:
+Tabelas tenant-scoped usam policies **por operação** (o Drizzle `db` só tem `SELECT`, o `ownerDb` também escreve):
 
 ```sql
--- Exemplo: company
-CREATE POLICY company_isolation ON company
-  FOR ALL TO merp_app
-  USING (id = current_setting('app.current_company_id')::uuid)
-  WITH CHECK (id = current_setting('app.current_company_id')::uuid);
+-- Exemplo real (drizzle/0023 + 0024): tabela location-scoped
+CREATE POLICY product_select ON product FOR SELECT TO merp_app
+  USING (company_id = get_company_id() AND location_id = get_location_id());
+CREATE POLICY product_insert ON product FOR INSERT TO merp_app
+  WITH CHECK (company_id = get_company_id() AND location_id = get_location_id());
+-- + product_update (USING/WHERE = get_company_id()), product_delete (USING = get_company_id())
 
--- Tabelas com location_id:
-CREATE POLICY table_isolation ON restaurant_table
-  FOR ALL TO merp_app
-  USING (company_id = current_setting('app.current_company_id')::uuid
-     AND location_id = current_setting('app.current_location_id')::uuid)
-  WITH CHECK (company_id = current_setting('app.current_company_id')::uuid
-     AND location_id = current_setting('app.current_location_id')::uuid);
+-- Exceções documentadas: company tem company_select_policy (USING = EXISTS membership)
+-- e company_insert_policy (WITH CHECK true — requerimento RLS-007/SEC);
+-- company_member_insert permite bootstrap do próprio membership;
+-- tabelas company-scoped sem location (invite, location) usam só get_company_id().
 ```
 
-GUCs definidas por `withTenant(companyId, locationId, userId, fn)` em `server/utils/db/tenant-context.ts`.
+GUCs definidas por `withTenant(companyId, locationId, userId, fn)` em `server/utils/db/tenant-context.ts`; helpers em `public` (`get_company_id()`, `get_location_id()`, `current_company_id()` — só em policies legadas).
+
+Catálogo real (matriz tabela × policies): `docs/audit/2026-10-12-auditoria-sql-modeling-rls.md`.
 
 ## Migrações
 
