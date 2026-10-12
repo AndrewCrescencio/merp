@@ -26,7 +26,7 @@ This consolidated specification combines the auth bounded context, core order mo
 ### 1.3 Multi-Tenant Membership
 
 - Users can create a new company (becoming first member) or join exclusively via invite token
-- `withTenant(tenantId, fn)` is mandatory entry point for all tenant-scoped queries
+- `withTenant(tenantId, locationId, userId, fn)` is mandatory entry point for all tenant-scoped queries
 - RLS policy: `company_id = get_tenant_id() AND (location_id = get_location_id() OR get_location_id() IS NULL)`
 
 ### 1.4 Password & Security
@@ -135,20 +135,20 @@ stateDiagram-v2
 
 ### 2.6 Tabela `order_item`
 
-| Campo            | Tipo          | Constraints                                                   |
-| ---------------- | ------------- | ------------------------------------------------------------- |
-| id               | uuid          | PK                                                            |
-| order_id         | uuid          | NOT NULL, FK → order.id                                       |
-| product_id       | uuid          | NULLABLE, FK → product.id                                     |
-| product_name     | text          | NOT NULL — snapshot                                           |
-| unit_price       | numeric(12,2) | NOT NULL — snapshot                                           |
-| quantity         | numeric(12,3) | NOT NULL                                                      |
-| tax_snapshot     | jsonb         | NOT NULL — alíquota vigente                                   |
-| bom_snapshot     | jsonb         | NULLABLE — ficha técnica                                      |
-| discount_applied | numeric(12,2) | DEFAULT 0 — snapshot                                          |
-| line_total       | numeric(12,2) | GENERATED ALWAYS AS (round(unit_price \* quantity, 2)) STORED |
-| sort_order       | integer       | DEFAULT 0                                                     |
-| created_at       | timestamptz   | DEFAULT now()                                                 |
+| Campo            | Tipo          | Constraints                                                                           |
+| ---------------- | ------------- | ------------------------------------------------------------------------------------- |
+| id               | uuid          | PK                                                                                    |
+| order_id         | uuid          | NOT NULL, FK → order.id                                                               |
+| product_id       | uuid          | NULLABLE, FK → product.id                                                             |
+| product_name     | text          | NOT NULL — snapshot                                                                   |
+| unit_price       | numeric(12,2) | NOT NULL — snapshot                                                                   |
+| quantity         | numeric(12,3) | NOT NULL                                                                              |
+| tax_snapshot     | jsonb         | NOT NULL — alíquota vigente                                                           |
+| bom_snapshot     | jsonb         | NULLABLE — ficha técnica                                                              |
+| discount_applied | numeric(12,2) | DEFAULT 0 — snapshot                                                                  |
+| line_total       | numeric(12,2) | GENERATED ALWAYS AS (round_half_up(unit_price \* quantity - discount_applied)) STORED |
+| sort_order       | integer       | DEFAULT 0                                                                             |
+| created_at       | timestamptz   | DEFAULT now()                                                                         |
 
 **Snapshot rule**: editar produto não reescreve o passado.
 
@@ -194,8 +194,8 @@ stateDiagram-v2
 
 ### 3.6 Regras Herdadas
 
-- RLS location-scoped (`company_id` + `location_id`) — `specs/000-foundation/rls-pattern.md`
-- Idempotency-Key obrigatório no POST — `specs/000-foundation/idempotency.md`
+- RLS location-scoped (`company_id` + `location_id`) — ver ADR-002 + `docs/07-reference/database-schema.md`
+- Idempotency-Key obrigatório no POST — ver ADR-005 e contrato de `order`
 - Snapshot do payload no `print_job.content` — `specs/000-foundation/snapshot.md`
 
 ---

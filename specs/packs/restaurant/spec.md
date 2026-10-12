@@ -1,6 +1,6 @@
 # Feature Specification: Restaurant Pack
 
-**Status**: Spec pronta, implementação não iniciada
+**Status**: Tabelas + handlers `restaurant`/`print` criados; FSM/KDS e restantes endpoints em progresso
 
 ## Entidades
 
