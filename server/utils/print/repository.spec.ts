@@ -154,72 +154,13 @@ describe('printRepository', () => {
     ).rejects.toThrow('No default printer available')
   })
 
-  it('getPendingJobs: returns pending jobs ordered by priority', async () => {
-    mockTx.query.printJob.findMany.mockResolvedValue([
-      { id: 'job-1', priority: 10 },
-      { id: 'job-2', priority: 5 },
-    ])
-
-    const { printRepository } = await import('./repository')
-    const result = await printRepository.getPendingJobs('company-1', 'location-1')
-
-    expect(result).toHaveLength(2)
-  })
-
-  it('markJobPrinting: updates status and increments attempts', async () => {
-    mockTx.update.mockReturnValueOnce({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 'job-1', status: 'printing', attempts: 1 }]),
-        }),
-      }),
-    })
-
-    const { printRepository } = await import('./repository')
-    const result = await printRepository.markJobPrinting('company-1', 'job-1')
-
-    expect(result).toBeDefined()
-    expect(result?.status).toBe('printing')
-  })
-
-  it('completeJob: marks job as completed', async () => {
-    mockTx.update.mockReturnValueOnce({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 'job-1', status: 'completed' }]),
-        }),
-      }),
-    })
-
-    const { printRepository } = await import('./repository')
-    const result = await printRepository.completeJob('company-1', 'job-1')
-
-    expect(result?.status).toBe('completed')
-  })
-
-  it('failJob: marks job as failed with error', async () => {
+  it('retryJob: resets job to pending, attempts and lastError', async () => {
     mockTx.update.mockReturnValueOnce({
       set: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
           returning: vi
             .fn()
-            .mockResolvedValue([{ id: 'job-1', status: 'failed', lastError: 'Error' }]),
-        }),
-      }),
-    })
-
-    const { printRepository } = await import('./repository')
-    const result = await printRepository.failJob('company-1', 'job-1', 'Error')
-
-    expect(result?.status).toBe('failed')
-    expect(result?.lastError).toBe('Error')
-  })
-
-  it('retryJob: resets job to pending', async () => {
-    mockTx.update.mockReturnValueOnce({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 'job-1', status: 'pending', attempts: 0 }]),
+            .mockResolvedValue([{ id: 'job-1', status: 'pending', attempts: 0, lastError: null }]),
         }),
       }),
     })
@@ -229,13 +170,9 @@ describe('printRepository', () => {
 
     expect(result?.status).toBe('pending')
     expect(result?.attempts).toBe(0)
-  })
-
-  it('cleanupOldJobs: deletes old completed/failed jobs', async () => {
-    const { printRepository } = await import('./repository')
-    const result = await printRepository.cleanupOldJobs('company-1', 30)
-
-    expect(result).toBe(5)
-    expect(mockTx.delete).toHaveBeenCalled()
+    expect(result?.lastError).toBeNull()
+    // O que realmente foi enviado ao UPDATE — sem isto a API expõe lastError stale.
+    const setArgs = mockTx.update.mock.results[0]?.value.set.mock.calls[0]?.[0]
+    expect(setArgs).toMatchObject({ status: 'pending', attempts: 0, lastError: null })
   })
 })

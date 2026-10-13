@@ -1,5 +1,5 @@
 import { withTenant } from '../db/tenant-context'
-import { eq, and, desc, lt, sql } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { printer, printJob } from '../schema'
 import type { PrinterSelect, PrintJobSelect } from '../schema'
 
@@ -22,9 +22,6 @@ export interface EnqueuePrintJobInput {
   payload: Record<string, unknown>
   priority?: number
 }
-
-const _PRINT_JOB_STATUSES = ['pending', 'printing', 'completed', 'failed'] as const
-type _PrintJobStatus = (typeof _PRINT_JOB_STATUSES)[number]
 
 export const printRepository = {
   async registerPrinter(input: RegisterPrinterInput): Promise<PrinterSelect> {
@@ -117,7 +114,6 @@ export const printRepository = {
           payload: sql`${input.payload}`,
           priority: input.priority || 0,
           status: 'pending',
-          attempts: 0,
         })
         .returning()
 
@@ -129,93 +125,21 @@ export const printRepository = {
     })
   },
 
-  async getPendingJobs(
-    companyId: string,
-    locationId: string,
-    limit = 50,
-  ): Promise<PrintJobSelect[]> {
-    return withTenant(companyId, locationId, null, async (tx) => {
-      return tx.query.printJob.findMany({
-        where: and(
-          eq(printJob.companyId, companyId),
-          eq(printJob.locationId, locationId),
-          eq(printJob.status, 'pending'),
-        ),
-        orderBy: [desc(printJob.priority), printJob.createdAt],
-        limit,
-      })
-    })
-  },
-
-  async markJobPrinting(companyId: string, jobId: string): Promise<PrintJobSelect | null> {
-    return withTenant(companyId, null, null, async (tx) => {
-      const [job] = await tx
-        .update(printJob)
-        .set({ status: 'printing', attempts: sql`${printJob.attempts} + 1`, startedAt: new Date() })
-        .where(
-          and(
-            eq(printJob.companyId, companyId),
-            eq(printJob.id, jobId),
-            eq(printJob.status, 'pending'),
-          ),
-        )
-        .returning()
-
-      return job || null
-    })
-  },
-
-  async completeJob(companyId: string, jobId: string): Promise<PrintJobSelect | null> {
-    return withTenant(companyId, null, null, async (tx) => {
-      const [job] = await tx
-        .update(printJob)
-        .set({ status: 'completed', completedAt: new Date() })
-        .where(and(eq(printJob.companyId, companyId), eq(printJob.id, jobId)))
-        .returning()
-
-      return job || null
-    })
-  },
-
-  async failJob(companyId: string, jobId: string, error: string): Promise<PrintJobSelect | null> {
-    return withTenant(companyId, null, null, async (tx) => {
-      const [job] = await tx
-        .update(printJob)
-        .set({ status: 'failed', lastError: error, completedAt: new Date() })
-        .where(and(eq(printJob.companyId, companyId), eq(printJob.id, jobId)))
-        .returning()
-
-      return job || null
-    })
-  },
-
+  // Job lifecycle: só o endpoint de retry existe (server/api/print/jobs/[id]/retry.post.ts).
+  // Os métodos de worker (markJobPrinting/completeJob/failJob/getPendingJobs) morreram com
+  // server/tasks/process-print-queue.ts (RLS-004) — recriar junto com o worker que os chamar.
   async retryJob(companyId: string, jobId: string): Promise<PrintJobSelect | null> {
     return withTenant(companyId, null, null, async (tx) => {
       const [job] = await tx
         .update(printJob)
-        .set({ status: 'pending', lastError: null, attempts: 0 })
+        // Reset completo: sem isto `lastError` fica stale e visível na API
+        // (listJobs/getJobById devolvem a linha inteira) e `attempts` herda
+        // o orçamento gasto da tentativa anterior.
+        .set({ status: 'pending', attempts: 0, lastError: null })
         .where(and(eq(printJob.companyId, companyId), eq(printJob.id, jobId)))
         .returning()
 
       return job || null
-    })
-  },
-
-  async cleanupOldJobs(companyId: string, olderThanDays = 30): Promise<number> {
-    return withTenant(companyId, null, null, async (tx) => {
-      const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000)
-      const result = await tx
-        .delete(printJob)
-        .where(
-          and(
-            eq(printJob.companyId, companyId),
-            lt(printJob.createdAt, cutoff),
-            sql`${printJob.status} IN ('completed', 'failed')`,
-          ),
-        )
-      // shortcut: o driver tipa o resultado como lista de linhas (sem rowCount);
-      // lê rowCount apenas quando presente para manter o comportamento atual.
-      return 'rowCount' in result && typeof result.rowCount === 'number' ? result.rowCount : 0
     })
   },
 
