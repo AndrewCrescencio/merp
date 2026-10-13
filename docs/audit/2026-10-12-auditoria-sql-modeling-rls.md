@@ -213,34 +213,48 @@ a task não estava agendada e o printer está em stub.
 
 **Impacto**: sem efeito em dados (só muda como a task corre). **Rollback**: reverter o commit da opção escolhida.
 
-### RLS-005 🔴 — `company_insert_policy` com `WITH CHECK true`
+### RLS-005 ✅ RESOLVIDO (hardening fail-closed) — `company_insert_policy` com `WITH CHECK true`
 
-`company_insert_policy` permite INSERT sem checagem de tenant (criação self-service de empresa,
-FR-014 — "por design" segundo AUD-000). Sob `FORCE`, continua a valer para `merp_app` (que tem
-GRANT de INSERT em `company`). Risco: um cliente autenticado pode criar companies arbitrárias
-(quantas quiser), embora não consiga **ler** companies alheias (`company_select_policy` com
-membership). SQL proposto (se decidir restringir):
+> **Resolução (2026-10-12)**: `WITH CHECK true` → `WITH CHECK (get_user_id() IS NOT NULL)`
+> (migração `0026_company_insert_requires_user.sql`). Mantém self-service (FR-014); só impede
+> inserção sem GUC de utilizador (fail-closed). O caminho de produção (`createCompanyWithOwner`)
+> seta `app.user_id` via `withTenant` → continua a inserir; `createCompany` (low-level, user
+> null) agora é negado com 42501. Teste fail-closed adicionado. **Rollback**: 0026 tem o
+> comando comentado (recriar com `WITH CHECK (true)`).
 
-```sql
--- Proposta (exige ADR: criação self-service vs convite-only)
-DROP POLICY IF EXISTS company_insert_policy ON company;
-CREATE POLICY company_insert_policy ON company FOR INSERT TO merp_app
-  WITH CHECK (true); -- manter se self-service é requisito explícito
--- Alternativa convite-only: WITH CHECK (EXISTS (SELECT 1 FROM invite i WHERE i.company_id = company.id ...))
-```
+`company_insert_policy` permitia INSERT sem checagem (criação self-service de empresa,
+FR-014). Sob `FORCE`, continuava a valer para `merp_app`. Risco: qualquer contexto (mesmo sem
+`app.user_id`) criava companies arbitrárias — embora não pudesse **ler** companies alheias
+(`company_select_policy` com membership).
 
-**Impacto**: pode quebrar onboarding self-service. **Rollback**: recriar a policy com `WITH CHECK (true)`.
-
-### RLS-006 🔴 — Tabelas auth sem RLS + PII (`auth_event`, `auth_security_state`, `user`, …)
+### RLS-006 🔴 NÃO APLICADO (precondição falhou) — Tabelas auth sem RLS + PII
 
 7 tabelas sem RLS: `account`, `auth_event`, `auth_security_state`, `email_queue`, `session`,
-`user`, `verification`. PII (email, IP, `user_id`, `metadata`) só tem barreira a nível de
-aplicação (queries sempre chaveadas: `listUserAuthEvents`, `export.get.ts`, `security.ts`).
-Análise E.1 concluída; **não aplicado**. Proposta (via ADR — precisa de decisão sobre como o
-Better Auth acessa `user`/`session`/`account` sem GUC):
+`user`, `verification`. PII só tem barreira a nível de aplicação.
+
+> **Verificação (2026-10-12) — porquê NÃO aplicar nem sequer em `auth_event`**: a precondição
+> "leituras/escritas sob `withTenant`" **falhou**. Os três acessos a `auth_event` correm em
+> `db` direto, **sem GUC**:
+>
+> - **escrita** `createAuthEvent` (`server/utils/shared/audit.ts:20`): `db.insert` sem
+>   `withTenant`. Com policy `user_id = get_user_id()`, o `WITH CHECK` falharia (GUC nulo) e o
+>   `catch` do FR-023 engoliria o erro → **auditoria pararia em silêncio** (perda de dado de
+>   auditoria, pior do que não ter RLS).
+> - **leituras** `listUserAuthEvents` (`auth/identity/queries.ts:81`) e `export.get.ts:56`:
+>   `db.select` sem GUC → `USING (user_id = get_user_id())` devolveria **0 linhas** → exportação
+>   LGPD vazia.
+>
+> Corrigir exige envolver estes caminhos em `withTenant` (com `app.user_id`) — mas
+> `auth/identity/queries.ts` e `api/auth/export.get.ts` são **ficheiros protegidos** (auth). E
+> eventos de login falhado têm `user_id` NULL (utilizador ainda não existe) — uma policy
+> `user_id = get_user_id()` perde-os ou exige ramo `user_id IS NULL` (que exporia emails de
+> tentativas falhadas a outros utilizadores). **Conclusão**: `auth_event` RLS não é a correção
+> barata/segura que a análise preliminar sugeriu; é uma mudança que toca auth e precisa de ADR.
+
+Proposta original (via ADR — decidir como Better Auth + audit + export operam sob GUC):
 
 ```sql
--- Escopo mínimo sugerido: RLS user-scoped em auth_event (só o próprio user lê os próprios eventos)
+-- Escopo mínimo sugerido (NÃO aplicar sem antes migrar escrita/leituras para withTenant):
 ALTER TABLE auth_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auth_event FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS auth_event_select_policy ON auth_event;
@@ -250,18 +264,20 @@ CREATE POLICY auth_event_select_policy ON auth_event FOR SELECT TO merp_app
 ```
 
 **Impacto**: `user`/`session`/`account`/`verification` são tocados pelo Better Auth adapter
-**sem GUC** (`shared/auth.ts`) — dar RLS a essas tabelas **quebra o login** até o adapter
-passar a operar sob `withTenant` ou receber exceção de policy. Por isso: começar por
-`auth_event`, não pelo core Better Auth. **Rollback**: `DISABLE ROW LEVEL SECURITY` +
-`DROP POLICY`.
+**sem GUC** (`shared/auth.ts`) — dar RLS a essas tabelas **quebra o login**. Por isso nunca
+entraram no escopo. **Rollback**: `DISABLE ROW LEVEL SECURITY` + `DROP POLICY`.
 
-### RLS-007 🔴 — CHECK constraints por divergência spec × código
+### RLS-007 ✅ RESOLVIDO (vocabulário alinhado; CHECKs adiados) — CHECK constraints spec × código
+
+> **Resolução (2026-10-12)**: vocabulário alinhado **spec → código** (código é a verdade de
+> facto, tem dados reais): `print_job` `queued|printed`→`pending|completed`,
+> `restaurant_table` `free|cleaning`→`available|closed`, `cashier_shift` `discrepancy`→`reconciled`.
+> CHECKs **adiados** — os enums Zod da app já validam no boundary; um CHECK daria pouco ganho
+> face a migração + sanear dados. Spec × código deixa de divergir (uma fonte por fato).
 
 Nenhum CHECK constraint existe (catálogo nem `schema.ts`). Queries de detecção de violação
-corridas em `merp_audit` e `merp_test` encontraram dados reais fora do vocabulário do spec:
-
-- `print_job.status = 'pending'` (2 linhas) — vocabulário do código
-- `restaurant_table.status = 'available'` (2 linhas) — vocabulário do código
+corridas em `merp_audit` e `merp_test` encontraram dados reais fora do vocabulário do spec
+(`print_job.status='pending'`, `restaurant_table.status='available'` — vocabulário do código).
 
 Como há violações, os CHECKs **não foram aplicados**. Plano expand/contract (após decisão de
 vocabulário — é decisão arquitetural, spec × código divergem):
@@ -340,10 +356,24 @@ A causa era o volume velho, não o compose.
    forward-only para os 5 drifts.
 4. ~~**DRIFT-003** (volume PG16 vs compose PG17)~~ — **resolvido** (backup + volume novo PG17;
    ver §6).
-5. **RLS-006**: começar por `auth_event` (user-scoped), deixar o core Better Auth para depois
-   de decidir como o adapter opera sob GUC; exige ADR.
-6. **RLS-005** (`company_insert WITH CHECK true`): confirmar que criação self-service é
-   requisito explícito (FR-014) e documentar como decisão; senão, restringir via convite.
+5. **RLS-006** (`auth_event` etc.): **não é a correção barata que a análise preliminar sugeriu** —
+   as leituras/escritas de `auth_event` correm em `db` sem GUC (`audit.ts`, `queries.ts`,
+   `export.get.ts`); aplicar RLS quebraria auditoria (silenciosamente) e exportação LGPD.
+   Exige ADR + migrar esses caminhos para `withTenant` (ficheiros protegidos de auth) e decidir
+   o caso `user_id IS NULL` (logins falhados). Não aplicar sem isso.
+6. ~~**RLS-005** (`company_insert WITH CHECK true`)~~ — **resolvido**: `WITH CHECK
+(get_user_id() IS NOT NULL)` (0026), fail-closed, mantém self-service FR-014.
 7. **DRIFT-002**: incorporar `db:migrate:full` (não só `drizzle-kit migrate`) em runbook/CI.
-8. Manter `rls-guard.test.ts` + `rls-matrix.test.ts` como guarda permanente em CI — qualquer
-   nova tabela tenant-scoped sem RLS+FORCE ou policy afrouxada quebra a suíte.
+8. **DRIFT-001** (fonte normativa: `schema.ts` ou migrações) → migração de alinhamento
+   forward-only para os 5 drifts — por decidir (arquivo `server/utils/schema/**` protegido).
+9. **Corrigir `specs/README.md`**: lista 3 dívidas já pagas (assinatura `withTenant` com
+   `locationId`, schemas núcleo, `line_total`) como pendentes; só a dívida ADR-011 (deploy
+   reexecuta 0024/RLS em produção) continua aberta.
+10. Manter `rls-guard.test.ts` + `rls-matrix.test.ts` como guarda permanente em CI — qualquer
+    nova tabela tenant-scoped sem RLS+FORCE ou policy afrouxada quebra a suíte.
+
+> **Feito nesta sessão** (2026-10-12): RLS-004 (task print removida), RLS-005 (0026 +
+> teste fail-closed), RLS-007 (vocabulário alinhado), FSM `kitchen_ticket` (guarda de transição
+>
+> - 422), guarda FORCE (`assertRlsForceApplied`) e comment-safety do transformador SQL.
+>   Verdes: 55 ficheiros / 461 testes, `merp`/`merp_test` 16 RLS + 16 FORCE + 65 policies.
