@@ -177,9 +177,9 @@ stateDiagram-v2
 
 ### 3.3 Worker (Nitro task)
 
-- `server/tasks/process-print-queue.ts` — roda a cada 30s (`0 * * * * *` cron)
-- Pega jobs `queued` + `attempts < 3`, marca `printing`, envia bytes via `net.Socket` (TCP) ou `usb`/`serialport`
-- Sucesso → `printed` + `printed_at`; Falha → `attempts++`, `failed` se >= 3
+- **Estado**: worker não implementado — `server/tasks/process-print-queue.ts` era um stub que enumerava empresas cross-tenant sem contexto de GUC (0 linhas sob `merp_app` desde o `FORCE` de `company`); removido. Dispatch futuro = por tenant via `withTenant`.
+- Desenho: pega jobs `pending` + `attempts < 3`, marca `printing`, envia bytes via `net.Socket` (TCP) ou `usb`/`serialport`
+- Sucesso → `completed` + `printed_at`; Falha → `attempts++`, `failed` se >= 3
 
 ### 3.4 Templates (hardcoded)
 

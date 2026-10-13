@@ -91,12 +91,12 @@ sucesso em `merp_audit` e revertido (ver §5).
 O `FORCE` faz as policies valerem também para o **owner** da tabela. Código que corre sem
 contexto de tenant sobre tabelas com RLS+FORCE passa a ver 0 linhas.
 
-| Código                                    | Corre como          | Impacto do FORCE                                                                                    | Resolução                                                                                   |
-| ----------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `server/tasks/process-print-queue.ts`     | Sem GUC de tenant   | **Quebrado**: `db.query.company.findMany` (enumeração cross-tenant) devolve 0 linhas sob `merp_app` | Não alterado — ver §6 (item 🔴 RLS-004). Broken desde 0007 (FORCE em company), não agendado |
-| `drizzle/0012_invite_token_accept.sql:44` | Superuser (`merp`)  | Nenhum — superuser/BYPASSRLS ignora RLS mesmo com FORCE                                             | Nada a fazer                                                                                |
-| Healthchecks (`SELECT 1`)                 | Superuser           | Nenhum                                                                                              | Nada a fazer                                                                                |
-| Tasks `purge`, seeds de teste             | `ownerDb`/superuser | Nenhum (purge não tem chamadores; seeds usam `ownerDb`)                                             | Nada a fazer                                                                                |
+| Código                                    | Corre como          | Impacto do FORCE                                                                                    | Resolução                                                                                      |
+| ----------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `server/tasks/process-print-queue.ts`     | Sem GUC de tenant   | **Quebrado**: `db.query.company.findMany` (enumeração cross-tenant) devolve 0 linhas sob `merp_app` | **Removido** (RLS-004, opção 3) — morto desde 0007, não agendado. Linha mantida como histórico |
+| `drizzle/0012_invite_token_accept.sql:44` | Superuser (`merp`)  | Nenhum — superuser/BYPASSRLS ignora RLS mesmo com FORCE                                             | Nada a fazer                                                                                   |
+| Healthchecks (`SELECT 1`)                 | Superuser           | Nenhum                                                                                              | Nada a fazer                                                                                   |
+| Tasks `purge`, seeds de teste             | `ownerDb`/superuser | Nenhum (purge não tem chamadores; seeds usam `ownerDb`)                                             | Nada a fazer                                                                                   |
 
 **Conclusão**: único código quebrado pelo `FORCE` = `process-print-queue.ts`, que já não
 funcionava antes (o `company` tinha FORCE desde a 0007). Tratado como pendência 🔴 com 3
@@ -195,11 +195,15 @@ ALTER TABLE "kitchen_ticket"  NO FORCE ROW LEVEL SECURITY;
 
 Nenhum abaixo foi aplicado. Todos exigem decisão humana/ADR.
 
-### RLS-004 🔴 — Enumeração cross-tenant em `process-print-queue.ts`
+### RLS-004 ✅ RESOLVIDO (opção 3 — remover a task) — Enumeração cross-tenant em `process-print-queue.ts`
 
-`server/tasks/process-print-queue.ts` usa `db.query.company.findMany` para varrer tenants —
-impossível sob RLS com `merp_app` (0 linhas). Já não funciona desde a 0007 (FORCE em `company`);
-a task não está agendada e o printer está em stub.
+> **Resolução (2026-10-12)**: task **removida** (commit `fix(db): RLS-004`). Era morta desde 0007,
+> não agendada, printer em stub. Remover apaga código e elimina a necessidade latente de role
+> BYPASSRLS. Se print for preciso, refaz-se com dispatch por tenant (`withTenant`).
+
+`server/tasks/process-print-queue.ts` usava `db.query.company.findMany` para varrer tenants —
+impossível sob RLS com `merp_app` (0 linhas). Já não funcionava desde a 0007 (FORCE em `company`);
+a task não estava agendada e o printer está em stub.
 
 **Opções** (escolher via ADR):
 
@@ -327,10 +331,11 @@ A causa era o volume velho, não o compose.
 
 ## 8. Próximos passos priorizados
 
-1. **Decidir RLS-004** (`process-print-queue`) — recomendo opção 3 (remover/adiar a task, YAGNI)
-   enquanto o printer está em stub; único código de fato quebrado pelo FORCE.
-2. **Decidir vocabulário de status** (`print_job`, `restaurant_table`) → liberta RLS-007
-   (CHECK constraints com expand/contract) e alinha spec × código (uma fonte por fato).
+1. ~~**Decidir RLS-004** (`process-print-queue`)~~ — **resolvido**: opção 3 aplicada (task removida,
+   morta desde 0007, não agendada); elimina a necessidade latente de role BYPASSRLS.
+2. ~~**Decidir vocabulário de status** (`print_job`, `restaurant_table`)~~ — **resolvido**: spec
+   alinhada ao código (`pending`/`completed`, `available`/`closed`, `reconciled`); CHECKs adiados
+   (enums Zod já validam no boundary). Liberta RLS-007.
 3. **Decidir DRIFT-001** (fonte normativa: `schema.ts` ou migrações) → migração de alinhamento
    forward-only para os 5 drifts.
 4. ~~**DRIFT-003** (volume PG16 vs compose PG17)~~ — **resolvido** (backup + volume novo PG17;
