@@ -22,21 +22,27 @@ export default defineEventHandler(async (event) => {
 
   const { companyId, locationId } = auth.session
 
+  let ticket
   try {
-    const ticket = await restaurantRepository.updateKitchenTicketStatus({
+    ticket = await restaurantRepository.updateKitchenTicketStatus({
       companyId,
       locationId,
       ticketId,
       status,
       userId: auth.user.id,
     })
-
-    if (!ticket) {
-      throw createError({ statusCode: 404, message: 'kitchen_ticket_not_found' })
+  } catch (error) {
+    // FSM: transição inválida = 422 (specs/packs/restaurant/spec.md).
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('Cannot transition')) {
+      throw createError({ statusCode: 422, message: msg })
     }
-
-    return ticket
-  } catch {
     throw createError({ statusCode: 500, message: 'failed_to_update_kitchen_ticket' })
   }
+
+  if (!ticket) {
+    throw createError({ statusCode: 404, message: 'kitchen_ticket_not_found' })
+  }
+
+  return ticket
 })

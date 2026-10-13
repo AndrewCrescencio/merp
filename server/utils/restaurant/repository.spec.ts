@@ -229,7 +229,11 @@ describe('restaurantRepository (unit)', () => {
   })
 
   describe('updateKitchenTicketStatus', () => {
-    it('updates ticket status', async () => {
+    it('updates ticket status on a valid transition', async () => {
+      mockTx.query.kitchenTicket.findFirst.mockResolvedValue({
+        id: 'kt1',
+        status: 'in_progress',
+      } as KitchenTicketSelect)
       const ticket = { id: 'kt1', status: 'ready' } as KitchenTicketSelect
       mockTx.update.mockReturnValue({
         set: vi.fn().mockReturnValue({
@@ -251,13 +255,7 @@ describe('restaurantRepository (unit)', () => {
     })
 
     it('returns null if ticket not found', async () => {
-      mockTx.update.mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      })
+      mockTx.query.kitchenTicket.findFirst.mockResolvedValue(undefined)
 
       const result = await restaurantRepository.updateKitchenTicketStatus({
         companyId,
@@ -268,6 +266,25 @@ describe('restaurantRepository (unit)', () => {
       })
 
       expect(result).toBeNull()
+      expect(mockTx.update).not.toHaveBeenCalled()
+    })
+
+    it('throws on an invalid transition (FSM)', async () => {
+      mockTx.query.kitchenTicket.findFirst.mockResolvedValue({
+        id: 'kt1',
+        status: 'pending',
+      } as KitchenTicketSelect)
+
+      await expect(
+        restaurantRepository.updateKitchenTicketStatus({
+          companyId,
+          locationId,
+          ticketId: 'kt1',
+          status: 'served',
+          userId,
+        }),
+      ).rejects.toThrow(/Cannot transition/)
+      expect(mockTx.update).not.toHaveBeenCalled()
     })
   })
 

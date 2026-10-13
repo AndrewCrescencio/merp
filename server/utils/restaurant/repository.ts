@@ -7,6 +7,15 @@ import type {
   CashierShiftSelect,
 } from '~~/server/utils/schema'
 
+// FSM kitchen_ticket (specs/packs/restaurant/spec.md) — served/cancelled são terminais.
+const KITCHEN_TRANSITIONS: Record<string, readonly string[]> = {
+  pending: ['in_progress', 'cancelled'],
+  in_progress: ['ready', 'cancelled'],
+  ready: ['served', 'cancelled'],
+  served: [],
+  cancelled: [],
+}
+
 export interface OpenTableInput {
   companyId: string
   locationId: string
@@ -190,10 +199,30 @@ export const restaurantRepository = {
     })
   },
 
+  // FSM kitchen_ticket (specs/packs/restaurant/spec.md): transições inválidas = 422.
+  // served/cancelled são terminais.
   async updateKitchenTicketStatus(
     input: UpdateKitchenTicketStatusInput,
   ): Promise<KitchenTicketSelect | null> {
     return withTenant(input.companyId, input.locationId, input.userId, async (tx) => {
+      const current = await tx.query.kitchenTicket.findFirst({
+        where: and(
+          eq(kitchenTicket.companyId, input.companyId),
+          eq(kitchenTicket.id, input.ticketId),
+        ),
+      })
+
+      if (!current) {
+        return null
+      }
+
+      const allowed = KITCHEN_TRANSITIONS[current.status] ?? []
+      if (!allowed.includes(input.status)) {
+        throw new Error(
+          `Cannot transition kitchen ticket from ${current.status} to ${input.status}`,
+        )
+      }
+
       const [ticket] = await tx
         .update(kitchenTicket)
         .set({ status: input.status, updatedAt: new Date() })
