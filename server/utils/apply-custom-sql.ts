@@ -7,23 +7,33 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const DRIZZLE_DIR = resolve(__dirname, '../../drizzle')
 
 function toIdempotentSql(raw: string): string {
-  return raw
-    .replace(/--> statement-breakpoint\s*/g, ';\n')
-    .replace(
-      /CREATE POLICY (\S+) ON (\S+) FOR/g,
-      'DROP POLICY IF EXISTS $1 ON $2;\nCREATE POLICY $1 ON $2 FOR',
-    )
-    .replace(/CREATE INDEX (\S+) ON/g, 'CREATE INDEX IF NOT EXISTS $1 ON')
-    .replace(/CREATE TABLE (\S+) \(/g, 'CREATE TABLE IF NOT EXISTS $1 (')
-    .replace(/CREATE UNIQUE INDEX (\S+) ON/g, 'CREATE UNIQUE INDEX IF NOT EXISTS $1 ON')
-    .replace(
-      /ALTER TABLE (\S+) ADD COLUMN (?!IF NOT EXISTS)(\S+)/g,
-      'ALTER TABLE $1 ADD COLUMN IF NOT EXISTS $2',
-    )
-    .replace(
-      /ALTER TABLE (\S+) ADD CONSTRAINT (\S+) /g,
-      'ALTER TABLE $1 DROP CONSTRAINT IF EXISTS $2;\nALTER TABLE $1 ADD CONSTRAINT $2 ',
-    )
+  return (
+    raw
+      .replace(/--> statement-breakpoint\s*/g, ';\n')
+      // Âncora ao início da linha e ignora comentários. Sem isto, um rollback
+      // comentado (`-- CREATE POLICY x ON y FOR ...;`) é apanhado pela regex e o
+      // `;\n` injetado descomenta a segunda metade — executa um CREATE POLICY
+      // fantasma (já-existe / política errada). Só afeta linhas `--`.
+      .replace(
+        /^([ \t]*)(?!-)(CREATE POLICY (\S+) ON (\S+) FOR)/gm,
+        '$1DROP POLICY IF EXISTS $3 ON $4;\n$1CREATE POLICY $3 ON $4 FOR',
+      )
+      .replace(/CREATE INDEX (\S+) ON/g, 'CREATE INDEX IF NOT EXISTS $1 ON')
+      .replace(/CREATE TABLE (\S+) \(/g, 'CREATE TABLE IF NOT EXISTS $1 (')
+      .replace(/CREATE UNIQUE INDEX (\S+) ON/g, 'CREATE UNIQUE INDEX IF NOT EXISTS $1 ON')
+      .replace(
+        /ALTER TABLE (\S+) ADD COLUMN (?!IF NOT EXISTS)(\S+)/g,
+        'ALTER TABLE $1 ADD COLUMN IF NOT EXISTS $2',
+      )
+      // shortcut: ADD CONSTRAINT injeta `;\n` tal como CREATE POLICY e tem o mesmo
+      // perigo de descomentar um rollback comentado — ainda não foi	triggered porque
+      // nenhum rollback comentado usa ADD CONSTRAINT. Se algum usar, aplicar o mesmo
+      // enquadramento de linha/comentário da regra CREATE POLICY acima.
+      .replace(
+        /ALTER TABLE (\S+) ADD CONSTRAINT (\S+) /g,
+        'ALTER TABLE $1 DROP CONSTRAINT IF EXISTS $2;\nALTER TABLE $1 ADD CONSTRAINT $2 ',
+      )
+  )
 }
 
 export function customSqlFiles(): string[] {
