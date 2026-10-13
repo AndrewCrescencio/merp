@@ -197,9 +197,7 @@ Nenhum abaixo foi aplicado. Todos exigem decisão humana/ADR.
 
 ### RLS-004 ✅ RESOLVIDO (opção 3 — remover a task) — Enumeração cross-tenant em `process-print-queue.ts`
 
-> **Resolução (2026-10-12)**: task **removida** (commit `fix(db): RLS-004`). Era morta desde 0007,
-> não agendada, printer em stub. Remover apaga código e elimina a necessidade latente de role
-> BYPASSRLS. Se print for preciso, refaz-se com dispatch por tenant (`withTenant`).
+> **Resolvido** (2026-10-12): task removida (mort desde 0007, não agendada) — commit `4824984`.
 
 `server/tasks/process-print-queue.ts` usava `db.query.company.findMany` para varrer tenants —
 impossível sob RLS com `merp_app` (0 linhas). Já não funcionava desde a 0007 (FORCE em `company`);
@@ -215,12 +213,8 @@ a task não estava agendada e o printer está em stub.
 
 ### RLS-005 ✅ RESOLVIDO (hardening fail-closed) — `company_insert_policy` com `WITH CHECK true`
 
-> **Resolução (2026-10-12)**: `WITH CHECK true` → `WITH CHECK (get_user_id() IS NOT NULL)`
-> (migração `0026_company_insert_requires_user.sql`). Mantém self-service (FR-014); só impede
-> inserção sem GUC de utilizador (fail-closed). O caminho de produção (`createCompanyWithOwner`)
-> seta `app.user_id` via `withTenant` → continua a inserir; `createCompany` (low-level, user
-> null) agora é negado com 42501. Teste fail-closed adicionado. **Rollback**: 0026 tem o
-> comando comentado (recriar com `WITH CHECK (true)`).
+> **Resolvido** (2026-10-12): `WITH CHECK (get_user_id() IS NOT NULL)` — migração `0026`
+> (cabeçalho + rollback comentado no próprio ficheiro). Commit `6e7db46`.
 
 `company_insert_policy` permitia INSERT sem checagem (criação self-service de empresa,
 FR-014). Sob `FORCE`, continuava a valer para `merp_app`. Risco: qualquer contexto (mesmo sem
@@ -229,52 +223,25 @@ FR-014). Sob `FORCE`, continuava a valer para `merp_app`. Risco: qualquer contex
 
 ### RLS-006 ✅ RESOLVIDO (`auth_event`) — Tabelas auth sem RLS + PII
 
-> **Resolução (2026-10-12)**: `auth_event` ganhou RLS+FORCE (migração `0027_auth_event_rls.sql`)
-> **e** os acessos foram migrados para `withTenant` (o que faltava à precondição original):
->
-> - `createAuthEvent` (`shared/audit.ts`) → envolvido em `withTenant(null, null, userId)`.
-> - `listUserAuthEvents` (`auth/identity/queries.ts`) → envolvido.
-> - `export.get.ts` (LGPD) → read envolvido.
->
-> Policy: SELECT `user_id = get_user_id()` (cada user lê só os seus; login falhado `user_id
-NULL` não legível via app); INSERT `user_id = get_user_id() OR user_id IS NULL` (próprio user
-> **e** trilha de segurança de logins falhados, FR-023); sem UPDATE/DELETE → append-only.
-> Corrigir exige tocar `queries.ts`/`export.get.ts` (ficheiros protegidos de auth) — feito sob
-> ordem explícita. Prova behaviorial (merp_app): próprio ok, failed_login ok, cross-user 42501,
-> leitura isolada por user.
+> **Resolvido** (2026-10-12): RLS+FORCE + acessos (`createAuthEvent`, `listUserAuthEvents`,
+> `export.get.ts`) migrados para `withTenant` — migração `0027` (policy + rollback lá),
+> commit `b5eaadc`. Prova behaviorial (merp_app): próprio ok, failed_login ok, cross-user 42501.
 
 **Resta sem RLS (por decisão, não é bug)**: `user`, `session`, `account`, `verification` —
 core Better Auth, acedido **sem GUC** (`shared/auth.ts`); RLS aí **quebra o login** até o
 adapter operar sob `withTenant` ou receber exceção de policy. `auth_security_state`
 (rate-limit) e `email_queue` (fila outbound) são **globais por design**. Só estes 4+2 ficam
-por decidir (ADR), tal como o vocabulário/spec. **Rollback 0027**: `DISABLE ROW LEVEL
-SECURITY` + `DROP POLICY` (comando comentado na migração).
+por decidir (ADR).
 
 ### RLS-007 ✅ RESOLVIDO (vocabulário alinhado; CHECKs adiados) — CHECK constraints spec × código
 
-> **Resolução (2026-10-12)**: vocabulário alinhado **spec → código** (código é a verdade de
-> facto, tem dados reais): `print_job` `queued|printed`→`pending|completed`,
-> `restaurant_table` `free|cleaning`→`available|closed`, `cashier_shift` `discrepancy`→`reconciled`.
-> CHECKs **adiados** — os enums Zod da app já validam no boundary; um CHECK daria pouco ganho
-> face a migração + sanear dados. Spec × código deixa de divergir (uma fonte por fato).
+> **Resolvido** (2026-10-12): vocabulário spec→código nas specs (`restaurant/spec.md`,
+> `consolidated-specs.md`) — commit `5109c9f`. CHECKs adiados (enums Zod já validam no boundary).
 
-Nenhum CHECK constraint existe (catálogo nem `schema.ts`). Queries de detecção de violação
-corridas em `merp_audit` e `merp_test` encontraram dados reais fora do vocabulário do spec
-(`print_job.status='pending'`, `restaurant_table.status='available'` — vocabulário do código).
-
-Como há violações, os CHECKs **não foram aplicados**. Plano expand/contract (após decisão de
-vocabulário — é decisão arquitetural, spec × código divergem):
-
-```sql
--- Fase expand (após decidir vocabulário normativo; NOT VALID para não bloquear migração)
-ALTER TABLE print_job ADD CONSTRAINT print_job_status_check
-  CHECK (status IN ('...')) NOT VALID;
--- Fase validate (runbook separado, após sanear dados):
--- ALTER TABLE print_job VALIDATE CONSTRAINT print_job_status_check;
-```
-
-**Impacto**: decidir o vocabulário primeiro (uma fonte por fato — spec ou código, não ambos).
-**Rollback**: `ALTER TABLE ... DROP CONSTRAINT ...`.
+Nenhum CHECK constraint existe (catálogo nem `schema.ts`). A detecção encontrou dados reais
+fora do vocabulário do spec — alinhámos a spec ao código (fonte de facto, tem dados reais).
+CHECKs **adiados** de propósito: os enums Zod da app já validam no boundary; um CHECK daria
+pouco ganho face a migração + sanear dados.
 
 ### DRIFT-001 🔴 — Drift `server/utils/schema/*.ts` vs migrações (arquivo protegido)
 
