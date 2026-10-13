@@ -158,21 +158,21 @@ stateDiagram-v2
 
 ### 3.1 Arquitetura Decisões (fechadas)
 
-| Decisão               | Escolha                              | Justificativa                                                                       |
-| --------------------- | ------------------------------------ | ----------------------------------------------------------------------------------- |
-| **Tipo de documento** | Cupom operacional (não-fiscal)       | Atende restaurant pack agora; fiscal = fase 2                                       |
-| **Formato**           | ESC/POS bruto (térmica 80mm)         | Universal, offline-native, corte/gaveta native                                      |
-| **Render**            | Server-side (Nitro task)             | Gera bytes no worker, envia via TCP/USB/serial; custo zero infra                    |
-| **Offline**           | Fila no servidor + retry exponencial | `print_job.status=queued` → worker tenta a cada 30s; botão "Reimprimir" no frontend |
-| **Templates**         | Hardcoded por pack (`.ts` no repo)   | Restaurant = `restaurant-print-templates.ts`; mudança = deploy                      |
+| Decisão               | Escolha                              | Justificativa                                                                        |
+| --------------------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
+| **Tipo de documento** | Cupom operacional (não-fiscal)       | Atende restaurant pack agora; fiscal = fase 2                                        |
+| **Formato**           | ESC/POS bruto (térmica 80mm)         | Universal, offline-native, corte/gaveta native                                       |
+| **Render**            | Server-side (Nitro task)             | Gera bytes no worker, envia via TCP/USB/serial; custo zero infra                     |
+| **Offline**           | Fila no servidor + retry exponencial | `print_job.status=pending` → worker tenta a cada 30s; botão "Reimprimir" no frontend |
+| **Templates**         | Hardcoded por pack (`.ts` no repo)   | Restaurant = `restaurant-print-templates.ts`; mudança = deploy                       |
 
 ### 3.2 Escopo MVP
 
-- **Tabelas**: `printer` (driver `escpos`, connection `{type, host, port}`, `station_ids[]`), `print_job` — `content` (ESC/POS bytes base64), `status: queued|printing|printed|failed`, `attempts`
+- **Tabelas**: `printer` (driver `escpos`, connection `{type, host, port}`, `station_ids[]`), `print_job` — `content` (ESC/POS bytes base64), `status: pending|printing|completed|failed`, `attempts`
 - **Endpoints** (base `/api/v1/print`):
   - `POST /jobs` — Enfileira impressão (idempotente via `Idempotency-Key`)
   - `GET /jobs/:id` — Status do job
-  - `GET /jobs?status=queued&printerId=` — Fila por impressora
+  - `GET /jobs?status=pending&printerId=` — Fila por impressora
   - `POST /jobs/:id/retry` — Reimpressão manual
 
 ### 3.3 Worker (Nitro task)

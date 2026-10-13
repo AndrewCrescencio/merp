@@ -6,18 +6,18 @@
 
 ### restaurant_table (Mesa/Comanda)
 
-| Campo            | Tipo        | Constraints                                                   |
-| ---------------- | ----------- | ------------------------------------------------------------- |
-| id               | uuid        | PK                                                            |
-| company_id       | uuid        | NOT NULL, FK → company.id                                     |
-| location_id      | uuid        | NOT NULL, FK → location.id                                    |
-| number           | integer     | NOT NULL — número da mesa                                     |
-| name             | text        | NULLABLE — ex.: "Varanda", "Salão"                            |
-| capacity         | integer     | DEFAULT 4                                                     |
-| status           | text        | NOT NULL, DEFAULT 'free' — free, occupied, reserved, cleaning |
-| current_order_id | uuid        | NULLABLE, FK → order.id                                       |
-| created_at       | timestamptz | DEFAULT now()                                                 |
-| updated_at       | timestamptz | DEFAULT now()                                                 |
+| Campo            | Tipo        | Constraints                                                           |
+| ---------------- | ----------- | --------------------------------------------------------------------- |
+| id               | uuid        | PK                                                                    |
+| company_id       | uuid        | NOT NULL, FK → company.id                                             |
+| location_id      | uuid        | NOT NULL, FK → location.id                                            |
+| number           | integer     | NOT NULL — número da mesa                                             |
+| name             | text        | NULLABLE — ex.: "Varanda", "Salão"                                    |
+| capacity         | integer     | DEFAULT 4                                                             |
+| status           | text        | NOT NULL, DEFAULT 'available' — available, occupied, reserved, closed |
+| current_order_id | uuid        | NULLABLE, FK → order.id                                               |
+| created_at       | timestamptz | DEFAULT now()                                                         |
+| updated_at       | timestamptz | DEFAULT now()                                                         |
 
 **Unique**: (company_id, location_id, number)
 
@@ -66,18 +66,18 @@
 
 ### print_job
 
-| Campo             | Tipo        | Constraints                                                    |
-| ----------------- | ----------- | -------------------------------------------------------------- |
-| id                | uuid        | PK                                                             |
-| company_id        | uuid        | NOT NULL                                                       |
-| location_id       | uuid        | NOT NULL                                                       |
-| printer_id        | uuid        | NOT NULL, FK → printer.id                                      |
-| kitchen_ticket_id | uuid        | NULLABLE, FK → kitchen_ticket.id                               |
-| content           | text        | NOT NULL — ESC/POS bruto ou template renderizado               |
-| status            | text        | NOT NULL, DEFAULT 'queued' — queued, printing, printed, failed |
-| attempts          | integer     | DEFAULT 0                                                      |
-| printed_at        | timestamptz | NULLABLE                                                       |
-| created_at        | timestamptz | DEFAULT now()                                                  |
+| Campo             | Tipo        | Constraints                                                        |
+| ----------------- | ----------- | ------------------------------------------------------------------ |
+| id                | uuid        | PK                                                                 |
+| company_id        | uuid        | NOT NULL                                                           |
+| location_id       | uuid        | NOT NULL                                                           |
+| printer_id        | uuid        | NOT NULL, FK → printer.id                                          |
+| kitchen_ticket_id | uuid        | NULLABLE, FK → kitchen_ticket.id                                   |
+| content           | text        | NOT NULL — ESC/POS bruto ou template renderizado                   |
+| status            | text        | NOT NULL, DEFAULT 'pending' — pending, printing, completed, failed |
+| attempts          | integer     | DEFAULT 0                                                          |
+| printed_at        | timestamptz | NULLABLE                                                           |
+| created_at        | timestamptz | DEFAULT now()                                                      |
 
 > Detalhamento consolidado em `specs/007-print/`.
 
@@ -96,7 +96,7 @@
 | expected_cash | numeric(12,2) | NULLABLE — calculado no fechamento                       |
 | actual_cash   | numeric(12,2) | NULLABLE — contado pelo operador                         |
 | difference    | numeric(12,2) | GENERATED ALWAYS AS (actual_cash - expected_cash) STORED |
-| status        | text          | NOT NULL, DEFAULT 'open' — open, closed, discrepancy     |
+| status        | text          | NOT NULL, DEFAULT 'open' — open, reconciled, closed      |
 | notes         | text          | NULLABLE                                                 |
 
 ## Fluxo Principal
