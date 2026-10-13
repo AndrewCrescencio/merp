@@ -76,6 +76,7 @@ A numeração 003–005 fica reservada (não reutilizar). `006-core-order` e
 - **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).
 - **`006-core-order`** tem spec + data-model + contracts; implementação em andamento (T12).
 - **Packs `erp-b2b/*` removidos** (decision Fase 3: plan-only, não implementados; código já não referencia esses módulos).
-- **`withTenant`** precisa suportar `locationId` + GUC `app.location_id` (T02, P0).
-- **Schemas núcleo** (location, party, product, payment, restaurant_table, kitchen_station, printer, print_job) faltando (T03, P0).
-- **`line_total` half-up** não implementado (T04, P0).
+
+> Dívidas pagas (2026-10-12, removidas): `withTenant` suporta `locationId` + `app.location_id`
+> (T02); schemas núcleo definidos em `schema.ts` (T03); `line_total` half-up via `round_half_up`
+> (T04). Ver ADRs + audit AUD-001.
