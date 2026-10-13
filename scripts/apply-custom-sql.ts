@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import postgres from 'postgres'
-import { buildCustomSql } from '../server/utils/apply-custom-sql'
+import { buildCustomSql, assertRlsForceApplied } from '../server/utils/apply-custom-sql'
 
 function splitStatements(sql: string): string[] {
   const out: string[] = []
@@ -100,10 +100,17 @@ async function main(): Promise<void> {
 
   const client = postgres(databaseUrl)
   try {
-    for (const stmt of statements) {
-      await client.unsafe(stmt)
-    }
-    console.log(`✓ ${statements.length} statements aplicados com sucesso`)
+    // Transacional: ou aplicam-se os 856 statements (incl. o FORCE da 0025) ou
+    // nenhum. Sem isto, falhar a meio deixava policies sem FORCE — o owner
+    // contorna RLS em silêncio (o evento que motivou esta guarda).
+    await client.begin(async (tx) => {
+      for (const stmt of statements) {
+        await tx.unsafe(stmt)
+      }
+    })
+    // Backstop: confirma que nenhuma tabela ficou com RLS sem FORCE.
+    await assertRlsForceApplied(client)
+    console.log(`✓ ${statements.length} statements aplicados (transacional) + RLS/FORCE verificado`)
   } catch (error: unknown) {
     console.error(
       'Erro ao aplicar custom SQL:',

@@ -64,6 +64,28 @@ export function buildCustomSql(): string {
     .join('\n')
 }
 
+// Guarda fail-loud: toda tabela com RLS tem de ter FORCE. Sem FORCE o owner
+// (role de migrações) ignora RLS — é o que a 0025 existe para evitar. Se o
+// aplicador falhar a meio (CLI não-transacional) deixa policies sem FORCE em
+// silêncio; este assert impede que isso passe despercebido.
+export async function assertRlsForceApplied(client: {
+  unsafe: (query: string) => Promise<unknown[]>
+}): Promise<void> {
+  const rows = (await client.unsafe(
+    `SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public' AND c.relkind = 'r'
+       AND c.relrowsecurity AND NOT c.relforcerowsecurity
+     ORDER BY c.relname`,
+  )) as { relname: string }[]
+  const missing = rows.map((r) => r.relname)
+  if (missing.length > 0) {
+    throw new Error(
+      `RLS sem FORCE em ${missing.length} tabela(s): ${missing.join(', ')}. ` +
+        `Reexecutar apply-custom-sql (a 0025 aplica FORCE) — sem FORCE o owner contorna RLS.`,
+    )
+  }
+}
+
 // Roda por TCP em vez de `docker compose exec psql`: o setup passa a
 // funcionar contra qualquer servidor acessível (container, host, CI) e não
 // quebra quando o container do compose está preso/ausente.
@@ -71,6 +93,7 @@ export async function applyCustomSql(dbUrl: string): Promise<void> {
   const sql = postgres(dbUrl, { onnotice: () => {}, connect_timeout: 5 })
   try {
     await sql.unsafe(buildCustomSql())
+    await assertRlsForceApplied(sql)
   } finally {
     await sql.end()
   }
