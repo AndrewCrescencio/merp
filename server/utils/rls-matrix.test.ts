@@ -6,7 +6,7 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 /**
  * Matriz de isolamento cross-tenant, CATÁLOGO-DRIVEN: cobre todas as tabelas
- * com RLS (hoje 16), não só as 13 da migração 0025 — uma tabela nova com RLS
+ * com RLS (hoje 17), não só as 13 da migração 0025 — uma tabela nova com RLS
  * tem de entrar em COVERED, senão o primeiro teste falha.
  *
  * Para cada tabela, para os tenants A e B, verifica que A:
@@ -39,6 +39,7 @@ const B: Tenant = {
 const TENANTS: Tenant[] = [A, B]
 
 const COVERED = [
+  'auth_event',
   'cashier_shift',
   'company',
   'company_member',
@@ -180,6 +181,13 @@ function buildRow(t: Table, tenant: Tenant, ids: RowId, suffix = ''): Record<str
       row.id = `${t.name}_mx_${tenant.key}${suffix}`
       continue
     }
+    // `user_id` sem FK (auth_event — o evento tem de sobreviver à remoção do
+    // user) continua a apontar para o user do tenant; a policy é user-scoped,
+    // não tenant-scoped, e a matriz teria de semeá-la com NULL.
+    if (c.name === 'user_id') {
+      row[c.name] = tenant.userId
+      continue
+    }
     if (!c.notnull) continue // nullable → NULL
     if (c.fkTable === 'user') {
       row[c.name] = tenant.userId
@@ -277,6 +285,20 @@ describe.skipIf(!dbAvailable)('RLS matrix — cross-tenant em todas as tabelas c
 
     const loaded = await loadTables()
     tables.push(...loaded)
+
+    // Fixtures são do próprio teste: apagar antes de semear. O INSERT de seed
+    // é ON CONFLICT DO NOTHING, então linhas de uma versão anterior de
+    // buildRow sobreviveriam com valores velhos (ex.: auth_event com
+    // user_id NULL antes de RLS-006) e dariam falhas confusas.
+    for (const t of loaded) {
+      const pkCol = t.pk[0]
+      if (!pkCol) continue
+      for (const tenant of TENANTS) {
+        await ownerDb.execute(
+          sql.raw(`DELETE FROM "${t.name}" WHERE "${pkCol}" = '${t.name}_mx_${tenant.key}'`),
+        )
+      }
+    }
 
     for (const t of loaded) {
       const map: Record<string, string> = {}

@@ -11,6 +11,22 @@ vi.mock('../db', () => ({
   },
 }))
 
+// RLS-006: createAuthEvent corre dentro de withTenant — é ele que seta
+// app.user_id para a policy INSERT de auth_event. O mock espelha o contrato
+// (3 IDs + callback), não o SQL.
+const mockWithTenant = vi.fn(
+  async (
+    tenantId: string | null,
+    locationId: string | null,
+    userId: string | null,
+    fn: (tx: { insert: () => { values: typeof mockInsert } }) => Promise<unknown>,
+  ) => fn({ insert: () => ({ values: mockInsert }) }),
+)
+
+vi.mock('../db/tenant-context', () => ({
+  withTenant: mockWithTenant,
+}))
+
 vi.mock('#shared/logger', () => ({
   logger: { warn: mockLoggerWarn },
 }))
@@ -39,6 +55,9 @@ describe('createAuthEvent (FR-023)', () => {
       ipAddress: '127.0.0.1',
       metadata: null,
     })
+    // O userId tem de chegar ao withTenant — sem ele a policy INSERT de
+    // auth_event (user_id = get_user_id() OR user_id IS NULL) nega a linha.
+    expect(mockWithTenant).toHaveBeenCalledWith(null, null, 'user-1', expect.any(Function))
     expect(mockLoggerWarn).not.toHaveBeenCalled()
   })
 
