@@ -150,6 +150,22 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const results = await membershipRepo.searchCompanies('Atomic Fail', searcher.id)
       expect(results.some((c: { name: string }) => c.name === name)).toBe(false)
     })
+
+    it('RLS-005: low-level createCompany without user context is denied (fail-closed)', async () => {
+      // company_insert_policy exige get_user_id() IS NOT NULL; createCompany usa
+      // withTenant(..., null, null) → app.user_id vazio → 42501 (sem GUC de utilizador).
+      let code: string | undefined
+      try {
+        await repo.createCompany({ name: `No User Co ${Date.now()}` })
+      } catch (error) {
+        let e = error as { code?: unknown; cause?: unknown } | undefined
+        while (e && !code) {
+          if (typeof e.code === 'string') code = e.code
+          e = e.cause as typeof e
+        }
+      }
+      expect(code).toBe('42501')
+    })
   })
 
   describe('company membership roles', () => {
@@ -325,9 +341,10 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     })
 
     it('rejects duplicate cnpj with 409 conflict', async () => {
+      const ownerA = await registerUser(`dup-cnpj-a-${Date.now()}@example.com`, 'Dup CNPJ A')
       const ownerB = await registerUser(`upd-dup-owner-${Date.now()}@example.com`, 'Upd Dup Owner')
       const uniqueCnpj = `2${String(Date.now()).padStart(13, '0')}`
-      await repo.createCompany({ name: 'Co A', cnpj: uniqueCnpj })
+      await repo.createCompanyWithOwner({ name: 'Co A', cnpj: uniqueCnpj }, ownerA.id)
       const companyB = await repo.createCompanyWithOwner({ name: 'Co B' }, ownerB.id)
 
       await expect(

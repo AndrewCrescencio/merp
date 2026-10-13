@@ -373,8 +373,10 @@ describe.skipIf(!dbAvailable)('RLS matrix — cross-tenant em todas as tabelas c
         }
 
         if (tableName === 'company') {
-          // KNOWN ISSUE: company_insert_policy é `WITH CHECK true` (bootstrap
-          // de empresa) — ver relatório, proposta RLS-008.
+          // company_insert_policy: WITH CHECK (get_user_id() IS NOT NULL) — RLS-005.
+          // Com contexto de utilizador (runAs seta app.user_id) o INSERT de bootstrap
+          // de empresa é permitido (self-service FR-014); sem user → 42501 (ver
+          // repository.test.ts: createCompany sem user é negado, fail-closed).
           await runAs(A, (tx) => tx.execute(sql.raw(insertSql(tableName, crossRow))))
           await ownerDb.execute(
             sql.raw(`DELETE FROM "company" WHERE id = ${lit(String(crossRow.id))}`),
