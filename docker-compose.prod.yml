@@ -30,8 +30,8 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - RESEND_FROM=${RESEND_FROM:-}
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      # O nginx do projeto proxy para app:3000 (infra/nginx/nginx.conf) —
-      # .env/.env.example usam PORT=5173 (dev), que quebraria o proxy.
+      # PORT=3000 fixada aqui (não depende do .env) — o nginx proxy para
+      # app:3000 (infra/nginx/nginx.conf).
       - PORT=3000
       - NODE_ENV=production
       # Confia em X-Forwarded-For APENAS porque o nginx sobrescreve o header
@@ -69,6 +69,30 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
+
+  # Migrações completas (journal Drizzle + RLS policies via scripts/apply-custom-sql.ts).
+  # Roda a partir do estágio `build` — a imagem production tem SÓ .output, sem
+  # drizzle-kit/drizzle.config.ts. `drizzle/` é excluído pelo .dockerignore (build
+  # context menor), então é montado aqui (:ro). Perfil `tools` = fora do `up`
+  # normal. Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm migrate
+  migrate:
+    profiles: ['tools']
+    build:
+      context: .
+      target: build
+      args:
+        - CORS_ORIGIN=${CORS_ORIGIN:?CORS_ORIGIN obrigatória no build (baked no Nitro, AUD-05)}
+    command: pnpm db:migrate:full
+    environment:
+      # Role owner (dona) — só migrações usam; nunca vai no container do app.
+      - DATABASE_URL=${DATABASE_URL?Variável não setada - role owner (dona) é obrigatória para migrações}
+    volumes:
+      - ./drizzle:/app/drizzle:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - merp_network
 
   nginx:
     image: nginx:1.27-alpine

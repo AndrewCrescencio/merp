@@ -1,7 +1,7 @@
 COMPOSE      := docker compose
 COMPOSE_PROD := $(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
 
-.PHONY: help init setup db migrate migrate-full migrate-prod dev dev-d prod prod-down prod-logs studio
+.PHONY: help init setup db migrate migrate-full migrate-prod dev dev-d dev-down prod prod-down prod-logs studio
 
 help: ## Lista os alvos disponíveis
 	@echo "Merp — inicialização e operação"
@@ -35,8 +35,12 @@ migrate-full: ## Migrações COMPLETAS (journal + policies de RLS). Use em banco
 migrate: ## Só o journal do Drizzle — NÃO aplica policies de RLS (use migrate-full)
 	npx drizzle-kit migrate
 
-migrate-prod: ## Migrações dentro do container de produção
-	$(COMPOSE_PROD) run --rm app npx drizzle-kit migrate
+migrate-prod: ## Migrações COMPLETAS (journal + RLS) no container de produção
+	$(COMPOSE_PROD) build migrate
+	$(COMPOSE_PROD) run --rm migrate
+
+dev-down: ## Para stack dev
+	$(COMPOSE) down
 
 dev: ## Stack dev em foreground (Docker; o Nuxt continua sendo pnpm dev)
 	$(COMPOSE) up
@@ -44,7 +48,9 @@ dev: ## Stack dev em foreground (Docker; o Nuxt continua sendo pnpm dev)
 dev-d: ## Stack dev em background
 	$(COMPOSE) up -d
 
-prod: ## Sobe stack de produção
+# Ordem importa para segurança: as policies RLS (fail-closed) têm de estar no banco
+# ANTES do app servir tráfego. Falhar a migração aborta o start — fail-closed.
+prod: migrate-prod ## Sobe stack de produção (migra primeiro, depois sobe)
 	$(COMPOSE_PROD) up -d
 
 prod-down: ## Para stack de produção
