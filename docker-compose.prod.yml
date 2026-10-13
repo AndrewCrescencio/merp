@@ -75,6 +75,9 @@ services:
   # drizzle-kit/drizzle.config.ts. `drizzle/` é excluído pelo .dockerignore (build
   # context menor), então é montado aqui (:ro). Perfil `tools` = fora do `up`
   # normal. Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm migrate
+  # DATABASE_URL tem de ser alcançável DE DENTRO do container → host `postgres`
+  # (nome do serviço), nunca `localhost`: em produção o postgres não publica
+  # porta, então host-side não é opção.
   migrate:
     profiles: ['tools']
     build:
