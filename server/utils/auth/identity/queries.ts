@@ -1,6 +1,7 @@
 import { callBetterAuth } from './client'
 import { createAuthEvent } from '../../shared/audit'
 import { db } from '../../../utils/db'
+import { withTenant } from '../../db/tenant-context'
 import { verification, authEvent, user, session } from '../../../utils/schema'
 import { eq, and, gt } from 'drizzle-orm'
 import { logger } from '#shared/logger'
@@ -78,11 +79,11 @@ async function findSessionByToken(token: string) {
 export async function listUserAuthEvents(
   userId: string,
 ): Promise<(typeof authEvent.$inferSelect)[]> {
-  return await db
-    .select()
-    .from(authEvent)
-    .where(eq(authEvent.userId, userId))
-    .orderBy(authEvent.createdAt)
+  // withTenant seta app.user_id para a policy SELECT de auth_event (user_id =
+  // get_user_id()) — RLS-006; sem GUC a policy devolveria 0 linhas.
+  return await withTenant(null, null, userId, (tx) =>
+    tx.select().from(authEvent).where(eq(authEvent.userId, userId)).orderBy(authEvent.createdAt),
+  )
 }
 
 export async function validateResetToken(token: string): Promise<boolean> {

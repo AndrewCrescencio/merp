@@ -1,4 +1,4 @@
-import { db } from '../db'
+import { withTenant } from '../db/tenant-context'
 import { authEvent } from '../schema'
 import { logger } from '#shared/logger'
 
@@ -17,13 +17,18 @@ export interface CreateAuthEventInput {
 // (middleware, repositórios) seguem inalterados — o catch vira no-op.
 export async function createAuthEvent(input: CreateAuthEventInput): Promise<void> {
   try {
-    await db.insert(authEvent).values({
-      userId: input.userId || null,
-      email: input.email,
-      eventType: input.eventType,
-      ipAddress: input.ipAddress || null,
-      metadata: (input.metadata as Record<string, unknown>) || null,
-    })
+    // withTenant seta app.user_id para a policy INSERT de auth_event
+    // (user_id = get_user_id() OR user_id IS NULL) — RLS-006. userId nulo
+    // (login falhado) insere com app.user_id vazio → ramo user_id IS NULL.
+    await withTenant(null, null, input.userId || null, (tx) =>
+      tx.insert(authEvent).values({
+        userId: input.userId || null,
+        email: input.email,
+        eventType: input.eventType,
+        ipAddress: input.ipAddress || null,
+        metadata: (input.metadata as Record<string, unknown>) || null,
+      }),
+    )
   } catch (error) {
     logger.warn('Failed to record auth event', {
       eventType: input.eventType,
