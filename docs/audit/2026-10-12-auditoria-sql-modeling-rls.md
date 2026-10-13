@@ -227,45 +227,28 @@ FR-014). Sob `FORCE`, continuava a valer para `merp_app`. Risco: qualquer contex
 `app.user_id`) criava companies arbitrárias — embora não pudesse **ler** companies alheias
 (`company_select_policy` com membership).
 
-### RLS-006 🔴 NÃO APLICADO (precondição falhou) — Tabelas auth sem RLS + PII
+### RLS-006 ✅ RESOLVIDO (`auth_event`) — Tabelas auth sem RLS + PII
 
-7 tabelas sem RLS: `account`, `auth_event`, `auth_security_state`, `email_queue`, `session`,
-`user`, `verification`. PII só tem barreira a nível de aplicação.
-
-> **Verificação (2026-10-12) — porquê NÃO aplicar nem sequer em `auth_event`**: a precondição
-> "leituras/escritas sob `withTenant`" **falhou**. Os três acessos a `auth_event` correm em
-> `db` direto, **sem GUC**:
+> **Resolução (2026-10-12)**: `auth_event` ganhou RLS+FORCE (migração `0027_auth_event_rls.sql`)
+> **e** os acessos foram migrados para `withTenant` (o que faltava à precondição original):
 >
-> - **escrita** `createAuthEvent` (`server/utils/shared/audit.ts:20`): `db.insert` sem
->   `withTenant`. Com policy `user_id = get_user_id()`, o `WITH CHECK` falharia (GUC nulo) e o
->   `catch` do FR-023 engoliria o erro → **auditoria pararia em silêncio** (perda de dado de
->   auditoria, pior do que não ter RLS).
-> - **leituras** `listUserAuthEvents` (`auth/identity/queries.ts:81`) e `export.get.ts:56`:
->   `db.select` sem GUC → `USING (user_id = get_user_id())` devolveria **0 linhas** → exportação
->   LGPD vazia.
+> - `createAuthEvent` (`shared/audit.ts`) → envolvido em `withTenant(null, null, userId)`.
+> - `listUserAuthEvents` (`auth/identity/queries.ts`) → envolvido.
+> - `export.get.ts` (LGPD) → read envolvido.
 >
-> Corrigir exige envolver estes caminhos em `withTenant` (com `app.user_id`) — mas
-> `auth/identity/queries.ts` e `api/auth/export.get.ts` são **ficheiros protegidos** (auth). E
-> eventos de login falhado têm `user_id` NULL (utilizador ainda não existe) — uma policy
-> `user_id = get_user_id()` perde-os ou exige ramo `user_id IS NULL` (que exporia emails de
-> tentativas falhadas a outros utilizadores). **Conclusão**: `auth_event` RLS não é a correção
-> barata/segura que a análise preliminar sugeriu; é uma mudança que toca auth e precisa de ADR.
+> Policy: SELECT `user_id = get_user_id()` (cada user lê só os seus; login falhado `user_id
+NULL` não legível via app); INSERT `user_id = get_user_id() OR user_id IS NULL` (próprio user
+> **e** trilha de segurança de logins falhados, FR-023); sem UPDATE/DELETE → append-only.
+> Corrigir exige tocar `queries.ts`/`export.get.ts` (ficheiros protegidos de auth) — feito sob
+> ordem explícita. Prova behaviorial (merp_app): próprio ok, failed_login ok, cross-user 42501,
+> leitura isolada por user.
 
-Proposta original (via ADR — decidir como Better Auth + audit + export operam sob GUC):
-
-```sql
--- Escopo mínimo sugerido (NÃO aplicar sem antes migrar escrita/leituras para withTenant):
-ALTER TABLE auth_event ENABLE ROW LEVEL SECURITY;
-ALTER TABLE auth_event FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS auth_event_select_policy ON auth_event;
-CREATE POLICY auth_event_select_policy ON auth_event FOR SELECT TO merp_app
-  USING (user_id = get_user_id());
--- auth_security_state é global por design (rate limiting); decidir se ganha policy ou exceção documentada
-```
-
-**Impacto**: `user`/`session`/`account`/`verification` são tocados pelo Better Auth adapter
-**sem GUC** (`shared/auth.ts`) — dar RLS a essas tabelas **quebra o login**. Por isso nunca
-entraram no escopo. **Rollback**: `DISABLE ROW LEVEL SECURITY` + `DROP POLICY`.
+**Resta sem RLS (por decisão, não é bug)**: `user`, `session`, `account`, `verification` —
+core Better Auth, acedido **sem GUC** (`shared/auth.ts`); RLS aí **quebra o login** até o
+adapter operar sob `withTenant` ou receber exceção de policy. `auth_security_state`
+(rate-limit) e `email_queue` (fila outbound) são **globais por design**. Só estes 4+2 ficam
+por decidir (ADR), tal como o vocabulário/spec. **Rollback 0027**: `DISABLE ROW LEVEL
+SECURITY` + `DROP POLICY` (comando comentado na migração).
 
 ### RLS-007 ✅ RESOLVIDO (vocabulário alinhado; CHECKs adiados) — CHECK constraints spec × código
 
@@ -356,11 +339,10 @@ A causa era o volume velho, não o compose.
    forward-only para os 5 drifts.
 4. ~~**DRIFT-003** (volume PG16 vs compose PG17)~~ — **resolvido** (backup + volume novo PG17;
    ver §6).
-5. **RLS-006** (`auth_event` etc.): **não é a correção barata que a análise preliminar sugeriu** —
-   as leituras/escritas de `auth_event` correm em `db` sem GUC (`audit.ts`, `queries.ts`,
-   `export.get.ts`); aplicar RLS quebraria auditoria (silenciosamente) e exportação LGPD.
-   Exige ADR + migrar esses caminhos para `withTenant` (ficheiros protegidos de auth) e decidir
-   o caso `user_id IS NULL` (logins falhados). Não aplicar sem isso.
+5. ~~**RLS-006** (`auth_event`)~~ — **resolvido**: RLS+FORCE (0027) + acessos migrados para
+   `withTenant` (`audit.ts`, `queries.ts`, `export.get.ts`). **Resta** (ADR, por decidir):
+   core Better Auth `user`/`session`/`account`/`verification` (sem GUC → RLS quebra login) e
+   os globais `auth_security_state`/`email_queue`.
 6. ~~**RLS-005** (`company_insert WITH CHECK true`)~~ — **resolvido**: `WITH CHECK
 (get_user_id() IS NOT NULL)` (0026), fail-closed, mantém self-service FR-014.
 7. **DRIFT-002**: incorporar `db:migrate:full` (não só `drizzle-kit migrate`) em runbook/CI.
@@ -373,7 +355,8 @@ A causa era o volume velho, não o compose.
     nova tabela tenant-scoped sem RLS+FORCE ou policy afrouxada quebra a suíte.
 
 > **Feito nesta sessão** (2026-10-12): RLS-004 (task print removida), RLS-005 (0026 +
-> teste fail-closed), RLS-007 (vocabulário alinhado), FSM `kitchen_ticket` (guarda de transição
->
-> - 422), guarda FORCE (`assertRlsForceApplied`) e comment-safety do transformador SQL.
->   Verdes: 55 ficheiros / 461 testes, `merp`/`merp_test` 16 RLS + 16 FORCE + 65 policies.
+> teste fail-closed), RLS-006 (`auth_event` 0027 + acessos em `withTenant`), RLS-007
+> (vocabulário alinhado), FSM `kitchen_ticket` (guarda de transição + 422), guarda FORCE
+> (`assertRlsForceApplied`) e comment-safety do transformador SQL.
+> Verdes: typecheck+lint; matriz live **17 RLS+FORCE** (16 tenant + `auth_event`) em
+> `merp`/`merp_test`, 0 fail-open, 0 SECURITY DEFINER; RLS-006 provado ao vivo (merp_app).

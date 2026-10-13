@@ -22,6 +22,20 @@ Sistema ERP fullstack com autenticação robusta, multi-tenancy (empresas), conv
 - Retirada de consentimento → desativação imediata
 - Soft-delete de usuário e empresa
 
+## Pré-requisitos (Ubuntu)
+
+| Ferramenta          | Versão        | Instalação                                       |
+| ------------------- | ------------- | ------------------------------------------------ |
+| Docker + Compose v2 | qualquer      | `sudo apt install docker.io docker-compose-v2`   |
+| Node.js             | 24 (`.nvmrc`) | `nvm install && nvm use` (ou nodeSource)         |
+| pnpm                | via corepack  | `corepack enable`                                |
+| Make                | qualquer      | `sudo apt install make`                          |
+| OpenSSL             | opcional      | `sudo apt install openssl` (gerar segredos prod) |
+
+- Seu usuário precisa acessar o Docker: `sudo usermod -aG docker $USER` e logue de novo
+  (ou use `sudo` em tudo).
+- O PostgreSQL **não** precisa estar instalado na máquina — roda em container.
+
 ## Início rápido
 
 ```bash
@@ -69,6 +83,59 @@ pnpm db:migrate:full
 
 > ⚠️ `pnpm drizzle-kit migrate` sozinho NÃO aplica as policies de RLS. Use
 > sempre `pnpm db:migrate:full` em banco novo.
+
+## Containers (Docker)
+
+| Arquivo                       | Papel                                                                  |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `docker-compose.yml`          | Base: PostgreSQL 17 (porta do host só em `127.0.0.1:${DB_PORT:-5432}`) |
+| `docker-compose.override.yml` | Dev (auto-load no `docker compose up`): Adminer + Mailpit              |
+| `docker-compose.prod.yml`     | Produção: app (Dockerfile) + nginx + certbot + serviço `migrate`       |
+
+`make help` lista todos os alvos do Makefile.
+
+### Dev — só infra (o Nuxt roda no host com `pnpm dev`)
+
+```bash
+make dev       # foreground (docker compose up)
+make dev-d     # background
+make dev-down  # para a stack
+make studio    # Drizzle Studio no host
+```
+
+- Adminer: http://localhost:8080 (servidor `postgres`, usuário/senha do `.env`)
+- Mailpit (captura de emails dev): UI http://localhost:8025, SMTP `127.0.0.1:1025`
+- Terminal no banco: `docker compose exec postgres psql -U merp -d merp`
+
+### Produção (app + PostgreSQL + nginx + certbot)
+
+Exige `.env` completo (copie de `.env.example` e troque os `change-me` — segredos via
+`openssl rand -base64 48`). O override (Adminer/Mailpit) **não** entra: ao passar `-f`,
+o auto-load do override é desativado.
+
+```bash
+make prod          # build + up (docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d)
+make prod-logs     # logs -f
+make prod-down     # para a stack
+make migrate-prod  # migrações COMPLETAS (journal + RLS policies) no container
+```
+
+Shell nos containers de produção:
+
+```bash
+# app (Alpine, processo roda como usuário `node`)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app sh
+
+# banco
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec postgres psql -U merp -d merp
+```
+
+TLS (Let's Encrypt — 1ª emissão; renovação e cron de host comentados no `docker-compose.prod.yml`):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm certbot certonly \
+  --webroot -w /var/www/certbot -d ${DOMAIN} -m ${CERTBOT_EMAIL} --agree-tos --no-eff-email
+```
 
 ## Variáveis de ambiente obrigatórias (produção)
 
@@ -154,7 +221,8 @@ pnpm drizzle-kit studio                 # Drizzle Studio
 
 ## Documentação técnica
 
-- `specs/001-auth-context/spec.md` — Requisitos funcionais, threat model, LGPD, métricas
-- `specs/002-vertical-slices/architecture.md` — Arquitetura, migração, governança
+- `specs/consolidated-specs.md` — Specs consolidadas (auth context, threat model, LGPD)
+- `specs/README.md` — Índice e phase tracker
+- `specs/decisions/` — ADRs
 - `docs/audit/2026-10-03-simplificacao-auditoria.md` — Auditoria completa
 - `docs/audit/2026-10-03-simplificacao-plano.md` — Plano de execução com tarefas priorizadas
