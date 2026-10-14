@@ -57,17 +57,6 @@ Todos os comandos disponíveis via `pnpm` (scripts do `package.json`).
 | `pnpm drizzle-kit studio`                 | Abre Drizzle Studio (GUI)                                                                                 |
 | `pnpm drizzle-kit push`                   | Push schema para DB (dev, não usa migrações)                                                              |
 
-## Documentação
-
-| Comando               | Descrição                                                                 |
-| --------------------- | ------------------------------------------------------------------------- |
-| `pnpm docs:index`     | Gera `docs/_meta/inventory.json` (catálogo de docs)                       |
-| `pnpm docs:lint`      | Markdownlint em `docs/**/*.md`                                            |
-| `pnpm docs:spell`     | cspell em `docs/**/*.md`                                                  |
-| `pnpm docs:new`       | Cria novo doc com frontmatter padrão                                      |
-| `pnpm docs:deprecate` | Marca doc como deprecated                                                 |
-| `pnpm docs:archive`   | Move doc para `docs/audit/` com prefixo `AUD-XXX-` (histórico preservado) |
-
 ## Docker (via Makefile)
 
 | Comando             | Descrição                                                         |

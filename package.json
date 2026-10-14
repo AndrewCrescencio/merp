@@ -21,13 +21,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "db:migrate:full": "tsx --env-file-if-exists=.env scripts/pre-migrate.ts && drizzle-kit migrate && tsx --env-file-if-exists=.env scripts/apply-custom-sql.ts",
-    "docs:index": "tsx docs/_meta/scripts/generate-index.ts",
-    "docs:new": "tsx docs/_meta/scripts/new-doc.ts",
-    "docs:deprecate": "tsx docs/_scripts/deprecate.ts",
-    "docs:archive": "tsx docs/_meta/scripts/archive.ts",
-    "docs:lint": "npx markdownlint-cli docs/**/*.md --config .markdownlint.json",
-    "docs:spell": "cspell docs/**/*.md"
+    "db:migrate:full": "tsx --env-file-if-exists=.env scripts/pre-migrate.ts && drizzle-kit migrate && tsx --env-file-if-exists=.env scripts/apply-custom-sql.ts"
   },
   "lint-staged": {
     "*.{ts,mjs,vue}": [
@@ -51,21 +45,17 @@
   "devDependencies": {
     "@nuxt/test-utils": "^4.3.3",
     "@types/node": "^25.9.9",
-    "cspell": "^8.19.4",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
-    "glob": "^11.1.0",
     "h3": "^1.15.11",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
-    "markdownlint-cli": "^0.43.0",
     "nitropack": "^2.13.4",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
-    "yaml": "^2.9.1",
     "zod": "^3.25.76"
   }
 }

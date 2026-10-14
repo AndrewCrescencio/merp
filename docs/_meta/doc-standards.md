@@ -10,7 +10,7 @@ module: 'meta'
 tags: ['standards', 'governance']
 audience: ['dev']
 created: '2026-10-03'
-updated: '2026-10-03'
+updated: '2026-10-13'
 review-cycle: 'quarterly'
 related: []
 replaces: []
@@ -88,9 +88,7 @@ docs/
 ├── audit/                 # auditorias históricas (AUD-XXX-*.md) — histórico preservado
 └── _meta/                 # governança da própria docs
     ├── doc-standards.md   # Este arquivo
-    ├── templates/         # Templates opcionais
-    ├── scripts/           # validate-frontmatter, check-links, generate-index
-    └── inventory.json     # inventário vivo (gerado por script)
+    └── templates/         # Templates opcionais
 ```
 
 ---
@@ -106,8 +104,6 @@ Em `docs/_meta/templates/` — usar se ajudar, não obrigatório:
 - `runbook.md` — Runbook operacional
 - `guide.md` — Guia/tutorial
 
-Comando: `pnpm run docs:new <template> <slug> <titulo>`
-
 ---
 
 ## 5. Processo de Revisão (MVP)
@@ -121,9 +117,8 @@ Comando: `pnpm run docs:new <template> <slug> <titulo>`
 **Fluxo:**
 
 1. Nova doc / mudança → PR com template + frontmatter
-2. CI: `validate-frontmatter` + `check-links` (obrigatório)
-3. **1 reviewer** aprova
-4. Doc Owner merge → atualiza `updated` no frontmatter
+2. **1 reviewer** aprova
+3. Doc Owner merge → atualiza `updated` no frontmatter
 
 ---
 
@@ -140,30 +135,21 @@ Comando: `pnpm run docs:new <template> <slug> <titulo>`
 
 ---
 
-## 7. Automação (Scripts Obrigatórios)
+## 7. Automação
 
-| Script                    | Função                                   | Comando                  |
-| ------------------------- | ---------------------------------------- | ------------------------ |
-| `validate-frontmatter.ts` | Valida schema YAML + slugs únicos        | `pnpm run docs:validate` |
-| `check-links.ts`          | Verifica links internos/externos/anchors | `pnpm run docs:links`    |
-| `generate-index.ts`       | Gera `inventory.json`                    | `pnpm run docs:index`    |
-
-**CI Pipeline (`.github/workflows/docs.yml`):**
-
-- `validate-frontmatter`: schema + slugs únicos
-- `check-links`: internos + externos + anchors
-
-_markdownlint, cspell, mkdocs — opcionais, não bloqueiam CI no MVP._
+**Sem automação de docs.** O ferramental (`docs:*`, markdownlint, cspell, scripts de
+geração de índice, workflow `docs.yml`) foi removido — não há lint de markdown nem
+validação de frontmatter em CI. A validação é manual no review (seção 5).
 
 ---
 
 ## 8. Métricas de Sucesso (MVP)
 
-| Métrica                              | Target | Como Medir                          |
-| ------------------------------------ | ------ | ----------------------------------- |
-| **% docs com frontmatter válido**    | 100%   | `pnpm run docs:validate` (CI)       |
-| **Links quebrados**                  | 0      | `pnpm run docs:links` (CI)          |
-| **Docs `active` revisadas no ciclo** | ≥ 90%  | Query `inventory.json` (trimestral) |
+| Métrica                              | Target | Como Medir                         |
+| ------------------------------------ | ------ | ---------------------------------- |
+| **% docs com frontmatter válido**    | 100%   | Review manual do PR                |
+| **Links quebrados**                  | 0      | Review manual do PR                |
+| **Docs `active` revisadas no ciclo** | ≥ 90%  | `git log` por arquivo (trimestral) |
 
 ---
 
@@ -171,8 +157,7 @@ _markdownlint, cspell, mkdocs — opcionais, não bloqueiam CI no MVP._
 
 - [x] Frontmatter mínimo (8 campos) definido
 - [x] Estrutura `docs/` já existe
-- [x] Scripts `validate-frontmatter`, `check-links`, `generate-index` funcionam
-- [ ] CI `docs.yml` criado (T19)
+- [x] Ferramental `docs:*` (scripts, lint, workflow) removido — validação manual
 - [ ] Templates opcionais copiados para `_meta/templates/`
 - [ ] `CODEOWNERS` por pasta `docs/` (opcional MVP)
 
@@ -186,10 +171,4 @@ find docs -name "*.md" -exec sh -c 'echo "=== $1 ==="; head -30 "$1" | grep -A 2
 
 # Buscar arquivos sem frontmatter
 find docs -name "*.md" -exec sh -c 'grep -q "^---" "$1" || echo "$1"' _ {} \;
-
-# Contar por categoria
-jq -r '.[].category' docs/_meta/inventory.json | sort | uniq -c | sort -rn
-
-# Docs vencidas para revisão (quarterly > 3 meses)
-jq -r '.[] | select(.status=="active") | select(.["review-cycle"]=="quarterly") | select(.updated < "'$(date -d '-3 months' +%Y-%m-%d)'") | "\(.slug) \(.updated)"' docs/_meta/inventory.json
 ```
