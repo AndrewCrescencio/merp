@@ -42,11 +42,11 @@
     "@better-auth/drizzle-adapter": "^1.7.7",
     "@nuxt/eslint": "^1.17.0",
     "better-auth": "^1.7.7",
-    "drizzle-orm": "^0.45.3",
-    "nuxt": "^4.6.0",
+    "drizzle-orm": "^0.45.4",
+    "nuxt": "^4.6.1",
     "postgres": "^3.4.9",
     "vue": "^3.5.43",
-    "vue-router": "^5.3.1"
+    "vue-router": "^5.4.0"
   },
   "devDependencies": {
     "@nuxt/test-utils": "^4.3.3",
@@ -61,7 +61,7 @@
     "lint-staged": "^17.6.0",
     "markdownlint-cli": "^0.43.0",
     "nitropack": "^2.13.4",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
