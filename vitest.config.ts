@@ -9,8 +9,8 @@ import { resolve } from 'path'
 export default defineConfig({
   resolve: {
     alias: {
-      '~~': resolve(__dirname),
-      '#shared': resolve(__dirname, 'shared'),
+      '~~': import.meta.dirname,
+      '#shared': resolve(import.meta.dirname, 'shared'),
     },
   },
   test: {
