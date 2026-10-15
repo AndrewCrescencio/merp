@@ -5,6 +5,7 @@ const mockRegister = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
 const mockCheckEmailRateLimit = vi.fn()
+const mockEnforceMinimumTime = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockSetResponseStatus = vi.fn()
 const mockReadBody = vi.fn()
@@ -33,6 +34,7 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   ...(await importOriginal()),
   checkIpRateLimit: mockCheckIpRateLimit,
   checkEmailRateLimit: mockCheckEmailRateLimit,
+  enforceMinimumTime: mockEnforceMinimumTime,
 }))
 vi.mock('~~/server/utils/shared/errors', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -50,6 +52,7 @@ describe('POST /api/auth/register', () => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
     mockCheckEmailRateLimit.mockResolvedValue(undefined)
+    mockEnforceMinimumTime.mockResolvedValue(undefined)
     mockSendValidationError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })
@@ -325,6 +328,27 @@ describe('POST /api/auth/register', () => {
     })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(expect.anything(), 201)
     expect(mockCreateAuthEvent).not.toHaveBeenCalled()
+  })
+
+  it('AUD-03: enforces a minimum response time so the clock cannot leak the duplicate', async () => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'Str0ngP@ssw0rd!2026',
+      name: 'Test User',
+      consentTermsVersion: 'v1',
+    })
+    mockRegister.mockResolvedValue(null)
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+    await handler(createMockEvent())
+
+    expect(mockEnforceMinimumTime).toHaveBeenCalledTimes(1)
+    const [start, minimumMs] = mockEnforceMinimumTime.mock.calls[0] ?? []
+    expect(typeof start).toBe('number')
+    // Precisa cobrir o pior caso do caminho livre, que ENVIA o email de
+    // verificação (Resend limitado a 450ms, awaitado pelo better-auth) mais os
+    // round-trips de banco. O caminho de duplicata não envia nada.
+    expect(minimumMs).toBeGreaterThanOrEqual(500)
   })
 
   it('registers with name', async () => {

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockRequestPasswordReset = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
 const mockCheckEmailRateLimit = vi.fn()
+const mockEnforceMinimumTime = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockReadBody = vi.fn()
 
@@ -16,6 +17,7 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   ...(await importOriginal()),
   checkIpRateLimit: mockCheckIpRateLimit,
   checkEmailRateLimit: mockCheckEmailRateLimit,
+  enforceMinimumTime: mockEnforceMinimumTime,
 }))
 
 vi.mock('~~/server/utils/shared/errors', async (importOriginal) => ({
@@ -32,6 +34,7 @@ describe('POST /api/auth/forget-password (AUD-04)', () => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
     mockCheckEmailRateLimit.mockResolvedValue(undefined)
+    mockEnforceMinimumTime.mockResolvedValue(undefined)
     mockRequestPasswordReset.mockResolvedValue(undefined)
     mockSendValidationError.mockImplementation((msg: string) => {
       throw new Error(msg)
@@ -102,5 +105,20 @@ describe('POST /api/auth/forget-password (AUD-04)', () => {
     const handler = await import('~~/server/api/auth/forget-password.post').then((m) => m.default)
 
     await expect(handler({} as any)).rejects.toMatchObject({ statusCode: 503 })
+    // Sem piso: o erro já respondeu antes — não há timing a equalizar.
+    expect(mockEnforceMinimumTime).not.toHaveBeenCalled()
+  })
+
+  it('AUD-04: enforces a minimum response time before answering', async () => {
+    mockReadBody.mockResolvedValue({ email: 'user@example.com' })
+
+    const handler = await import('~~/server/api/auth/forget-password.post').then((m) => m.default)
+    await handler({} as any)
+
+    expect(mockEnforceMinimumTime).toHaveBeenCalledTimes(1)
+    const [start, minimumMs] = mockEnforceMinimumTime.mock.calls[0] ?? []
+    expect(typeof start).toBe('number')
+    // Precisa cobrir o pior caso do envio (Resend limitado a 450ms + banco).
+    expect(minimumMs).toBeGreaterThanOrEqual(500)
   })
 })

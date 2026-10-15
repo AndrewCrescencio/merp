@@ -1,23 +1,23 @@
 ---
-title: "Especificação: Auth Bounded Context"
-slug: "spec-auth"
-category: "spec"
-status: "active"
-version: "1.0.0"
-owner: "@auth-owner"
-reviewers: ["@tech-lead", "@security-lead"]
-module: "auth"
-tags: ["spec", "auth", "authentication", "multi-tenant"]
-audience: ["dev", "qa", "product"]
-created: "2026-09-22"
-updated: "2026-09-22"
-review-cycle: "quarterly"
+title: 'Especificação: Auth Bounded Context'
+slug: 'spec-auth'
+category: 'spec'
+status: 'active'
+version: '1.0.0'
+owner: '@auth-owner'
+reviewers: ['@tech-lead', '@security-lead']
+module: 'auth'
+tags: ['spec', 'auth', 'authentication', 'multi-tenant']
+audience: ['dev', 'qa', 'product']
+created: '2026-09-22'
+updated: '2026-09-22'
+review-cycle: 'quarterly'
 related:
-  - "data-model-auth"
-  - "api-auth"
-  - "adr-001-vertical-strategy"
-  - "adr-004-session-ttl-by-profile"
-  - "adr-010-2fa-deferred"
+  - 'data-model-auth'
+  - 'api-auth'
+  - 'adr-001-vertical-strategy'
+  - 'adr-004-session-ttl-by-profile'
+  - 'adr-010-2fa-deferred'
 replaces: []
 replaced-by: null
 ---
@@ -39,10 +39,11 @@ O Auth bounded context gerencia identidade de usuários — registro, login, log
 **Teste Independente**: Registrar com email+password, depois login com as mesmas credenciais, depois acessar recurso protegido com sucesso.
 
 **Critérios de Aceite:**
+
 1. **Dado** um novo email e senha, **Quando** o usuário registra, **Então** o sistema cria conta e retorna resposta de sucesso.
 2. **Dado** conta existente, **Quando** usuário faz login com credenciais corretas, **Então** sistema inicia sessão autenticada.
 3. **Dado** conta existente, **Quando** usuário faz login com senha incorreta, **Então** sistema nega acesso com erro.
-4. **Dado** email já registrado, **Quando** outro usuário tenta registrar com mesmo email, **Então** sistema responde `201 Created` com corpo idêntico ao de registro novo (AUD-03, anti-enumeração) e não cria duplicata (FR-003 = unicidade no banco, não código de erro). Nunca `409`.
+4. **Dado** email já registrado, **Quando** outro usuário tenta registrar com mesmo email, **Então** sistema responde `201 Created` com corpo idêntico ao de registro novo e **duração equivalente** (`enforceMinimumTime` piso de 300ms — sem isso o relógio vaza a duplicata) (AUD-03, anti-enumeração) e não cria duplicata (FR-003 = unicidade no banco, não código de erro). Nunca `409`.
 
 ### US-002: Logout and Session Lifecycle (Priority: P2)
 
@@ -51,6 +52,7 @@ O Auth bounded context gerencia identidade de usuários — registro, login, log
 **Teste Independente**: Login, receber sessão, logout, então tentar requisição autenticada e receber erro de acesso negado.
 
 **Critérios de Aceite:**
+
 1. **Dado** sessão ativa, **Quando** usuário faz logout, **Então** sessão é terminada.
 2. **Dado** sem sessão ativa, **Quando** usuário acessa recurso protegido, **Então** sistema nega acesso.
 3. **Dado** sessão ativa após TTL de 7d, **Quando** usuário faz requisição, **Então** sistema nega acesso.
@@ -62,6 +64,7 @@ O Auth bounded context gerencia identidade de usuários — registro, login, log
 **Teste Independente**: Registrar, criar empresa, login, então verificar requisições autenticadas carregam contexto de tenant correto.
 
 **Critérios de Aceite:**
+
 1. **Dado** usuário registrado sem empresa, **Quando** cria nova empresa, **Então** torna-se primeiro membro.
 2. **Dado** usuário registrado, **Quando** aceita token de invite válido para empresa, **Então** torna-se membro.
 3. **Dado** usuário com uma empresa, **Quando** faz login, **Então** sistema defaulta para contexto da empresa.
@@ -101,11 +104,11 @@ O Auth bounded context gerencia identidade de usuários — registro, login, log
 
 ## Entidades-Chave
 
-| Entidade | Descrição | Atributos Principais |
-|----------|-----------|---------------------|
-| **User** | Pessoa que acessa o sistema. Tem email, pode autenticar, e tem estado ativo/inativo. Pertence a uma ou mais empresas. | id, email, name, email_verified, is_active, consent_* |
-| **Session** | Período de acesso autenticado ativo. Criada no login, destruída no logout ou expiração. | id, user_id, token, expires_at, ip_address, user_agent, remember_me, active_company_id |
-| **Company** | Tenant no modelo multi-tenant. Usuários são membros de empresas e operam dentro do seu escopo. | id, name, cnpj, razao_social, is_deleted |
+| Entidade    | Descrição                                                                                                             | Atributos Principais                                                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **User**    | Pessoa que acessa o sistema. Tem email, pode autenticar, e tem estado ativo/inativo. Pertence a uma ou mais empresas. | id, email, name, email_verified, is_active, consent_*                                  |
+| **Session** | Período de acesso autenticado ativo. Criada no login, destruída no logout ou expiração.                               | id, user_id, token, expires_at, ip_address, user_agent, remember_me, active_company_id |
+| **Company** | Tenant no modelo multi-tenant. Usuários são membros de empresas e operam dentro do seu escopo.                        | id, name, cnpj, razao_social, is_deleted                                               |
 
 ## Critérios de Sucesso (Mensuráveis)
 
@@ -118,7 +121,7 @@ O Auth bounded context gerencia identidade de usuários — registro, login, log
 
 ## Pressupostos
 
-- Entrega de email (verificação, reset de senha, emails de boas-vindas) está fora de escopo do MVP.
+- Entrega de email é **best-effort** via Resend (`server/utils/shared/email.ts`): três transacionais — aviso de verificação, aviso de reset de senha, aviso de desativação. Sem `RESEND_API_KEY` são pulados com warning; nunca derrubam a requisição. Boas-vindas independentes e fila de emails não existem.
 - Gestão de perfil do usuário (nome, avatar, preferências) está fora de escopo do MVP.
 - Escopo multi-tenancy (empresa que usuário pertence) é gerenciado na camada auth — contextos downstream consomem contexto de tenant da requisição autenticada.
 - OAuth / social login é deferido — email+senha suficiente para lançamento inicial.

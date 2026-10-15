@@ -229,6 +229,17 @@ export async function checkEmailRateLimit(event: H3Event, email: string): Promis
   await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
 }
 
+// AUD-03/04: piso de tempo de resposta. Um endpoint que responde igual para
+// "existe" e "não existe", mas faz trabalho diferente no meio (hash de senha,
+// insert, chamada de API externa), vaza a existência da conta pelo relógio — o
+// corpo da resposta não, o tempo sim. O melhor auth já aplica isso internamente
+// (hash dummy no sign-in, MINIMUM_MS=500 na verificação de email); isto fecha o
+// que passa pelos nossos handlers. `start` é o marcador lido antes do trabalho.
+export async function enforceMinimumTime(start: number, minimumMs: number): Promise<void> {
+  const remaining = minimumMs - (Date.now() - start)
+  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
+}
+
 // AUD-16: sliding window per user (60/min) nas rotas autenticadas — cobre o
 // que o rate limit por IP do nginx/app não vê (IPs rotativos, NAT).
 /** Sliding-window rate limit per authenticated user (60/min). Throws 429. */

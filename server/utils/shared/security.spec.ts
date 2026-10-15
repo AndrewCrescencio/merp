@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   MAX_REQUESTS_PER_USER,
+  enforceMinimumTime,
   evaluateLockout,
   evaluateRateLimit,
   isValidCnpj,
@@ -175,5 +176,25 @@ describe('evaluateLockout', () => {
     expect(result.locked).toBe(false)
     expect(result.nextAttempts).toBe(50)
     expect(result.nextLockedUntil).toEqual(new Date('2026-08-02T12:30:00.000Z'))
+  })
+})
+
+describe('enforceMinimumTime (AUD-03/04 anti-enumeration)', () => {
+  it('delays until the floor is reached', async () => {
+    const start = Date.now()
+
+    await enforceMinimumTime(start, 60)
+
+    // setTimeout pode disparar 1-2ms cedo — por isso a folga no assert.
+    expect(Date.now() - start).toBeGreaterThanOrEqual(55)
+  })
+
+  it('returns immediately when the work already exceeded the floor', async () => {
+    const start = Date.now() - 1_000
+    const before = Date.now()
+
+    await enforceMinimumTime(start, 60)
+
+    expect(Date.now() - before).toBeLessThan(40)
   })
 })
