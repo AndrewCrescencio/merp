@@ -28,7 +28,7 @@ Sistema ERP fullstack com autenticação robusta, multi-tenancy (empresas), conv
 | ------------------- | ------------- | ------------------------------------------------ |
 | Docker + Compose v2 | qualquer      | `sudo apt install docker.io docker-compose-v2`   |
 | Node.js             | 24 (`.nvmrc`) | `nvm install && nvm use` (ou nodeSource)         |
-| pnpm                | via corepack  | `corepack enable`                                |
+| npm                 | ≥ 11          | vem com o Node.js                                |
 | Make                | qualquer      | `sudo apt install make`                          |
 | OpenSSL             | opcional      | `sudo apt install openssl` (gerar segredos prod) |
 
@@ -44,7 +44,7 @@ make init
 
 # → cria .env apontando para localhost, instala deps, sobe o PostgreSQL
 #   (esperando o healthcheck) e aplica as migrações COMPLETAS com policies de RLS
-pnpm dev
+npm run dev
 # → http://localhost:3000
 ```
 
@@ -60,41 +60,41 @@ cp .env.example .env
 docker compose up -d postgres
 
 # 3. Rode migrações completas (Drizzle + RLS policies)
-pnpm db:migrate:full
+npm run db:migrate:full
 
 # 4. Dev server
-pnpm dev
+npm run dev
 ```
 
 ### Banco novo do zero
 
-`pnpm drizzle-kit migrate` sozinho aplica só as migrações do journal
+`npx drizzle-kit migrate` sozinho aplica só as migrações do journal
 (`drizzle/meta/_journal.json`). As migrações de RLS/políticas (≥ `0010`,
 fora do journal — `0014_bootstrap_role_split`, `0016_company_select_membership`,
 `0017/0018/0019`, etc.) são aplicadas pelo applier idempotente
 `scripts/apply-custom-sql.ts`.
 
-**Use sempre `pnpm db:migrate:full` em banco novo:**
+**Use sempre `npm run db:migrate:full` em banco novo:**
 
 ```bash
 docker compose up -d postgres
-pnpm db:migrate:full
+npm run db:migrate:full
 ```
 
-> ⚠️ `pnpm drizzle-kit migrate` sozinho NÃO aplica as policies de RLS. Use
-> sempre `pnpm db:migrate:full` em banco novo.
+> ⚠️ `npx drizzle-kit migrate` sozinho NÃO aplica as policies de RLS. Use
+> sempre `npm run db:migrate:full` em banco novo.
 
 ## Containers (Docker)
 
 | Arquivo                       | Papel                                                                  |
 | ----------------------------- | ---------------------------------------------------------------------- |
-| `docker-compose.yml`          | Base: PostgreSQL 17 (porta do host só em `127.0.0.1:${DB_PORT:-5432}`) |
+| `docker-compose.yml`          | Base: PostgreSQL 18 (porta do host só em `127.0.0.1:${DB_PORT:-5432}`) |
 | `docker-compose.override.yml` | Dev (auto-load no `docker compose up`): Adminer + Mailpit              |
 | `docker-compose.prod.yml`     | Produção: app (Dockerfile) + nginx + certbot + serviço `migrate`       |
 
 `make help` lista todos os alvos do Makefile.
 
-### Dev — só infra (o Nuxt roda no host com `pnpm dev`)
+### Dev — só infra (o Nuxt roda no host com `npm run dev`)
 
 ```bash
 make dev       # foreground (docker compose up)
@@ -137,6 +137,43 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm certbot
   --webroot -w /var/www/certbot -d ${DOMAIN} -m ${CERTBOT_EMAIL} --agree-tos --no-eff-email
 ```
 
+## Deploy — caminho grátis (Vercel + Neon)
+
+O Vercel **não usa Docker**: ele detecta o framework do `package.json` e roda
+`npm ci` + `npm run build`. `vercel.json` fixa isso (`framework: nuxtjs`) para
+não depender da detecção automática. O Nitro escolhe o preset `vercel` sozinho
+quando `VERCEL=1` — por isso `nuxt.config.ts` **não** fixa preset: o mesmo repo
+também roda em Docker, que copia `.output/server/index.mjs`.
+
+| Item      | Valor no caminho grátis                                           |
+| --------- | ----------------------------------------------------------------- |
+| Runtime   | Node 24 (padrão do Vercel; casa com `engines` e `.nvmrc`)         |
+| Banco     | Neon free (0.5 GB) — `sslmode=require` já é o default em produção |
+| Processo  | Nenhum gerenciador (sem PM2): o serverless do Vercel é o processo |
+| Migrações | Rodar `npm run db:migrate:full` localmente contra o Neon          |
+
+Variáveis de ambiente a configurar no dashboard do Vercel (todas também em
+Build & Development, exceto onde marcado):
+
+| Variável                              | Observação                                                                                                                                          |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CORS_ORIGIN`                         | **Obrigatória em build** — `nuxt.config.ts` falha sem ela em produção                                                                               |
+| `BETTER_AUTH_SECRET`                  | >= 32 chars                                                                                                                                         |
+| `BETTER_AUTH_URL`                     | URL pública do deploy                                                                                                                               |
+| `CSRF_SECRET`                         | >= 32 chars                                                                                                                                         |
+| `APP_DATABASE_URL`                    | String do Neon (owner role `DATABASE_URL` só na migração)                                                                                           |
+| `RESEND_API_KEY` / `RESEND_FROM`      | **Obrigatórias** — sem elas o email de verificação não sai, a conta nasce não-verificada e o login trava em 403 (o boot recusa)                     |
+| `TRUST_PROXY` / `TRUSTED_PROXY_CIDRS` | `true` + CIDR do peer **observado** em `auth_event.ip_address` (não existe "subnet do Vercel" — ver runbook `05-operations/security/deploy-secure`) |
+
+**Limite do plano grátis**: o Hobby é para uso não-comercial — um ERP de
+produto precisa revisar os termos antes de vender em cima dele.
+
+**E-mail de desativação é best-effort no Vercel**: verificação e reset são
+awaitados pelo Better Auth (envio garantido), mas o aviso de desativação roda
+via `background()` em fire-and-forget para não desequilibrar o timing do login
+(AUD-07) — no preset Node do Vercel não há `waitUntil` de plataforma para
+segurar a promise depois da resposta. Em Docker (processo longo) ela conclui.
+
 ## Variáveis de ambiente obrigatórias (produção)
 
 | Variável              | Descrição                                               |
@@ -158,18 +195,19 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm certbot
 server/
 ├ api/
 │   ├── health.get.ts            # público (sempre 200, status por dependência)
-│   ├── metrics.get.ts           # público, Prometheus sem PII
 │   ├── .well-known/security.txt.get.ts  # público (RFC 9116)
+│   ├── orders/ print/ restaurant/       # contextos downstream
 │   └── auth/                    # 21 handlers (flat — URLs fixas)
 ├ middleware/            # auth, csrf, no-store, pii-audit
-├ tasks/                 # purge-sessions, purge-auth-events, purge-security-state, process-email-queue
 ├ utils/
-│   ├── schema/            # Drizzle tables por feature (identity, company, invite, security, email)
-│   ├── shared/            # errors, security (+CNPJ), audit, background, purge, csrf, email, ip, hibp, auth-context
-│   └── auth/              # Vertical slices por feature + tenant-context.ts
-│       ├── identity/      # Conta + sessão
-│       ├── company/       # Tenant/membership
-│       └── invite/        # Convites
+│   ├── db/              # withTenant (RLS) + tenant-context.ts
+│   ├── schema/          # Drizzle tables por feature
+│   ├── shared/          # errors, security (+CNPJ), audit, background, purge, csrf, email, ip, hibp, auth-context
+│   ├── order/ print/ restaurant/  # contextos downstream
+│   └── auth/            # Vertical slices
+│       ├── identity/    # Conta + sessão
+│       ├── company/     # Tenant/membership
+│       └── invite/      # Convites
 shared/
 ├ auth.ts                # Better Auth instance (lazy, 503 se falhar)
 └── logger.ts              # Structured logging (PII-safe)
@@ -190,11 +228,11 @@ shared/
 | `POST /api/auth/invites/accept`   | Sessão (email = convite) | Aceita convite → cria membership                         |
 | `GET /api/auth/export`            | Sessão                   | LGPD Art. 18 — perfil + empresas + sessões + authEvents  |
 | `GET /api/health`                 | Público                  | Sempre 200; `auth`/`db` indicam readiness                |
-| `GET /api/metrics`                | Público                  | Prometheus (uptime, heap, readiness — sem PII)           |
 
 ## Segurança (resumo)
 
 - **Rate limit**: IP 20/min, email 5/min, user 60/min (sliding window)
+- **Anti-enumeração**: corpo idêntico **e** piso de tempo (`enforceMinimumTime`) em `register`/`forget-password` — o relógio também vaza existência de conta. O Better Auth aplica hash dummy no sign-in e piso de 500ms na verificação de email
 - **Lockout**: (email+IP) 10 tentativas + global email 50 tentativas → 30min
 - **CSRF**: double-submit (`x-csrf-token`); isentos: register, login, forget-password, reset-password, send-verification-email + todos os GET
 - **CORS**: origem explícita (sem wildcard); `X-CSRF-Token` liberado no preflight
@@ -205,18 +243,19 @@ shared/
 ## Testes
 
 ```bash
-pnpm test        # Unit + integração (Vitest)
-pnpm test:watch  # Watch mode
+npm test        # Unit + integração (Vitest)
+npm run test:watch  # Watch mode
 ```
 
 ## Comandos úteis
 
 ```bash
-pnpm lint        # ESLint + Prettier check
-pnpm format      # Prettier write
-pnpm build       # Production build (falha se CORS_ORIGIN ausente em prod)
-pnpm drizzle-kit generate --name <nome>  # Nova migração
-pnpm drizzle-kit studio                 # Drizzle Studio
+npm run check       # Portão rápido de pré-commit: format:check + lint + typecheck
+npm run lint        # ESLint
+npm run format      # Prettier write
+npm run build       # Production build (falha se CORS_ORIGIN ausente em prod)
+npx drizzle-kit generate --name <nome>  # Nova migração
+npx drizzle-kit studio                 # Drizzle Studio
 ```
 
 ## Documentação técnica

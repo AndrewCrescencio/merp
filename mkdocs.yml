@@ -36,28 +36,30 @@ markdown_extensions:
 nav:
   - Guias:
       - getting-started:
-          - "Como Criar um Endpoint (handler → Repository) — MERP": 07-reference/create-endpoint-guide
-          - "Dev Environment — MERP": 01-getting-started/dev-environment
-          - "Quickstart — MERP": 01-getting-started/quickstart
-          - "Testing Guide — MERP": 01-getting-started/testing-guide
+          - 'Como Criar um Endpoint (handler → Repository) — MERP': 07-reference/create-endpoint-guide
+          - 'Dev Environment — MERP': 01-getting-started/dev-environment
+          - 'Quickstart — MERP': 01-getting-started/quickstart
+          - 'Testing Guide — MERP': 01-getting-started/testing-guide
       - overview:
-          - "Architecture Overview — MERP": 00-overview/architecture-overview
-          - "MERP Documentation": 00-overview/README
+          - 'Architecture Overview — MERP': 00-overview/architecture-overview
+          - 'MERP Documentation': 00-overview/README
+      - operations:
+          - 'Runbook: Deploy seguro (Vercel + Neon + Resend)': 05-operations/security/deploy-secure
   - Especificações:
-      - "Especificação: Auth Bounded Context": 03-domain/auth/spec
-      - "Especificação: Restaurant Pack": 06-packs/restaurant/spec
+      - 'Especificação: Auth Bounded Context': 03-domain/auth/spec
+      - 'Especificação: Restaurant Pack': 06-packs/restaurant/spec
   - Referência:
-      - "Padrões de Documentação — MERP (MVP)": _meta/doc-standards
-      - "Glossário — MERP": 00-overview/glossary
+      - 'Padrões de Documentação — MERP (MVP)': _meta/doc-standards
+      - 'Glossário — MERP': 00-overview/glossary
       - reference:
-          - "CLI Commands — MERP": 07-reference/cli-commands
-          - "Database Schema — MERP": 07-reference/database-schema
-          - "Environment Variables — MERP": 07-reference/env-variables
-          - "Error Codes — MERP": 07-reference/error-codes
+          - 'CLI Commands — MERP': 07-reference/cli-commands
+          - 'Database Schema — MERP': 07-reference/database-schema
+          - 'Environment Variables — MERP': 07-reference/env-variables
+          - 'Error Codes — MERP': 07-reference/error-codes
   - Auditoria:
       - architecture:
-          - "Auditoria de Simplificação — 2026-10-03": audit/2026-10-03-simplificacao-auditoria
-          - "Plano de Simplificação — 2026-10-03": audit/2026-10-03-simplificacao-plano
+          - 'Auditoria de Simplificação — 2026-10-03': audit/2026-10-03-simplificacao-auditoria
+          - 'Plano de Simplificação — 2026-10-03': audit/2026-10-03-simplificacao-plano
 
 plugins:
   - search:
