@@ -33,19 +33,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24 # deve casar com .nvmrc e package.json engines
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Wait for Postgres
         run: |
@@ -66,7 +61,7 @@ jobs:
         # db:migrate:full e não `drizzle-kit migrate`: a migração 0014 usa
         # round_half_up(numeric), que vive num .sql fora do journal. Sem o
         # passo prévio a migração 14 falha em banco novo. Inclui o custom SQL.
-        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm db:migrate:full
+        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
 
       - name: Ensure merp_app role exists
         run: |
@@ -83,7 +78,7 @@ jobs:
       - name: Run RLS Canary (GATE B - blocks if RLS bypassed)
         # Sem "--": o vitest descarta o filtro depois de "--" e correria a
         # suíte inteira aqui, duplicando o job de testes abaixo.
-        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test server/utils/00-rls-canary.test.ts
+        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true npx vitest run server/utils/00-rls-canary.test.ts
 
   # Main test suite - runs AFTER canary passes
   test:
@@ -106,19 +101,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24 # deve casar com .nvmrc e package.json engines
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Wait for Postgres
         run: |
@@ -139,7 +129,7 @@ jobs:
         # db:migrate:full e não `drizzle-kit migrate`: a migração 0014 usa
         # round_half_up(numeric), que vive num .sql fora do journal. Sem o
         # passo prévio a migração 14 falha em banco novo. Inclui o custom SQL.
-        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm db:migrate:full
+        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
 
       - name: Ensure merp_app role exists
         run: |
@@ -156,7 +146,7 @@ jobs:
       - name: Run full test suite (merp_app)
         # grants-parity.test.ts já corre aqui (server/**/*.test.ts); a etapa
         # seguinte que o re-executava foi removida.
-        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test
+        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true npm test
 
   lint:
     name: Lint & Format
@@ -164,25 +154,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24 # deve casar com .nvmrc e package.json engines
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run lint
-        run: pnpm lint
+        run: npm run lint
 
       - name: Check format
-        run: pnpm format:check
+        run: npm run format:check
 
   typecheck:
     name: TypeCheck
@@ -190,19 +175,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24 # deve casar com .nvmrc e package.json engines
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run typecheck
-        run: pnpm typecheck
+        run: npm run typecheck
