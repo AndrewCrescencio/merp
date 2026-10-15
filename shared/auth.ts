@@ -3,7 +3,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { db } from '~~/server/utils/db'
 import * as schema from '~~/server/utils/schema'
 import { logger } from './logger'
-import { appVerificationLink } from '~~/server/utils/shared/email'
+import { sendPasswordResetNotice, sendVerificationNotice } from '~~/server/utils/shared/email'
 
 const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000'
 if (process.env.NODE_ENV === 'production' && corsOrigin === 'http://localhost:3000') {
@@ -44,18 +44,16 @@ function createAuth() {
       resetPasswordTokenExpiresIn: 3600,
       // OWASP: trocar a senha invalida todas as sessões existentes.
       revokeSessionsOnPasswordReset: true,
-      // MVP: email queue removed — callbacks are no-op (log only).
-      // Better Auth generates correct links; user copies manually if needed.
+      // AUD-04: envio real via Resend. O callback é awaitado pelo better-auth
+      // (runInBackgroundOrAwait) e nunca lança — ver sendResendEmail.
       sendResetPassword: async ({ user, url }) => {
-        void logger.info('reset password email (no-op)', { email: user.email, url })
+        await sendPasswordResetNotice(user.email, url)
       },
     },
     emailVerification: {
+      // AUD-04: awaitado pelo better-auth após MINIMUM_MS=500; nunca lança.
       sendVerificationEmail: async ({ user, url }) => {
-        void logger.info('verification email (no-op)', {
-          email: user.email,
-          url: appVerificationLink(url),
-        })
+        await sendVerificationNotice(user.email, url)
       },
       sendOnSignUp: true,
       sendOnSignIn: true,
