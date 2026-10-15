@@ -20,6 +20,13 @@ export function missingProductionEnv(env: NodeJS.ProcessEnv): string[] {
   if (env.TRUST_PROXY === 'true' && parseTrustedProxyCidrs(env.TRUSTED_PROXY_CIDRS).length === 0) {
     missing.push('TRUSTED_PROXY_CIDRS (obrigatória quando TRUST_PROXY=true)')
   }
+  // requireEmailVerification=true: sem chave/remetente o email nunca sai, a
+  // conta nasce não-verificada e o login trava em 403 para sempre. Melhor
+  // recusar o boot do que operar um signup que não se completa (o envio é
+  // best-effort dentro do request, mas não é opcional no produto).
+  if (!env.RESEND_API_KEY || !env.RESEND_FROM) {
+    missing.push('RESEND_API_KEY/RESEND_FROM (verificação de email obrigatória)')
+  }
   return missing
 }
 

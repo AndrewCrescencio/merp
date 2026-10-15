@@ -31,28 +31,28 @@ Todas as variáveis de ambiente usadas pelo projeto. Template oficial: `.env.exa
 
 ## Variáveis Obrigatórias (Produção)
 
-| Variável             | Descrição                                                                           | Exemplo                                    | Validação                                    |
-| -------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------- |
-| `DATABASE_URL`       | Owner role (superuser) — **apenas migrações**; nunca chega no container app         | `postgres://merp:senha@host:5432/merp`     | Fail-closed no boot se ausente em prod       |
-| `APP_DATABASE_URL`   | App role (`merp_app`, non-superuser) — **obrigatória** em produção para RLS vigorar | `postgres://merp_app:senha@host:5432/merp` | Fail-closed no boot (AUD-11)                 |
-| `BETTER_AUTH_SECRET` | Segredo Better Auth (>= 32 chars) — assina cookies/tokens                           | `openssl rand -base64 32`                  | Fail-closed no boot (AUD-24)                 |
-| `BETTER_AUTH_URL`    | Domínio público real — links de verificação/reset de senha                          | `https://seu-dominio.com`                  | Fail-closed no boot; nunca localhost em prod |
-| `CORS_ORIGIN`        | Domínio público — baked no build (`nuxt.config.ts`) + runtime (trustedOrigins)      | `https://seu-dominio.com`                  | Fail-closed no build se prod (AUD-05)        |
-| `CSRF_SECRET`        | Segredo CSRF double-submit (>= 32 chars)                                            | `openssl rand -base64 32`                  | Fail-closed no boot                          |
+| Variável             | Descrição                                                                           | Exemplo                                    | Validação                                           |
+| -------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------- |
+| `DATABASE_URL`       | Owner role (superuser) — **apenas migrações**; nunca chega no container app         | `postgres://merp:senha@host:5432/merp`     | Fail-closed no boot se ausente em prod              |
+| `APP_DATABASE_URL`   | App role (`merp_app`, non-superuser) — **obrigatória** em produção para RLS vigorar | `postgres://merp_app:senha@host:5432/merp` | Fail-closed no boot (AUD-11)                        |
+| `BETTER_AUTH_SECRET` | Segredo Better Auth (>= 32 chars) — assina cookies/tokens                           | `openssl rand -base64 32`                  | Fail-closed no boot (AUD-24)                        |
+| `BETTER_AUTH_URL`    | Domínio público real — links de verificação/reset de senha                          | `https://seu-dominio.com`                  | Fail-closed no boot; nunca localhost em prod        |
+| `CORS_ORIGIN`        | Domínio público — baked no build (`nuxt.config.ts`) + runtime (trustedOrigins)      | `https://seu-dominio.com`                  | Fail-closed no build se prod (AUD-05)               |
+| `CSRF_SECRET`        | Segredo CSRF double-submit (>= 32 chars)                                            | `openssl rand -base64 32`                  | Fail-closed no boot                                 |
+| `RESEND_API_KEY`     | Chave Resend — entrega o email de verificação e o de reset                          | `re_...`                                   | Fail-closed no boot (sem ela o signup trava em 403) |
+| `RESEND_FROM`        | Remetente dos emails transacionais                                                  | `no-reply@seu-dominio.com`                 | Fail-closed no boot                                 |
 
 ## Variáveis Opcionais
 
-| Variável              | Descrição                                   | Default                           | Notas                                        |
-| --------------------- | ------------------------------------------- | --------------------------------- | -------------------------------------------- |
-| `RESEND_API_KEY`      | Chave Resend para emails transacionais      | (vazio)                           | Sem ela, emails são pulados com warning      |
-| `RESEND_FROM`         | Remetente emails                            | `no-reply@seu-dominio.com`        |                                              |
-| `TRUST_PROXY`         | `true` se atrás de nginx/Cloudflare         | `false`                           | Se `true`, `TRUSTED_PROXY_CIDRS` obrigatório |
-| `TRUSTED_PROXY_CIDRS` | CIDR do subnet Docker (ex: `172.28.0.0/16`) | (obrigatório se TRUST_PROXY=true) | Fail-closed se proxy=true sem CIDRS          |
-| `PORT`                | Porta do servidor                           | `3000`                            | Fixado em 3000 no compose prod               |
-| `HOST`                | Bind address                                | `0.0.0.0`                         |                                              |
-| `LOG_LEVEL`           | Nível de log (debug/info/warn/error)        | `info`                            | Via `shared/logger.ts`                       |
-| `DB_PORT`             | Porta Postgres (host access)                | `5432`                            | Para `docker compose` apenas                 |
-| `NODE_ENV`            | Ambiente                                    | `development`                     | `production` em prod                         |
+| Variável              | Descrição                                     | Default                           | Notas                                                                                 |
+| --------------------- | --------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------- |
+| `TRUST_PROXY`         | `true` se atrás de nginx/Cloudflare           | `false`                           | Se `true`, `TRUSTED_PROXY_CIDRS` obrigatório                                          |
+| `TRUSTED_PROXY_CIDRS` | CIDR exato do proxy (Docker: `172.28.0.0/16`) | (obrigatório se TRUST_PROXY=true) | Fail-closed se proxy=true sem CIDRS. Em cloud, descobrir pelo runbook `deploy-secure` |
+| `PORT`                | Porta do servidor                             | `3000`                            | Fixado em 3000 no compose prod                                                        |
+| `HOST`                | Bind address                                  | `0.0.0.0`                         |                                                                                       |
+| `LOG_LEVEL`           | Nível de log (debug/info/warn/error)          | `info`                            | Via `shared/logger.ts`                                                                |
+| `DB_PORT`             | Porta Postgres (host access)                  | `5432`                            | Para `docker compose` apenas                                                          |
+| `NODE_ENV`            | Ambiente                                      | `development`                     | `production` em prod                                                                  |
 
 ## Variáveis Docker Compose (Apenas no compose)
 
@@ -81,10 +81,10 @@ cp .env.example .env
 docker compose up -d postgres
 
 # 4. Rode migrações completas
-pnpm db:migrate:full
+npm run db:migrate:full
 
 # 5. Inicie dev server
-pnpm dev
+npm run dev
 ```
 
 ## Produção (Docker Compose Prod)
