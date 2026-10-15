@@ -1,15 +1,21 @@
 services:
   adminer:
-    image: adminer:latest
+    # Dev-only (bind 127.0.0.1). Pinado para não virar :latest silencioso.
+    image: adminer:5.5.1
     ports:
       - '127.0.0.1:8080:8080'
+    security_opt:
+      - no-new-privileges:true
     networks:
       - merp_network
 
   mailpit:
-    image: axllent/mailpit:latest
+    # Dev-only (bind 127.0.0.1). Pinado; v1.30.4+ inclui fix de segurança no SMTP.
+    image: axllent/mailpit:v1.31.4
     ports:
       - '127.0.0.1:1025:1025'
       - '127.0.0.1:8025:8025'
+    security_opt:
+      - no-new-privileges:true
     networks:
       - merp_network

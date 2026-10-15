@@ -27,7 +27,7 @@ replaced-by: null
 # docker-compose.yml (resumo)
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_USER: merp
       POSTGRES_PASSWORD: merp
@@ -35,7 +35,8 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PG 18+: mount é o PAI (/var/lib/postgresql), não .../data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U merp -d merp']
       interval: 5s
@@ -65,13 +66,13 @@ services:
 docker compose up -d postgres
 
 # 2. Rode migrações
-pnpm db:migrate:full
+npm run db:migrate:full
 
 # 3. Dev server com hot reload
-pnpm dev
+npm run dev
 
 # 4. Drizzle Studio (opcional)
-pnpm drizzle-kit studio
+npx drizzle-kit studio
 ```
 
 ## Debugging
@@ -80,7 +81,7 @@ pnpm drizzle-kit studio
 
 ```bash
 # Ver logs no terminal
-pnpm dev 2>&1 | jq .
+npm run dev 2>&1 | jq .
 ```
 
 ### Inspecionar Banco
@@ -90,33 +91,33 @@ pnpm dev 2>&1 | jq .
 docker compose exec postgres psql -U merp -d merp
 
 # Ou Drizzle Studio
-pnpm drizzle-kit studio
+npx drizzle-kit studio
 ```
 
 ### Testes de Integração
 
 ```bash
 # Requer DATABASE_URL apontando para test DB
-DB_AVAILABLE=true pnpm test
+DB_AVAILABLE=true npm test
 ```
 
 ## Troubleshooting Comum
 
-| Problema                        | Causa                         | Solução                                        |
-| ------------------------------- | ----------------------------- | ---------------------------------------------- |
-| `BETTER_AUTH_SECRET` missing    | `.env` não configurado        | `cp .env.example .env` e preencher             |
-| `permission denied for table`   | Grants `merp_app` faltando    | `pnpm db:migrate:full` (aplica migration 0020) |
-| `RLS BYPASS DETECTED` no canary | Testes rodando como owner     | Verificar `APP_DATABASE_URL` = `merp_app`      |
-| `CORS_ORIGIN` mismatch          | Build com origin errado       | `CORS_ORIGIN=http://localhost:3000 pnpm build` |
-| Email não envia                 | `RESEND_API_KEY` inválido     | Verificar chave no Resend dashboard            |
-| `503 auth_unavailable`          | Better Auth falhou ao iniciar | Verificar `BETTER_AUTH_SECRET`, `DATABASE_URL` |
-| `session_expired` 401           | Sessão expirou (7d TTL fixo)  | Re-login obrigatório                           |
+| Problema                        | Causa                         | Solução                                           |
+| ------------------------------- | ----------------------------- | ------------------------------------------------- |
+| `BETTER_AUTH_SECRET` missing    | `.env` não configurado        | `cp .env.example .env` e preencher                |
+| `permission denied for table`   | Grants `merp_app` faltando    | `npm run db:migrate:full` (aplica migration 0020) |
+| `RLS BYPASS DETECTED` no canary | Testes rodando como owner     | Verificar `APP_DATABASE_URL` = `merp_app`         |
+| `CORS_ORIGIN` mismatch          | Build com origin errado       | `CORS_ORIGIN=http://localhost:3000 npm run build` |
+| Email não envia                 | `RESEND_API_KEY` inválido     | Verificar chave no Resend dashboard               |
+| `503 auth_unavailable`          | Better Auth falhou ao iniciar | Verificar `BETTER_AUTH_SECRET`, `DATABASE_URL`    |
+| `session_expired` 401           | Sessão expirou (7d TTL fixo)  | Re-login obrigatório                              |
 
 ## Logs Estruturados
 
 ```bash
 # Ver logs no terminal (JSON)
-pnpm dev 2>&1 | jq .
+npm run dev 2>&1 | jq .
 ```
 
 ## Inspecionar Banco
@@ -126,15 +127,15 @@ pnpm dev 2>&1 | jq .
 docker compose exec postgres psql -U merp -d merp
 
 # Drizzle Studio
-pnpm drizzle-kit studio
+npx drizzle-kit studio
 ```
 
 ## Migrações
 
 ```bash
 # Nova migração
-pnpm drizzle-kit generate --name <nome>
+npx drizzle-kit generate --name <nome>
 
 # Aplicar tudo (Drizzle + RLS custom)
-pnpm db:migrate:full
+npm run db:migrate:full
 ```
