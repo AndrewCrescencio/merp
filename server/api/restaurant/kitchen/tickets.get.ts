@@ -29,7 +29,11 @@ export default defineEventHandler(async (event) => {
   const { companyId, locationId } = auth.session
   const { status, limit, offset } = parsed.data
 
-  const tickets = await restaurantRepository.listKitchenTickets(companyId, locationId, { status, limit, offset })
+  const tickets = await restaurantRepository.listKitchenTickets(companyId, locationId, {
+    status,
+    limit,
+    offset,
+  })
 
   return { tickets }
 })

@@ -3,7 +3,7 @@ import { execSync } from 'child_process'
 import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
 import postgres from 'postgres'
-import { buildCustomSql } from './apply-custom-sql'
+import { applyPreMigrateSql, buildCustomSql } from './apply-custom-sql'
 
 // Regressão do ordering 0015/0017: banco limpo quebrava em 0015
 // (GRANT ... TO merp_app antes da role existir na 0017). A 0014_app_role_ensure
@@ -221,13 +221,21 @@ describe.skipIf(!dbAvailable)('migration ordering 0015/0017 (integration)', () =
   beforeAll(async () => {
     preExisted = await rolePreExists()
     // (a) banco limpo, migrations-só, sem criar a role manualmente.
+    // applyPreMigrateSql: 0013_round_half_up.sql está fora do journal, logo o
+    // push não a cria — e order_item.line_total (coluna gerada) depende dela.
+    // Sem este passo o CREATE TABLE "order_item" do push falha com
+    // "function round_half_up(numeric) does not exist" (o drizzle-kit engole o
+    // erro e sai com 0, por isso nunca quebrava o teste). Mesmo passo de
+    // test-setup.ts:94; não toca no ordering 0015/0017 que este teste cobre.
     await freshDb(dbA)
+    await applyPreMigrateSql(urlFor(dbA))
     pushSchema(urlFor(dbA))
     await applyCustom(urlFor(dbA))
     attrsA = await roleAttrs()
 
     // (b) banco limpo, bootstrap (existência) primeiro.
     await freshDb(dbB)
+    await applyPreMigrateSql(urlFor(dbB))
     await ensureRoleExists()
     pushSchema(urlFor(dbB))
     await applyCustom(urlFor(dbB))

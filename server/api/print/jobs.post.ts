@@ -6,7 +6,7 @@ const enqueuePrintJobSchema = z.object({
   printerId: z.string().uuid().optional(),
   orderId: z.string().uuid(),
   template: z.enum(['receipt', 'kitchen-ticket']),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   priority: z.number().int().optional(),
 })
 

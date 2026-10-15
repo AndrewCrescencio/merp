@@ -7,7 +7,7 @@ version: '1.0.0'
 owner: '@docs-maintainer'
 reviewers: ['@tech-lead']
 module: 'reference'
-tags: ['cli', 'commands', 'scripts', 'pnpm']
+tags: ['cli', 'commands', 'scripts', 'npm']
 audience: ['dev', 'qa', 'devops']
 created: '2026-10-10'
 updated: '2026-10-10'
@@ -19,43 +19,46 @@ replaced-by: null
 
 # CLI Commands — MERP
 
-Todos os comandos disponíveis via `pnpm` (scripts do `package.json`).
+Todos os comandos disponíveis via `npm` (scripts do `package.json`). Binários de
+ferramentas (`drizzle-kit`) usam `npx`.
 
 ## Desenvolvimento
 
 | Comando            | Descrição                                                  |
 | ------------------ | ---------------------------------------------------------- |
-| `pnpm dev`         | Inicia servidor de desenvolvimento Nuxt com hot reload     |
-| `pnpm build`       | Build de produção (falha se `CORS_ORIGIN` ausente em prod) |
-| `pnpm generate`    | Gera site estático (SSG)                                   |
-| `pnpm preview`     | Preview do build de produção                               |
-| `pnpm postinstall` | Roda `nuxt prepare` (auto-imports, types)                  |
+| `npm run dev`      | Inicia servidor de desenvolvimento Nuxt com hot reload     |
+| `npm run build`    | Build de produção (falha se `CORS_ORIGIN` ausente em prod) |
+| `npm run generate` | Gera site estático (SSG)                                   |
+| `npm run preview`  | Preview do build de produção                               |
+| `npm install`      | Instala deps e roda `nuxt prepare` (auto-imports, types)   |
 
 ## Qualidade de Código
 
-| Comando             | Descrição                        |
-| ------------------- | -------------------------------- |
-| `pnpm lint`         | ESLint em todo o projeto         |
-| `pnpm lint:fix`     | ESLint com auto-fix              |
-| `pnpm format`       | Prettier write em todo o projeto |
-| `pnpm format:check` | Prettier check (CI)              |
+| Comando                | Descrição                                                          |
+| ---------------------- | ------------------------------------------------------------------ |
+| `npm run check`        | Portão rápido de pré-commit: `format:check` → `lint` → `typecheck` |
+| `npm run lint`         | ESLint em todo o projeto                                           |
+| `npm run lint:fix`     | ESLint com auto-fix                                                |
+| `npm run typecheck`    | `nuxt typecheck` (Vue + TS, sem emitir artefatos)                  |
+| `npm run format`       | Prettier write em todo o projeto                                   |
+| `npm run format:check` | Prettier check (CI)                                                |
 
 ## Testes
 
-| Comando           | Descrição                      |
-| ----------------- | ------------------------------ |
-| `pnpm test`       | Vitest run (unit + integração) |
-| `pnpm test:watch` | Vitest watch mode              |
+| Comando              | Descrição                      |
+| -------------------- | ------------------------------ |
+| `npm test`           | Vitest run (unit + integração) |
+| `npm run test:watch` | Vitest watch mode              |
 
 ## Banco de Dados
 
-| Comando                                   | Descrição                                                                                                 |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `pnpm db:migrate:full`                    | **Sempre usar em banco novo** — roda `drizzle-kit migrate` + `scripts/apply-custom-sql.ts` (RLS policies) |
-| `pnpm drizzle-kit migrate`                | Apenas migrações do journal Drizzle (sem RLS custom)                                                      |
-| `pnpm drizzle-kit generate --name <nome>` | Cria nova migração                                                                                        |
-| `pnpm drizzle-kit studio`                 | Abre Drizzle Studio (GUI)                                                                                 |
-| `pnpm drizzle-kit push`                   | Push schema para DB (dev, não usa migrações)                                                              |
+| Comando                                  | Descrição                                                                                                 |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `npm run db:migrate:full`                | **Sempre usar em banco novo** — roda `drizzle-kit migrate` + `scripts/apply-custom-sql.ts` (RLS policies) |
+| `npx drizzle-kit migrate`                | Apenas migrações do journal Drizzle (sem RLS custom)                                                      |
+| `npx drizzle-kit generate --name <nome>` | Cria nova migração                                                                                        |
+| `npx drizzle-kit studio`                 | Abre Drizzle Studio (GUI)                                                                                 |
+| `npx drizzle-kit push`                   | Push schema para DB (dev, não usa migrações)                                                              |
 
 ## Docker (via Makefile)
 
@@ -80,11 +83,11 @@ que o Nuxt roda no host).
 
 ```bash
 # Testes de integração (requer PostgreSQL rodando)
-DB_AVAILABLE=true pnpm test
+DB_AVAILABLE=true npm test
 
 # Ou use o docker compose
 docker compose up -d postgres
-DB_AVAILABLE=true pnpm test
+DB_AVAILABLE=true npm test
 ```
 
 ## Notas Importantes

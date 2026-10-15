@@ -18,7 +18,9 @@ export default defineEventHandler(async (event) => {
 
   const [companies, activeCompanyId] = await Promise.all([
     membershipRepository.findUserCompanies(user.id),
-    currentSession ? membershipRepository.getActiveCompany(currentSession.id) : Promise.resolve(null),
+    currentSession
+      ? membershipRepository.getActiveCompany(currentSession.id)
+      : Promise.resolve(null),
   ])
 
   return {

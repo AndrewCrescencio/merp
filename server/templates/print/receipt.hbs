@@ -1,92 +1,140 @@
-<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Receipt</title>
-  <style>
-    body { font-family: monospace; width: 80mm; margin: 0; padding: 10px; font-size: 12px; }
-    .header { text-align: center; margin-bottom: 10px; }
-    .logo { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-    .info { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; margin: 10px 0; }
-    .item { display: flex; justify-content: space-between; margin: 3px 0; }
-    .item-name { flex: 1; }
-    .item-price { text-align: right; width: 60px; }
-    .totals { border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px; }
-    .total-line { display: flex; justify-content: space-between; margin: 2px 0; }
-    .total { font-weight: bold; font-size: 14px; }
-    .footer { text-align: center; margin-top: 15px; font-size: 10px; }
-    .qr-placeholder { text-align: center; margin: 10px 0; border: 1px solid #000; padding: 20px; font-size: 10px; color: #666; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="logo">{{companyName}}</div>
-    <div>{{locationName}}</div>
-    <div>{{locationAddress}}</div>
-    <div>{{locationPhone}}</div>
-  </div>
-
-  <div class="info">
-    <div>Order: {{orderNumber}}</div>
-    <div>Date: {{orderDate}}</div>
-    <div>Server: {{serverName}}</div>
-    <div>Table: {{tableNumber}}</div>
-    <div>Guests: {{coverCount}}</div>
-  </div>
-
-  <div class="items">
-    {{#each items}}
-    <div class="item">
-      <span class="item-name">{{quantity}}x {{name}}</span>
-      <span class="item-price">{{formatPrice lineTotal}}</span>
+  <head>
+    <meta charset='utf-8' />
+    <title>Receipt</title>
+    <style>
+      body {
+        font-family: monospace;
+        width: 80mm;
+        margin: 0;
+        padding: 10px;
+        font-size: 12px;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .logo {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .info {
+        border-top: 1px dashed #000;
+        border-bottom: 1px dashed #000;
+        padding: 5px 0;
+        margin: 10px 0;
+      }
+      .item {
+        display: flex;
+        justify-content: space-between;
+        margin: 3px 0;
+      }
+      .item-name {
+        flex: 1;
+      }
+      .item-price {
+        text-align: right;
+        width: 60px;
+      }
+      .totals {
+        border-top: 1px dashed #000;
+        padding-top: 5px;
+        margin-top: 5px;
+      }
+      .total-line {
+        display: flex;
+        justify-content: space-between;
+        margin: 2px 0;
+      }
+      .total {
+        font-weight: bold;
+        font-size: 14px;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 15px;
+        font-size: 10px;
+      }
+      .qr-placeholder {
+        text-align: center;
+        margin: 10px 0;
+        border: 1px solid #000;
+        padding: 20px;
+        font-size: 10px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <div class='header'>
+      <div class='logo'>{{companyName}}</div>
+      <div>{{locationName}}</div>
+      <div>{{locationAddress}}</div>
+      <div>{{locationPhone}}</div>
     </div>
-    {{#if modifiers}}
-      {{#each modifiers}}
-      <div class="item" style="padding-left: 10px; font-size: 11px;">
-        <span class="item-name">  + {{name}}</span>
-        <span class="item-price">{{formatPrice price}}</span>
-      </div>
+
+    <div class='info'>
+      <div>Order: {{orderNumber}}</div>
+      <div>Date: {{orderDate}}</div>
+      <div>Server: {{serverName}}</div>
+      <div>Table: {{tableNumber}}</div>
+      <div>Guests: {{coverCount}}</div>
+    </div>
+
+    <div class='items'>
+      {{#each items}}
+        <div class='item'>
+          <span class='item-name'>{{quantity}}x {{name}}</span>
+          <span class='item-price'>{{formatPrice lineTotal}}</span>
+        </div>
+        {{#if modifiers}}
+          {{#each modifiers}}
+            <div class='item' style='padding-left: 10px; font-size: 11px;'>
+              <span class='item-name'> + {{name}}</span>
+              <span class='item-price'>{{formatPrice price}}</span>
+            </div>
+          {{/each}}
+        {{/if}}
       {{/each}}
-    {{/if}}
-    {{/each}}
-  </div>
+    </div>
 
-  <div class="totals">
-    <div class="total-line">
-      <span>Subtotal:</span>
-      <span class="item-price">{{formatPrice subtotal}}</span>
+    <div class='totals'>
+      <div class='total-line'>
+        <span>Subtotal:</span>
+        <span class='item-price'>{{formatPrice subtotal}}</span>
+      </div>
+      {{#if discount}}
+        <div class='total-line'>
+          <span>Discount:</span>
+          <span class='item-price'>-{{formatPrice discount}}</span>
+        </div>
+      {{/if}}
+      {{#each taxes}}
+        <div class='total-line'>
+          <span>{{name}} ({{rate}}%):</span>
+          <span class='item-price'>{{formatPrice amount}}</span>
+        </div>
+      {{/each}}
+      <div class='total-line total'>
+        <span>TOTAL:</span>
+        <span class='item-price'>{{formatPrice total}}</span>
+      </div>
     </div>
-    {{#if discount}}
-    <div class="total-line">
-      <span>Discount:</span>
-      <span class="item-price">-{{formatPrice discount}}</span>
-    </div>
-    {{/if}}
-    {{#each taxes}}
-    <div class="total-line">
-      <span>{{name}} ({{rate}}%):</span>
-      <span class="item-price">{{formatPrice amount}}</span>
-    </div>
-    {{/each}}
-    <div class="total-line total">
-      <span>TOTAL:</span>
-      <span class="item-price">{{formatPrice total}}</span>
-    </div>
-  </div>
 
-  {{#if payment}}
-  <div class="info">
-    <div>Payment: {{payment.method}}</div>
-    {{#if payment.change}}
-    <div>Change: {{formatPrice payment.change}}</div>
+    {{#if payment}}
+      <div class='info'>
+        <div>Payment: {{payment.method}}</div>
+        {{#if payment.change}}
+          <div>Change: {{formatPrice payment.change}}</div>
+        {{/if}}
+      </div>
     {{/if}}
-  </div>
-  {{/if}}
 
-  <div class="footer">
-    <div>Thank you for your visit!</div>
-    <div>{{taxId}}</div>
-    <div class="qr-placeholder">[QR Code - Digital Receipt]</div>
-  </div>
-</body>
+    <div class='footer'>
+      <div>Thank you for your visit!</div>
+      <div>{{taxId}}</div>
+      <div class='qr-placeholder'>[QR Code - Digital Receipt]</div>
+    </div>
+  </body>
 </html>

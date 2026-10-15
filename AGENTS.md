@@ -17,17 +17,18 @@ Instruções para agentes (IA/automação) trabalhando neste repositório. Basea
 
 ## Comandos Essenciais
 
-| Ação                             | Comando                                   |
-| -------------------------------- | ----------------------------------------- |
-| Dev server                       | `pnpm dev`                                |
-| Testes (unit)                    | `pnpm test`                               |
-| Testes (integração, precisa PG)  | `DB_AVAILABLE=true pnpm test`             |
-| Lint                             | `pnpm lint`                               |
-| Typecheck                        | `pnpm typecheck`                          |
-| Format                           | `pnpm format`                             |
-| Migrações completas (banco novo) | `pnpm db:migrate:full`                    |
-| Nova migração                    | `pnpm drizzle-kit generate --name <nome>` |
-| Drizzle Studio                   | `pnpm drizzle-kit studio`                 |
+| Ação                             | Comando                                  |
+| -------------------------------- | ---------------------------------------- |
+| Portão rápido (pré-commit)       | `npm run check`                          |
+| Dev server                       | `npm run dev`                            |
+| Testes (unit)                    | `npm test`                               |
+| Testes (integração, precisa PG)  | `DB_AVAILABLE=true npm test`             |
+| Lint                             | `npm run lint`                           |
+| Typecheck                        | `npm run typecheck`                      |
+| Format                           | `npm run format`                         |
+| Migrações completas (banco novo) | `npm run db:migrate:full`                |
+| Nova migração                    | `npx drizzle-kit generate --name <nome>` |
+| Drizzle Studio                   | `npx drizzle-kit studio`                 |
 
 ---
 
@@ -75,10 +76,10 @@ export const repository = {
 server/
 ├ api/                    # Handlers (h3)
 │   ├ auth/               # 21 endpoints flat
-│   ├ health.get.ts       # Público
-│   └ metrics.get.ts      # Público
+│   ├ orders/ print/ restaurant/ # contextos downstream
+│   ├ .well-known/        # security.txt (RFC 9116)
+│   └ health.get.ts       # Público
 ├ middleware/             # auth, csrf, no-store, pii-audit
-├ tasks/                  # Nitro tasks (purge, print queue)
 ├ utils/
 │   ├ auth/               # Contextos auth
 │   │   ├ identity/       # queries.ts, client.ts (Better Auth)
@@ -108,7 +109,7 @@ docs/                     # Documentação operacional
 - ❌ Hard delete em dados fiscais (soft delete only)
 - ❌ `CREATE POLICY` com `OR get_location_id() IS NULL` (fail-open)
 - ❌ Importar entre contextos (ex: identity ⤳ company) — ESLint bloqueia
-- ❌ Commits sem `pnpm lint` + `pnpm typecheck` verdes
+- ❌ Commits sem `npm run lint` + `npm run typecheck` verdes
 - ❌ Push/merge/PR sem revisão humana
 
 ---

@@ -1,62 +1,116 @@
-<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Kitchen Ticket</title>
-  <style>
-    body { font-family: monospace; width: 80mm; margin: 0; padding: 10px; font-size: 14px; }
-    .header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
-    .order-type { font-size: 18px; font-weight: bold; text-transform: uppercase; }
-    .order-number { font-size: 24px; font-weight: bold; letter-spacing: 2px; }
-    .meta { display: flex; justify-content: space-between; margin: 10px 0; font-size: 12px; }
-    .items { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; }
-    .item { margin: 5px 0; }
-    .item-header { display: flex; justify-content: space-between; font-weight: bold; }
-    .item-name { flex: 1; }
-    .item-qty { text-align: right; width: 40px; }
-    .item-modifiers { margin-left: 10px; font-size: 12px; color: #333; }
-    .modifier { margin: 2px 0; }
-    .urgent { background: #ff0; padding: 2px 4px; }
-    .footer { text-align: center; margin-top: 10px; font-size: 11px; }
-    .timestamp { font-family: monospace; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="order-type">{{orderType}}</div>
-    <div class="order-number">{{orderNumber}}</div>
-  </div>
-
-  <div class="meta">
-    <div>Table: {{tableNumber}} ({{coverCount}} guests)</div>
-    <div>Server: {{serverName}}</div>
-    <div class="timestamp">{{orderTime}}</div>
-  </div>
-
-  <div class="items">
-    {{#each items}}
-    <div class="item">
-      <div class="item-header">
-        <span class="item-name">{{name}}</span>
-        <span class="item-qty">{{quantity}}</span>
-      </div>
-      {{#if modifiers}}
-      <div class="item-modifiers">
-        {{#each modifiers}}
-        <div class="modifier">{{#if urgent}}<span class="urgent">URGENT</span> {{/if}}+ {{name}}</div>
-        {{/each}}
-      </div>
-      {{/if}}
-      {{#if notes}}
-      <div class="item-modifiers">Note: {{notes}}</div>
-      {{/if}}
+  <head>
+    <meta charset='utf-8' />
+    <title>Kitchen Ticket</title>
+    <style>
+      body {
+        font-family: monospace;
+        width: 80mm;
+        margin: 0;
+        padding: 10px;
+        font-size: 14px;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 5px;
+      }
+      .order-type {
+        font-size: 18px;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      .order-number {
+        font-size: 24px;
+        font-weight: bold;
+        letter-spacing: 2px;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        margin: 10px 0;
+        font-size: 12px;
+      }
+      .items {
+        border-top: 1px dashed #000;
+        border-bottom: 1px dashed #000;
+        padding: 5px 0;
+      }
+      .item {
+        margin: 5px 0;
+      }
+      .item-header {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+      }
+      .item-name {
+        flex: 1;
+      }
+      .item-qty {
+        text-align: right;
+        width: 40px;
+      }
+      .item-modifiers {
+        margin-left: 10px;
+        font-size: 12px;
+        color: #333;
+      }
+      .modifier {
+        margin: 2px 0;
+      }
+      .urgent {
+        background: #ff0;
+        padding: 2px 4px;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 10px;
+        font-size: 11px;
+      }
+      .timestamp {
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class='header'>
+      <div class='order-type'>{{orderType}}</div>
+      <div class='order-number'>{{orderNumber}}</div>
     </div>
-    {{/each}}
-  </div>
 
-  <div class="footer">
-    <div>Printed: {{printTime}}</div>
-    <div>Ticket #{{ticketNumber}}</div>
-  </div>
-</body>
+    <div class='meta'>
+      <div>Table: {{tableNumber}} ({{coverCount}} guests)</div>
+      <div>Server: {{serverName}}</div>
+      <div class='timestamp'>{{orderTime}}</div>
+    </div>
+
+    <div class='items'>
+      {{#each items}}
+        <div class='item'>
+          <div class='item-header'>
+            <span class='item-name'>{{name}}</span>
+            <span class='item-qty'>{{quantity}}</span>
+          </div>
+          {{#if modifiers}}
+            <div class='item-modifiers'>
+              {{#each modifiers}}
+                <div class='modifier'>{{#if urgent}}<span class='urgent'>URGENT</span> {{/if}}+
+                  {{name}}</div>
+              {{/each}}
+            </div>
+          {{/if}}
+          {{#if notes}}
+            <div class='item-modifiers'>Note: {{notes}}</div>
+          {{/if}}
+        </div>
+      {{/each}}
+    </div>
+
+    <div class='footer'>
+      <div>Printed: {{printTime}}</div>
+      <div>Ticket #{{ticketNumber}}</div>
+    </div>
+  </body>
 </html>

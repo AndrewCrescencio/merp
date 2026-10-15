@@ -78,15 +78,17 @@ export default defineEventHandler(async (event) => {
       partyId: input.partyId,
       createdBy: auth.user.id,
       idempotencyKey: input.idempotencyKey,
-      items: input.items.map(item => ({
+      items: input.items.map((item) => ({
         ...item,
         bomSnapshot: item.bomSnapshot ?? '',
       })),
       dineIn: input.dineIn,
-      takeout: input.takeout ? {
-        ...input.takeout,
-        pickupAt: input.takeout.pickupAt ? new Date(input.takeout.pickupAt) : undefined,
-      } : undefined,
+      takeout: input.takeout
+        ? {
+            ...input.takeout,
+            pickupAt: input.takeout.pickupAt ? new Date(input.takeout.pickupAt) : undefined,
+          }
+        : undefined,
     })
 
     return order

@@ -38,53 +38,59 @@ describe.skipIf(!dbAvailable)('Tenant isolation under concurrent load', () => {
     })
   })
 
-  it('20 concurrent operations: 10 per tenant, zero cross-tenant leakage', async () => {
-    const iterations = 100
-    const concurrency = 20
+  // Load test: 2000 transações reais contra o PG. Estoura o default de 5s por
+  // latência, não por lógica — por isso timeout explícito.
+  it(
+    '20 concurrent operations: 10 per tenant, zero cross-tenant leakage',
+    { timeout: 30_000 },
+    async () => {
+      const iterations = 100
+      const concurrency = 20
 
-    for (let iter = 0; iter < iterations; iter++) {
-      const promises: Promise<void>[] = []
+      for (let iter = 0; iter < iterations; iter++) {
+        const promises: Promise<void>[] = []
 
-      for (let i = 0; i < concurrency; i++) {
-        const isTenantA = i < 10
-        const tenantId = isTenantA ? TENANT_A : TENANT_B
-        const userId = isTenantA ? USER_A : USER_B
+        for (let i = 0; i < concurrency; i++) {
+          const isTenantA = i < 10
+          const tenantId = isTenantA ? TENANT_A : TENANT_B
+          const userId = isTenantA ? USER_A : USER_B
 
-        promises.push(
-          db.transaction(async (tx) => {
-            await tx.execute(sql`SELECT set_config('app.tenant_id', ${tenantId}, true)`)
-            await tx.execute(sql`SELECT set_config('app.user_id', ${userId}, true)`)
+          promises.push(
+            db.transaction(async (tx) => {
+              await tx.execute(sql`SELECT set_config('app.tenant_id', ${tenantId}, true)`)
+              await tx.execute(sql`SELECT set_config('app.user_id', ${userId}, true)`)
 
-            // Insert a row for this tenant
-            const id = `${tenantId.replace(/-/g, '').slice(0, 8)}${iter.toString().padStart(4, '0')}${i.toString().padStart(2, '0')}`
-            await tx.execute(sql`
+              // Insert a row for this tenant
+              const id = `${tenantId.replace(/-/g, '').slice(0, 8)}${iter.toString().padStart(4, '0')}${i.toString().padStart(2, '0')}`
+              await tx.execute(sql`
               INSERT INTO company (id, name) VALUES (${id}, ${`Test ${tenantId} ${iter}-${i}`})
               ON CONFLICT DO NOTHING
             `)
 
-            // Verify only this tenant's rows are visible
-            const [countRow] = await tx.execute(
-              sql`SELECT COUNT(*) FROM company WHERE id LIKE ${`${tenantId.replace(/-/g, '').slice(0, 8)}%`}`,
-            )
-            const _ownCount = Number((countRow as any).count)
-
-            const [otherCountRow] = await tx.execute(
-              sql`SELECT COUNT(*) FROM company WHERE id LIKE ${`${(isTenantA ? TENANT_B : TENANT_A).replace(/-/g, '').slice(0, 8)}%`}`,
-            )
-            const otherCount = Number((otherCountRow as any).count)
-
-            if (otherCount > 0) {
-              throw new Error(
-                `CROSS-TENANT LEAK: tenant ${tenantId} sees ${otherCount} rows from other tenant`,
+              // Verify only this tenant's rows are visible
+              const [countRow] = await tx.execute(
+                sql`SELECT COUNT(*) FROM company WHERE id LIKE ${`${tenantId.replace(/-/g, '').slice(0, 8)}%`}`,
               )
-            }
-          }),
-        )
-      }
+              const _ownCount = Number((countRow as any).count)
 
-      await Promise.all(promises)
-    }
-  })
+              const [otherCountRow] = await tx.execute(
+                sql`SELECT COUNT(*) FROM company WHERE id LIKE ${`${(isTenantA ? TENANT_B : TENANT_A).replace(/-/g, '').slice(0, 8)}%`}`,
+              )
+              const otherCount = Number((otherCountRow as any).count)
+
+              if (otherCount > 0) {
+                throw new Error(
+                  `CROSS-TENANT LEAK: tenant ${tenantId} sees ${otherCount} rows from other tenant`,
+                )
+              }
+            }),
+          )
+        }
+
+        await Promise.all(promises)
+      }
+    },
+  )
 
   it('100 iterations: rapid tenant switching in same connection pool', async () => {
     const iterations = 100

@@ -42,7 +42,14 @@ export default defineEventHandler(async (event) => {
       companyId,
       locationId,
       name: input.name,
-      type: input.driver === 'escpos' ? 'receipt' : input.driver === 'star' ? 'receipt' : input.driver === 'epson' ? 'receipt' : 'kitchen',
+      type:
+        input.driver === 'escpos'
+          ? 'receipt'
+          : input.driver === 'star'
+            ? 'receipt'
+            : input.driver === 'epson'
+              ? 'receipt'
+              : 'kitchen',
       connectionType: input.connection.type,
       connectionConfig: JSON.stringify(input.connection),
       isDefault: input.isActive,
