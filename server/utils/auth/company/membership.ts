@@ -3,20 +3,7 @@ import { db } from '../../db'
 import { company, companyMember, session } from '../../schema'
 import { sendForbiddenError, sendNotFoundError, handleDatabaseError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
-
-export function escapeLikePattern(query: string): string {
-  return query.replace(/[\\%_]/g, (c) => `\\${c}`)
-}
-
-export interface CompanyResult {
-  id: string
-  name: string
-  cnpj: string | null
-  razaoSocial: string | null
-  isDeleted: boolean
-  createdAt: Date
-  updatedAt: Date
-}
+import { escapeLikePattern, type CompanyResult } from './repository'
 
 export interface CompanyMemberResult {
   id: string
