@@ -1,34 +1,34 @@
 ---
-title: "Quickstart — MERP"
-slug: "quickstart"
-category: "guide"
-status: "active"
-version: "1.0.0"
-owner: "@docs-maintainer"
-reviewers: ["@tech-lead"]
-module: "getting-started"
-tags: ["quickstart", "onboarding"]
-audience: ["dev", "qa"]
-created: "2026-10-03"
-updated: "2026-10-03"
-review-cycle: "quarterly"
+title: 'Quickstart — MERP'
+slug: 'quickstart'
+category: 'guide'
+status: 'active'
+version: '1.0.0'
+owner: '@docs-maintainer'
+reviewers: ['@tech-lead']
+module: 'getting-started'
+tags: ['quickstart', 'onboarding']
+audience: ['dev', 'qa']
+created: '2026-10-03'
+updated: '2026-10-03'
+review-cycle: 'quarterly'
 related:
-  - "dev-environment"
-  - "testing-guide"
+  - 'dev-environment'
+  - 'testing-guide'
 replaces: []
 replaced-by: null
 ---
 
 # Quickstart — MERP
 
-> Tempo estimado: 10 min | Pré-requisitos: Docker, Node 20+, pnpm 9+
+> Tempo estimado: 10 min | Pré-requisitos: Docker, Node 24+ (`.nvmrc`), npm 11+
 
 ## 1. Clone e Instale
 
 ```bash
 git clone https://github.com/seu-org/merp.git
 cd merp
-pnpm install
+npm install
 ```
 
 ## 2. Variáveis de Ambiente
@@ -48,7 +48,7 @@ docker compose up -d postgres
 ## 4. Migrações Completas
 
 ```bash
-pnpm db:migrate:full
+npm run db:migrate:full
 ```
 
 > ⚠️ **Sempre use `db:migrate:full`** — aplica migrações Drizzle + RLS policies customizadas (ver `scripts/apply-custom-sql.ts`).
@@ -56,35 +56,38 @@ pnpm db:migrate:full
 ## 5. Dev Server
 
 ```bash
-pnpm dev
+npm run dev
 # → http://localhost:3000
 ```
 
 ## 6. Testes
 
 ```bash
-pnpm test        # Unit + integração (Vitest)
-pnpm test:watch  # Watch mode
+npm test         # Unit + integração (Vitest)
+npm run test:watch  # Watch mode
 ```
 
 ## 7. Lint / Format
 
 ```bash
-pnpm lint        # ESLint + Prettier check
-pnpm format      # Prettier write
+npm run lint     # ESLint + Prettier check
+npm run format   # Prettier write
 ```
 
 ## Estrutura Principal
 
 ```
 server/
-├── api/                    # Endpoints (auth, health, metrics)
+├── api/                    # Endpoints (auth, orders, print, restaurant, health)
 ├── middleware/             # auth, csrf, no-store, pii-audit
-├── tasks/                  # Scheduled tasks (purge, email queue)
 ├── utils/
+│   ├── auth/               # Vertical slices (identity, company, invite)
+│   ├── db/                 # withTenant (RLS), conexão
+│   ├── order/              # Core Order
+│   ├── print/              # Print operacional
+│   ├── restaurant/         # Restaurant Pack
 │   ├── schema/             # Drizzle tables por feature
-│   ├── shared/             # errors, security, audit, background, email
-│   └── auth/               # Vertical slices (identity, company, invite)
+│   └── shared/             # errors, security, audit, background, email
 shared/
 ├── auth.ts                 # Better Auth instance (lazy, 503 se falhar)
 └── logger.ts               # Structured logging (PII-safe)

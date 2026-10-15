@@ -36,7 +36,7 @@ replaced-by: null
 | **SC**                 | Success Criteria — critério de sucesso mensurável                                                                                                                |
 | **PII**                | Personally Identifiable Information — dados pessoais (LGPD)                                                                                                      |
 | **Idempotency-Key**    | Header obrigatório para escritas críticas (ex: `pay`, criar pedido)                                                                                              |
-| **Anti-enumeration**   | Resposta idêntica para recurso existente/inexistente (ex: register 201 genérico)                                                                                 |
+| **Anti-enumeration**   | Resposta idêntica para recurso existente/inexistente (ex: register 201 genérico) **e** piso de tempo de resposta — sem isso o relógio vaza a existência          |
 | **Double-submit CSRF** | Cookie `csrf_token` + header `X-CSRF-Token` validado no middleware                                                                                               |
 | **Sliding Window**     | Rate limit com janela deslizante (não fixa)                                                                                                                      |
 | **Lockout**            | Bloqueio de conta após N tentativas (dual-tier: par email+IP + global email)                                                                                     |

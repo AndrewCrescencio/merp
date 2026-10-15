@@ -62,13 +62,14 @@ O MERP segue uma arquitetura **Vertical Slices (Package by Feature)** com **Núc
 
 ## RLS Pattern
 
-As 16 tabelas tenant-scoped têm RLS **+ `FORCE ROW LEVEL SECURITY`** (aplica-se também ao owner, desde que não-BYPASSRLS):
+As 17 tabelas tenant-scoped têm RLS **+ `FORCE ROW LEVEL SECURITY`** (aplica-se também ao owner, desde que não-BYPASSRLS):
 
 - `company_id NOT NULL` + FK → `company.id` (e `location_id` nas tabelas location-scoped)
 - Policies **por operação** (`SELECT`/`INSERT`/`UPDATE`/`DELETE`) para o role `merp_app`, usando `get_tenant_id()`/`get_location_id()` (funções `public`, não `current_tenant()` — não existe)
 - Fail-closed: GUC ausente, vazia ou de outro tenant → **0 rows**; INSERT cross-tenant → `42501` (verificado em `server/utils/rls-matrix.test.ts`)
 - `merp_app` não é superuser nem tem BYPASSRLS; só o role de migrações (`merp`) ignora RLS
-- 7 tabelas ficam **sem RLS** por serem auth/globais: `user`, `session`, `account`, `verification`, `auth_event`, `auth_security_state`, `email_queue`
+- 6 tabelas ficam **sem RLS**: `user`, `session`, `account`, `verification`, `auth_security_state`, `email_queue`. As cinco primeiras são auth/globais; `email_queue` é resíduo da fila desativada — existe na migração `0019` mas nenhum código a escreve ou lê (`server/utils/schema/email.ts` foi removido)
+- `auth_event` **tem** RLS + `FORCE` (2 policies) — é escopada por empresa como as demais
 
 ## Packs Verticais
 

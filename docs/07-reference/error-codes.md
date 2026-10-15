@@ -3,14 +3,14 @@ title: 'Error Codes — MERP'
 slug: 'error-codes'
 category: 'reference'
 status: 'active'
-version: '1.0.0'
+version: '1.1.0'
 owner: '@docs-maintainer'
 reviewers: ['@tech-lead']
 module: 'reference'
 tags: ['errors', 'http', 'codes', 'api', 'better-auth']
 audience: ['dev', 'qa', 'support']
 created: '2026-10-10'
-updated: '2026-10-10'
+updated: '2026-10-13'
 review-cycle: 'quarterly'
 related: []
 replaces: []
@@ -19,57 +19,73 @@ replaced-by: null
 
 # Error Codes — MERP
 
-Códigos de erro padronizados retornados pela API. Padrão: **anti-enumeração** — erros de autenticação retornam `201 Created` genérico com corpo mínimo para não vazar existência de email/usuário.
+Códigos de erro retornados pela API.
+
+**Anti-enumeração** não é "sempre 201": é garantida por duas camadas — o corpo
+da resposta ser idêntico para recurso existente/inexistente **e** um piso de
+tempo de resposta (`enforceMinimumTime`), para que o relógio não vaze a
+existência da conta.
 
 ## Formato Padrão
 
+Sucesso: `200` (ou `201` nos endpoints de criação) com o corpo do recurso.
+
+Erro: o handler do Nitro responde com o envelope abaixo. **`message` é uma
+string contendo JSON** — não um objeto:
+
 ```json
 {
-  "statusCode": 400,
-  "error": "Bad Request",
-  "message": "Descrição legível",
-  "code": "ERROR_CODE",
-  "details": {}
+  "statusCode": 401,
+  "statusMessage": "401",
+  "message": "{\"error\":\"unauthorized\",\"message\":\"Authentication required.\"}"
 }
 ```
 
-## Códigos por Categoria
+O código legível fica dentro de `message` (formato `{ error, message }`), que é
+o que `sendAuthError` em `server/utils/shared/errors.ts` serializa.
 
-### Autenticação (`/api/auth/*`)
+## Sucesso por Endpoint
 
-| HTTP | Code                  | Endpoint                                                                                                                      | Descrição                                                              |
-| ---- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 201  | `SUCCESS`             | register, login, logout, forget-password, reset-password, send-verification-email, verify-email, consent/withdraw, deactivate | **Anti-enumeração**: sempre 201 com corpo mínimo `{ success: true }`   |
-| 400  | `VALIDATION_ERROR`    | Qualquer                                                                                                                      | Body inválido (Zod) — detalhes em `details`                            |
-| 400  | `INVALID_CSRF_TOKEN`  | POST/PATCH/DELETE autenticados                                                                                                | Token CSRF ausente ou inválido                                         |
-| 401  | `UNAUTHORIZED`        | Endpoints com sessão                                                                                                          | Sessão ausente, expirada ou inválida                                   |
-| 403  | `EMAIL_NOT_VERIFIED`  | login                                                                                                                         | Email não verificado (bloqueia login)                                  |
-| 403  | `ACCOUNT_DEACTIVATED` | login                                                                                                                         | Conta desativada (consentimento retirado)                              |
-| 403  | `SESSION_REVOKED`     | Qualquer autenticado                                                                                                          | Sessão revogada (logout, password reset, consent withdrawal)           |
-| 404  | `NOT_FOUND`           | verify-email, reset-password/[token]                                                                                          | Token inválido ou expirado                                             |
-| 409  | `CONFLICT`            | register, companies                                                                                                           | Email já registrado, CNPJ duplicado, etc.                              |
-| 422  | `WEAK_PASSWORD`       | register, reset-password                                                                                                      | Senha fraca (HIBP breach, length, complexity)                          |
-| 429  | `RATE_LIMITED`        | register, login, forget-password, send-verification-email                                                                     | Rate limit excedido (IP 20/min, email 5/min, user 60/min)              |
-| 429  | `LOCKED_OUT`          | login                                                                                                                         | Lockout dual-tier: (email+IP) 10 tentativas OU global email 50 → 30min |
+| HTTP | Endpoint                                                    | Corpo                                                                         |
+| ---- | ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 201  | `register`                                                  | `{ id, email, name, createdAt }` — **idêntico** para email duplicado (AUD-03) |
+| 201  | `companies`, `invite`                                       | dados do recurso criado                                                       |
+| 200  | `login`                                                     | `{ id, email, name }` + cookie de sessão                                      |
+| 200  | `forget-password`                                           | `{ status: true, message }` — **idêntico** se o email não existir (AUD-04)    |
+| 200  | `reset-password`, `send-verification-email`, `verify-email` | `{ status: true }`                                                            |
+| 200  | `logout`                                                    | `{ message: 'Logged out successfully' }`                                      |
 
-### Empresas/Membros/Convites (`/api/auth/companies*`, `/api/auth/invites*`)
+## Códigos de Erro
 
-| HTTP | Code                | Endpoint                              | Descrição                                |
-| ---- | ------------------- | ------------------------------------- | ---------------------------------------- |
-| 403  | `FORBIDDEN`         | companies/_, invites/_                | Não é membro da empresa ou não é owner   |
-| 404  | `COMPANY_NOT_FOUND` | companies/get, switch, update, delete | Empresa não existe ou soft-deleted       |
-| 404  | `INVITE_NOT_FOUND`  | invites/accept                        | Convite não existe, expirado ou já usado |
-| 409  | `ALREADY_MEMBER`    | invites/accept                        | Email já é membro da empresa             |
-| 400  | `INVALID_TOKEN`     | invites/accept                        | Token de convite inválido                |
+| HTTP | `error`               | Onde                                                              | Descrição                                           |
+| ---- | --------------------- | ----------------------------------------------------------------- | --------------------------------------------------- |
+| 400  | `validation_error`    | qualquer                                                          | Body inválido (Zod, tamanho, formato)               |
+| 401  | `unauthorized`        | endpoints com sessão                                              | Sessão ausente ou inválida                          |
+| 401  | `session_expired`     | endpoints com sessão (`server/middleware/auth.ts:131`)            | Havia cookie, mas a sessão expirou ou foi revogada  |
+| 401  | `invalid_credentials` | `login`                                                           | Email ou senha errados — resposta genérica          |
+| 401  | `account_deactivated` | `login`                                                           | Conta desativada ou consentimento retirado (AUD-07) |
+| 403  | `email_not_verified`  | `login`                                                           | Email não verificado (bloqueia login)               |
+| 403  | `forbidden`           | `companies*`, `invites*`                                          | Não é membro da empresa ou não é owner              |
+| 404  | `not_found`           | `verify-email`, `reset-password/[token]`                          | Token inválido ou expirado                          |
+| 429  | `rate_limit_exceeded` | `register`, `login`, `forget-password`, `send-verification-email` | IP 20/min, email 5/min, user 60/min                 |
+| 503  | `service_unavailable` | qualquer com banco down                                           | Falha de banco não-classificada                     |
+| 503  | `upstream_timeout`    | chamadas ao Better Auth (`callBetterAuth`, timeout 5s)            | Tempo esgotado aguardando o Better Auth             |
+| 503  | `auth_unavailable`    | qualquer com Better Auth fora                                     | Instância do Better Auth inicializando              |
 
-### Health/Metrics/Público
+### `409` nunca é retornado
 
-| HTTP | Code                  | Endpoint                      | Descrição                                 |
-| ---- | --------------------- | ----------------------------- | ----------------------------------------- |
-| 200  | `OK`                  | health, metrics, security.txt | Sempre 200; body indica readiness de deps |
-| 503  | `SERVICE_UNAVAILABLE` | health                        | Dependência crítica down (DB)             |
+`sendConflictError` existe em `errors.ts` mas **não é chamado por nenhum
+handler**. Email duplicado, CNPJ duplicado e `unique_violation` de banco não
+produzem `409`:
 
-### Rate Limit Headers
+- **`register`** com email já existente devolve `201` com corpo forjado, nunca
+  `409` (AUD-03 / FR-003 — unicidade é garantida pelo banco, não por código de
+  erro).
+- **`23505`** (`unique_violation`) é classificado como `503` por
+  `classifyDatabaseError` — conflitos são tratados pelos chamadores antes de
+  chegar no banco (ver `errors.spec.ts`).
+
+## Rate Limit Headers
 
 Todos os endpoints rate-limited retornam headers:
 
@@ -80,74 +96,83 @@ X-RateLimit-Reset: 1700000000
 Retry-After: 45  (quando 429)
 ```
 
-## Better Auth Errors (Mapeados)
-
-Better Auth lança erros internos que são mapeados para os códigos acima em `server/utils/shared/errors.ts` via `handleDatabaseError` e `sendAuthError`.
-
-| Better Auth Error      | MERP Code             | HTTP |
-| ---------------------- | --------------------- | ---- |
-| `EMAIL_ALREADY_EXISTS` | `CONFLICT`            | 409  |
-| `INVALID_CREDENTIALS`  | `SUCCESS` (201)       | 201  |
-| `EMAIL_NOT_VERIFIED`   | `EMAIL_NOT_VERIFIED`  | 403  |
-| `SESSION_EXPIRED`      | `UNAUTHORIZED`        | 401  |
-| `SESSION_REVOKED`      | `SESSION_REVOKED`     | 403  |
-| `ACCOUNT_DEACTIVATED`  | `ACCOUNT_DEACTIVATED` | 403  |
-
 ## Erros de Banco (PostgreSQL)
 
-| PG Code | Condição                 | MERP Code          | HTTP |
-| ------- | ------------------------ | ------------------ | ---- |
-| `23505` | `unique_violation`       | `CONFLICT`         | 409  |
-| `23503` | `foreign_key_violation`  | `VALIDATION_ERROR` | 400  |
-| `23514` | `check_violation`        | `VALIDATION_ERROR` | 400  |
-| `42501` | `insufficient_privilege` | `FORBIDDEN`        | 403  |
-| `42P01` | `undefined_table`        | `INTERNAL_ERROR`   | 500  |
+Classificados por `classifyDatabaseError` / `handleDatabaseError` em
+`server/utils/shared/errors.ts`:
+
+| PG Code | Condição                 | `error`               | HTTP |
+| ------- | ------------------------ | --------------------- | ---- |
+| `42501` | `insufficient_privilege` | `forbidden`           | 403  |
+| `P0001` | policy function error    | `forbidden`           | 403  |
+| `23505` | `unique_violation`       | `service_unavailable` | 503  |
+| outros  | conexão, timeout, etc.   | `service_unavailable` | 503  |
+
+`23503` e `23514` caem no ramo genérico → `503`, não `400`: por virem do banco
+já passaram da validação.
+
+## Melhor Auth
+
+Erros internos do Better Auth viram `APIError` com `statusCode`. O fluxo de
+login converte tudo em códigos genéricos em
+`server/utils/auth/identity/queries.ts`:
+
+| Better Auth                 | `error`               | HTTP |
+| --------------------------- | --------------------- | ---- |
+| `INVALID_EMAIL_OR_PASSWORD` | `invalid_credentials` | 401  |
+| `EMAIL_NOT_VERIFIED`        | `email_not_verified`  | 403  |
+| conta inativa               | `account_deactivated` | 401  |
+| sessão inválida/expirada    | `unauthorized`        | 401  |
+
+`EMAIL_ALREADY_EXISTS` do Better Auth não chega ao cliente: `registerUser`
+converte `422`/duplicata em `null` e o handler responde `201` forjado.
 
 ## Exemplos
 
-### Validation Error (400)
+### Validação (400)
 
 ```json
 {
   "statusCode": 400,
-  "error": "Bad Request",
-  "message": "Validation failed",
-  "code": "VALIDATION_ERROR",
-  "details": {
-    "email": "Invalid email format",
-    "password": "Password must be at least 8 characters"
-  }
+  "statusMessage": "400",
+  "message": "{\"error\":\"validation_error\",\"message\":\"Valid email is required\"}"
 }
 ```
 
-### Rate Limited (429)
+### Rate limited (429)
 
 ```json
 {
   "statusCode": 429,
-  "error": "Too Many Requests",
-  "message": "Rate limit exceeded",
-  "code": "RATE_LIMITED",
-  "details": { "retryAfter": 45 }
+  "statusMessage": "429",
+  "message": "{\"error\":\"rate_limit_exceeded\",\"message\":\"Too many requests. Try again later.\"}"
 }
 ```
 
 Headers: `X-RateLimit-Limit: 20`, `X-RateLimit-Remaining: 0`, `Retry-After: 45`
 
-### Unauthorized (401)
+### Credenciais inválidas (401)
 
 ```json
 {
   "statusCode": 401,
-  "error": "Unauthorized",
-  "message": "Session expired or invalid",
-  "code": "UNAUTHORIZED",
-  "details": {}
+  "statusMessage": "401",
+  "message": "{\"error\":\"invalid_credentials\",\"message\":\"Invalid email or password\"}"
 }
 ```
 
+Idêntico para email inexistente e para senha errada — inclusive em duração
+(Better Auth faz um hash scrypt dummy no caminho sem conta).
+
 ## Notas de Implementação
 
-- **Anti-enumeração**: `register`, `login`, `forget-password`, `reset-password`, `send-verification-email`, `verify-email`, `consent/withdraw`, `deactivate` **sempre retornam 201** com `{ success: true }` independentemente de o email existir. O frontend deve tratar todos como "verifique seu email".
-- **CSRF**: Endpoints `POST`/`PATCH`/`DELETE` autenticados exigem header `x-csrf-token`. Isentos: auth público (register, login, forget-password, reset-password, send-verification-email) + todos `GET`.
-- **RLS**: Erro `42501` (insufficient_privilege) → `FORBIDDEN` 403. Não vaza se o recurso existe.
+- **Anti-enumeração**: `register` devolve `201` com corpo forjado e
+  `forget-password` devolve `200` idêntico, ambos com piso de tempo
+  (`enforceMinimumTime`) para o relógio não denunciar a existência da conta.
+  `login` devolve `401` genérico com custo de scrypt equalizado. O frontend deve
+  tratar `register`/`forget-password` como "verifique seu email" sempre.
+- **CSRF**: `POST`/`PATCH`/`DELETE` autenticados exigem header `x-csrf-token`.
+  Isentos: auth público (register, login, forget-password, reset-password,
+  send-verification-email) + todos `GET`.
+- **RLS**: erro `42501` (insufficient_privilege) → `forbidden` `403`. Não vaza se
+  o recurso existe.

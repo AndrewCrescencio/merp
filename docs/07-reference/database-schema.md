@@ -24,7 +24,7 @@ Visão geral das tabelas do schema Drizzle. Fonte da verdade: `server/utils/sche
 ## Convenções
 
 - **PK**: `uuid` nativo para tabelas novas; `text` para tabelas Better Auth legadas (`user`, `session`, `account`, `verification`)
-- **RLS**: 16 tabelas operacionais têm RLS **+ `FORCE ROW LEVEL SECURITY`** com policies `company_id` (+ `location_id` onde aplica). Sem RLS (auth/globais): `user`, `session`, `account`, `verification`, `auth_event`, `auth_security_state`, `email_queue`
+- **RLS**: 17 tabelas operacionais têm RLS **+ `FORCE ROW LEVEL SECURITY`** com policies `company_id` (+ `location_id` onde aplica). Sem RLS (auth/globais): `user`, `session`, `account`, `verification`, `auth_security_state`, `email_queue`
 - **Dinheiro**: `numeric(12,2)` com arredondamento half-up por linha (ver `money.md`)
 - **Timestamps**: `timestamptz` com `defaultNow()`
 - **Soft delete**: Coluna `is_deleted` + `deleted_at` onde aplicável
@@ -33,16 +33,16 @@ Visão geral das tabelas do schema Drizzle. Fonte da verdade: `server/utils/sche
 
 ### Auth (Better Auth + Extensões)
 
-| Tabela           | PK     | Descrição                                           | RLS                              |
-| ---------------- | ------ | --------------------------------------------------- | -------------------------------- |
-| `user`           | `text` | Usuário (Better Auth core)                          | Global (user-scoped via session) |
-| `session`        | `text` | Sessão ativa                                        | User-scoped                      |
-| `account`        | `text` | Contas OAuth/email-password                         | User-scoped                      |
-| `verification`   | `text` | Tokens de verificação email/senha                   | User-scoped                      |
-| `company`        | `uuid` | Tenant/empresa                                      | Company-only                     |
-| `company_member` | `uuid` | Membro da empresa (role, default_location_id)       | Company-only                     |
-| `invite`         | `uuid` | Convite para empresa (token hash, expiração)        | Company-only                     |
-| `auth_event`     | `uuid` | Auditoria: login, logout, failed, session lifecycle | Sem RLS (ver achado)             |
+| Tabela           | PK     | Descrição                                           | RLS                                                    |
+| ---------------- | ------ | --------------------------------------------------- | ------------------------------------------------------ |
+| `user`           | `text` | Usuário (Better Auth core)                          | Global (user-scoped via session)                       |
+| `session`        | `text` | Sessão ativa                                        | User-scoped                                            |
+| `account`        | `text` | Contas OAuth/email-password                         | User-scoped                                            |
+| `verification`   | `text` | Tokens de verificação email/senha                   | User-scoped                                            |
+| `company`        | `uuid` | Tenant/empresa                                      | Company-only                                           |
+| `company_member` | `uuid` | Membro da empresa (role, default_location_id)       | Company-only                                           |
+| `invite`         | `uuid` | Convite para empresa (token hash, expiração)        | Company-only                                           |
+| `auth_event`     | `uuid` | Auditoria: login, logout, failed, session lifecycle | RLS + FORCE (`user_id = get_user_id()`, SELECT/INSERT) |
 
 ### Core Order (Em Progresso — Spec `specs/006-core-order/`)
 
@@ -106,7 +106,7 @@ Catálogo real (matriz tabela × policies): `docs/audit/2026-10-12-auditoria-sql
 
 - `drizzle/0000_*.sql` a `drizzle/0021_*.sql` — Journal Drizzle (schema + RLS básico)
 - `scripts/apply-custom-sql.ts` — Aplica RLS policies custom + grants (idempotente)
-- `pnpm db:migrate:full` roda ambos em sequência
+- `npm run db:migrate:full` roda ambos em sequência
 
 ## Consultas Úteis
 

@@ -1,20 +1,20 @@
 ---
-title: "Testing Guide — MERP"
-slug: "testing-guide"
-category: "guide"
-status: "active"
-version: "1.0.0"
-owner: "@qa-lead"
-reviewers: ["@tech-lead"]
-module: "getting-started"
-tags: ["testing", "vitest", "unit", "integration"]
-audience: ["dev", "qa"]
-created: "2026-10-03"
-updated: "2026-10-03"
-review-cycle: "quarterly"
+title: 'Testing Guide — MERP'
+slug: 'testing-guide'
+category: 'guide'
+status: 'active'
+version: '1.0.0'
+owner: '@qa-lead'
+reviewers: ['@tech-lead']
+module: 'getting-started'
+tags: ['testing', 'vitest', 'unit', 'integration']
+audience: ['dev', 'qa']
+created: '2026-10-03'
+updated: '2026-10-03'
+review-cycle: 'quarterly'
 related:
-  - "quickstart"
-  - "dev-environment"
+  - 'quickstart'
+  - 'dev-environment'
 replaces: []
 replaced-by: null
 ---
@@ -25,7 +25,7 @@ replaced-by: null
 
 - **Unit tests**: `*.spec.ts` — sem DB, rápidos, mockado
 - **Integration tests**: `*.test.ts` — DB real (PostgreSQL), `DB_AVAILABLE=true`
-- **Cobertura**: `pnpm test` roda ambos
+- **Cobertura**: `npm test` roda ambos
 
 ## Estrutura
 
@@ -40,16 +40,16 @@ vitest.config.ts              → Config de ambiente
 
 ```bash
 # Todos
-pnpm test
+npm test
 
 # Watch mode
-pnpm test:watch
+npm run test:watch
 
 # Apenas unit (sem DB)
-pnpm test -- --reporter=verbose
+npm test -- --reporter=verbose
 
 # Integração (requer Docker)
-DB_AVAILABLE=true pnpm test
+DB_AVAILABLE=true npm test
 ```
 
 ## Factories de Dados de Teste
@@ -61,7 +61,7 @@ const testUser = {
   email: 'test@merp.com',
   name: 'Test User',
   companyId: 'company-1',
-};
+}
 
 const testProduct = (overrides = {}) => ({
   id: 'prod-1',
@@ -69,7 +69,7 @@ const testProduct = (overrides = {}) => ({
   sku: 'TP-001',
   price: 99.99,
   ...overrides,
-});
+})
 ```
 
 ## Padrões

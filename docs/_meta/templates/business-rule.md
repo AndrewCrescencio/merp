@@ -1,17 +1,17 @@
 ---
-title: "Regra de Negócio: Nome"
-slug: "rule-nome"
-category: "reference"
-status: "active"
-version: "1.0.0"
-owner: "@handle"
-reviewers: ["@handle"]
-module: "context"
-tags: ["business-rule", "domain"]
-audience: ["dev", "qa", "product"]
-created: "2026-01-01"
-updated: "2026-01-01"
-review-cycle: "quarterly"
+title: 'Regra de Negócio: Nome'
+slug: 'rule-nome'
+category: 'reference'
+status: 'active'
+version: '1.0.0'
+owner: '@handle'
+reviewers: ['@handle']
+module: 'context'
+tags: ['business-rule', 'domain']
+audience: ['dev', 'qa', 'product']
+created: '2026-01-01'
+updated: '2026-01-01'
+review-cycle: 'quarterly'
 related: []
 replaces: []
 replaced-by: null
@@ -41,7 +41,7 @@ function validate(input): boolean {
 ## Exemplos
 
 | Entrada | Resultado | Por quê |
-|---------|-----------|---------|
+| ------- | --------- | ------- |
 |         |           |         |
 
 ## Onde é Aplicada
@@ -57,7 +57,7 @@ function validate(input): boolean {
 
 ## Exceções / Edge Cases
 
-- 
+-
 
 ## Referências Legais / Normativas
 

@@ -1,20 +1,20 @@
 ---
-title: "Especificação: Bounded Context"
-slug: "spec-context"
-category: "spec"
-status: "draft"
-version: "1.0.0"
-owner: "@handle"
-reviewers: ["@handle"]
-module: "context"
-tags: ["spec", "context"]
-audience: ["dev", "qa", "product"]
-created: "2026-01-01"
-updated: "2026-01-01"
-review-cycle: "quarterly"
+title: 'Especificação: Bounded Context'
+slug: 'spec-context'
+category: 'spec'
+status: 'draft'
+version: '1.0.0'
+owner: '@handle'
+reviewers: ['@handle']
+module: 'context'
+tags: ['spec', 'context']
+audience: ['dev', 'qa', 'product']
+created: '2026-01-01'
+updated: '2026-01-01'
+review-cycle: 'quarterly'
 related:
-  - "data-model-context"
-  - "api-context"
+  - 'data-model-context'
+  - 'api-context'
 replaces: []
 replaced-by: null
 ---
@@ -34,6 +34,7 @@ O que este contexto faz? Por que existe? Qual o limite?
 **Teste Independente:**
 
 **Critérios de Aceite:**
+
 1. **Dado** ... **Quando** ... **Então** ...
 
 ## Requisitos Funcionais
@@ -43,8 +44,8 @@ O que este contexto faz? Por que existe? Qual o limite?
 ## Entidades-Chave
 
 | Entidade | Descrição | Atributos Principais |
-|----------|-----------|---------------------|
-|          |           |                     |
+| -------- | --------- | -------------------- |
+|          |           |                      |
 
 ## Critérios de Sucesso (Mensuráveis)
 
@@ -52,24 +53,26 @@ O que este contexto faz? Por que existe? Qual o limite?
 
 ## Pressupostos
 
-- 
+-
 
 ## Fora de Escopo (MVP)
 
-- 
+-
 
 ## Modelo de Ameaças / Segurança
 
 ### Em Escopo
-- 
+
+-
 
 ### Fora de Escopo
-- 
+
+-
 
 ## Governança de Dados / LGPD
 
 | Campo | Classificação | Sensibilidade | Retenção |
-|-------|---------------|---------------|----------|
+| ----- | ------------- | ------------- | -------- |
 |       |               |               |          |
 
 ## Dependências de Infraestrutura

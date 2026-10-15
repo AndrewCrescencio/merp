@@ -18,8 +18,8 @@ This consolidated specification combines the auth bounded context, core order mo
 ### 1.2 Authentication Operations
 
 - **Registration**: Email + password. Duplicate email returns 201 Created (anti-enumeration, AUD-03), never 409
-- **Login**: Email + password. On success: cookie `merp-session_token` (httpOnly, Secure, SameSite=Lax) + `{ "status": true }`
-- **Logout**: Terminates session, returns `{ "status": true }` + cookie revogado
+- **Login**: Email + password. On success: cookie `merp-session_token` (httpOnly, Secure, SameSite=Lax) + `{ id, email, name }` (HTTP 200)
+- **Logout**: Terminates session, returns `{ message: 'Logged out successfully' }` (HTTP 200) + cookie revogado
 - **Rate limiting**: 5 req/min per email (sliding window). 429 response with `Retry-After`, `RateLimit-Reset`, `RateLimit-Remaining` headers
 - **Account lockout**: After 10 failed attempts from same IP (any window), auto-unlock after 30 min. After 50 total failed attempts across IPs, account locked for all IPs 30 min
 
@@ -300,15 +300,15 @@ All 429 responses include: `Retry-After`, `RateLimit-Reset`, `RateLimit-Remainin
 
 ### 5.2 Tabelas Core (Auth)
 
-| Tabela                | Descrição                                           | RLS          |
-| --------------------- | --------------------------------------------------- | ------------ |
-| `user`                | Usuário global (email, name, password hash)         | Não (global) |
-| `session`             | Sessão ativa (token, expires_at, active_company_id) | Não (global) |
-| `account`             | OAuth accounts (não usado ainda)                    | Não          |
-| `verification`        | Tokens de email/password reset                      | Não          |
-| `auth_event`          | Audit log de eventos auth                           | Não          |
-| `auth_security_state` | Rate limiting / lockout state                       | Não          |
-| `email_queue`         | Fila de emails (Resend)                             | Não          |
+| Tabela                | Descrição                                                                       | RLS             |
+| --------------------- | ------------------------------------------------------------------------------- | --------------- |
+| `user`                | Usuário global (email, name, password hash)                                     | Não (global)    |
+| `session`             | Sessão ativa (token, expires_at, active_company_id)                             | Não (global)    |
+| `account`             | OAuth accounts (não usado ainda)                                                | Não             |
+| `verification`        | Tokens de email/password reset                                                  | Não             |
+| `auth_event`          | Audit log de eventos auth                                                       | Sim (`user_id`) |
+| `auth_security_state` | Rate limiting / lockout state                                                   | Não             |
+| `email_queue`         | Resíduo da fila removida — tabela existe (migração `0019`), nenhum código a usa | Não             |
 
 ### 5.3 Tabelas Tenant (Multi-tenancy)
 
@@ -322,7 +322,7 @@ All 429 responses include: `Retry-After`, `RateLimit-Reset`, `RateLimit-Remainin
 
 - **Journal (14)**: `drizzle/meta/_journal.json` — aplicadas via `drizzle-kit migrate`
 - **Custom (10+)**: `drizzle/0014_*.sql` em diante — RLS, policies, grants, DEFAULT PRIVILEGES
-- **Aplicação**: `pnpm db:migrate:full` roda ambos (ver `scripts/apply-custom-sql.ts`)
+- **Aplicação**: `npm run db:migrate:full` roda ambos (ver `scripts/apply-custom-sql.ts`)
 
 ### 5.5 Grants merp_app
 

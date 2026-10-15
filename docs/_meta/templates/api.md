@@ -1,20 +1,20 @@
 ---
-title: "API Contract: Context"
-slug: "api-context"
-category: "api"
-status: "active"
-version: "1.0.0"
-owner: "@handle"
-reviewers: ["@handle"]
-module: "context"
-tags: ["api", "contract", "openapi"]
-audience: ["dev", "qa"]
-created: "2026-01-01"
-updated: "2026-01-01"
-review-cycle: "on-change"
+title: 'API Contract: Context'
+slug: 'api-context'
+category: 'api'
+status: 'active'
+version: '1.0.0'
+owner: '@handle'
+reviewers: ['@handle']
+module: 'context'
+tags: ['api', 'contract', 'openapi']
+audience: ['dev', 'qa']
+created: '2026-01-01'
+updated: '2026-01-01'
+review-cycle: 'on-change'
 related:
-  - "spec-context"
-  - "data-model-context"
+  - 'spec-context'
+  - 'data-model-context'
 replaces: []
 replaced-by: null
 ---
@@ -34,12 +34,12 @@ replaced-by: null
 
 **Query Params:**
 
-| Param | Tipo | Obrigatório | Descrição |
-|-------|------|-------------|-----------|
-| page | integer | N | Página (default 1) |
-| limit | integer | N | Itens por página (default 20, max 100) |
-| q | string | N | Busca textual |
-| sort | string | N | Campo:direção (ex: `created_at:desc`) |
+| Param | Tipo    | Obrigatório | Descrição                              |
+| ----- | ------- | ----------- | -------------------------------------- |
+| page  | integer | N           | Página (default 1)                     |
+| limit | integer | N           | Itens por página (default 20, max 100) |
+| q     | string  | N           | Busca textual                          |
+| sort  | string  | N           | Campo:direção (ex: `created_at:desc`)  |
 
 **Response 200:**
 
@@ -74,10 +74,10 @@ replaced-by: null
 
 ## Códigos de Erro Específicos
 
-| Código | HTTP | Quando |
-|--------|------|--------|
-| `sku_conflict` | 409 | SKU já existe na company |
-| `insufficient_stock` | 422 | Tentativa de vender sem estoque |
+| Código               | HTTP | Quando                          |
+| -------------------- | ---- | ------------------------------- |
+| `sku_conflict`       | 409  | SKU já existe na company        |
+| `insufficient_stock` | 422  | Tentativa de vender sem estoque |
 
 ## Exemplos (cURL)
 

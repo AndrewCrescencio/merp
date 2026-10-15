@@ -234,19 +234,20 @@ Tabelas company-scoped (sem `location_id`) usam só `get_tenant_id()`; `order_di
 
 ```bash
 # Nova migração após criar schema
-pnpm drizzle-kit generate --name add_restaurant_table
+npx drizzle-kit generate --name add_restaurant_table
 
 # Aplicar migrações + RLS (banco novo)
-pnpm db:migrate:full
+npm run db:migrate:full
 
-# Testes unitários
-pnpm test server/utils/restaurant/repository.spec.ts
+# Testes unitários (npx vitest run: `npm test -- <arquivo>` faz o vitest
+# descartar o filtro e rodar a suíte inteira)
+npx vitest run server/utils/restaurant/repository.spec.ts
 
 # Testes integração (requer Postgres)
-DB_AVAILABLE=true pnpm test server/utils/restaurant/repository.test.ts
+DB_AVAILABLE=true npx vitest run server/utils/restaurant/repository.test.ts
 
 # Lint + Typecheck
-pnpm lint && pnpm typecheck
+npm run lint && npm run typecheck
 ```
 
 ---
