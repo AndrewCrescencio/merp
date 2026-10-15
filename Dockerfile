@@ -1,19 +1,49 @@
-FROM node:24-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
-WORKDIR /app
-COPY package.json pnpm-lock.yaml* ./
+# syntax=docker/dockerfile:1.7
 
+# ---- Base ----
+FROM node:24-alpine AS base
+
+WORKDIR /app
+
+# package-lock.json entra junto: `npm ci` é determinístico a partir dele (o
+# npm embutido na node:24-alpine lê lockfileVersion 3 sem problema).
+COPY package.json package-lock.json* ./
+
+# ---- Build ----
 FROM base AS build
+
 ARG CORS_ORIGIN
 ENV CORS_ORIGIN=${CORS_ORIGIN}
-COPY . .
-RUN pnpm install --frozen-lockfile && pnpm build
 
-FROM base AS production
-COPY --from=build /app/.output /app/.output
+RUN npm ci
+
+COPY . .
+
+RUN npm run build
+
+# ---- Production ----
+FROM node:24-alpine AS production
+
+RUN addgroup -g 1001 -S appgroup \
+ && adduser -S -D -H -u 1001 -G appgroup appuser
+
+WORKDIR /app
+
+COPY --from=build --chown=appuser:appgroup /app/.output /app/.output
+
 ENV NODE_ENV=production
-# AUD-11 (hardening): não rodar como root — o processo de runtime tem permissão
-# mínima; .output é somente leitura (lido), nada é escrito em /app.
-USER node
+ENV PORT=3000
+
+# AUD-11 (hardening): nunca root — uid/gid fixos (1001, appuser) e .output de
+# propriedade do próprio usuário; o conteúdo é só lido, nada é escrito em /app.
+# UID/GID numéricos: o kernel não depende de /etc/passwd na hora de validar.
+USER 1001:1001
+
 EXPOSE 3000
+
+# /api/health é público e responde 200 sem depender de DB (server/api/health.get.ts);
+# `/` redireciona para /auth e deixaria o container sempre "unhealthy".
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
 CMD ["node", ".output/server/index.mjs"]
