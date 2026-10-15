@@ -41,9 +41,10 @@ USER 1001:1001
 
 EXPOSE 3000
 
-# /api/health é público e responde 200 sem depender de DB (server/api/health.get.ts);
-# `/` redireciona para /auth e deixaria o container sempre "unhealthy".
+# /api/health/live é público e sempre responde 200 sem depender de DB
+# (server/api/health/live.get.ts); `/` redireciona para /auth e deixaria o
+# container sempre "unhealthy".
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
 CMD ["node", ".output/server/index.mjs"]

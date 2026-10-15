@@ -21,7 +21,7 @@ export default defineNuxtConfig({
       cors: true,
       headers: {
         'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || 'http://localhost:3000',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
         // x-csrf-token: exigido pelos POSTs autenticados (double-submit) —
         // sem ele o preflight do navegador bloqueia logout/companies/invite.
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token',
@@ -46,13 +46,17 @@ export default defineNuxtConfig({
     },
     experimental: {
       tasks: true,
+      // OpenAPI (Nitro): gera /_openapi.json a partir dos handlers e serve
+      // as UIs /_scalar e /_swagger. Só em dev por padrão (`openAPI.production`
+      // continua false) — em produção o JSON não é servido sem decisão explícita.
+      openAPI: true,
     },
-    externals: {
-      inline: [],
-      external: ['nitropack'],
-    },
-    rollupConfig: {
-      external: ['nitropack'],
+    openAPI: {
+      meta: {
+        title: 'MERP API',
+        description: 'API do MERP (Restaurant ERP) — gerada pelos route handlers Nitro.',
+        version: '1.0.0',
+      },
     },
   },
 

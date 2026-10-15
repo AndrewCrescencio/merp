@@ -90,8 +90,21 @@ describe('auth middleware', () => {
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 
-  it('skips auth for health route', async () => {
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/health'))
+  it('skips auth for health live route', async () => {
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/health/live'))
+
+    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
+
+    const event = { headers: new Headers() } as any
+
+    const result = await handler(event)
+
+    expect(result).toBeUndefined()
+    expect(mockGetSession).not.toHaveBeenCalled()
+  })
+
+  it('skips auth for health ready route', async () => {
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/health/ready'))
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
 
@@ -127,19 +140,8 @@ describe('auth middleware', () => {
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 
-  it('skips auth for the public /api/metrics scrape endpoint', async () => {
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/metrics'))
-
-    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
-
-    const event = { headers: new Headers() } as any
-
-    await expect(handler(event)).resolves.toBeUndefined()
-    expect(mockGetSession).not.toHaveBeenCalled()
-  })
-
   it('skips auth for the public RFC 9116 security.txt', async () => {
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/.well-known/security.txt'))
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/.well-known/security.txt'))
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
 

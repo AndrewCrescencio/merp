@@ -21,13 +21,20 @@ const publicRoutes = [
   // FR-029: reenvio do link de verificação — conta não-verificada não tem
   // sessão (login devolve 403); exigir sessão criaria deadlock no onboarding.
   '/api/auth/send-verification-email',
-  '/api/health',
-  // Infra: Prometheus scrape sem sessão (sem PII — só uptime + readiness).
-  '/api/metrics',
+  // Health: liveness (sempre 200) e readiness (503 se o banco cair) — públicos
+  // para o healthcheck do Docker/load balancer sem sessão.
+  '/api/health/live',
+  '/api/health/ready',
   // RFC 9116: scanners de segurança buscam anonimamente — exigir sessão
   // quebraria o propósito do arquivo.
-  '/api/.well-known/security.txt',
+  '/.well-known/security.txt',
   '/',
+  // OpenAPI do Nitro (experimental.openAPI): spec + UIs existem SÓ em dev —
+  // `openAPI.production` continua false, então em produção não há handler
+  // sobrando para expor. Exigir sessão aqui só esconderia a doc local.
+  '/_openapi.json',
+  '/_scalar',
+  '/_swagger',
   // Public pages (no auth required)
   '/auth/register',
   '/auth/login',

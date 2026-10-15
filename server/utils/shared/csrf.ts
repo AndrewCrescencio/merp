@@ -74,7 +74,8 @@ const csrfExemptPaths = new Set([
   // FR-029: reenvio é público (sem sessão) — CSRF aqui não protege nada
   // (o atacante pode chamar direto); rate limit por IP/email é a defesa.
   '/api/auth/send-verification-email',
-  '/api/health',
+  '/api/health/live',
+  '/api/health/ready',
 ])
 
 const csrfExemptPrefixes = ['/api/auth/reset-password/']
