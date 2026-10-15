@@ -46,18 +46,28 @@ services:
 
 ## Variáveis de Ambiente Obrigatórias
 
-| Variável              | Descrição                                               | Exemplo                                       |
-| --------------------- | ------------------------------------------------------- | --------------------------------------------- |
-| `DATABASE_URL`        | Owner role (migrações) — **não** chega no container app | `postgres://merp:merp@localhost:5432/merp`    |
-| `APP_DATABASE_URL`    | App role (non-superuser) — **obrigatório** em produção  | `postgres://merp_app:xxx@localhost:5432/merp` |
-| `BETTER_AUTH_SECRET`  | >= 32 chars — boot falha sem ela                        | `openssl rand -base64 32`                     |
-| `BETTER_AUTH_URL`     | Domínio público real (links verificação/reset)          | `http://localhost:3000`                       |
-| `CORS_ORIGIN`         | Domínio público — baked no build + runtime              | `http://localhost:3000`                       |
-| `CSRF_SECRET`         | >= 32 chars — assina tokens double-submit               | `openssl rand -base64 32`                     |
-| `RESEND_API_KEY`      | `re_...` — emails transacionais                         | `re_abc123`                                   |
-| `RESEND_FROM`         | `no-reply@seu-dominio.com`                              | `no-reply@merp.com.br`                        |
-| `TRUST_PROXY`         | `true` atrás de nginx/Cloudflare                        | `true`                                        |
-| `TRUSTED_PROXY_CIDRS` | CIDR do subnet da rede Docker                           | `172.28.0.0/16`                               |
+| Variável              | Descrição                                                | Exemplo                                       |
+| --------------------- | -------------------------------------------------------- | --------------------------------------------- |
+| `DATABASE_URL`        | Owner role (migrações) — **não** chega no container app  | `postgres://merp:merp@localhost:5432/merp`    |
+| `APP_DATABASE_URL`    | App role (non-superuser) — **obrigatório** em produção   | `postgres://merp_app:xxx@localhost:5432/merp` |
+| `BETTER_AUTH_SECRET`  | >= 32 chars — boot falha sem ela                         | `openssl rand -base64 32`                     |
+| `BETTER_AUTH_URL`     | Domínio público real (links verificação/reset)           | `http://localhost:3000`                       |
+| `CORS_ORIGIN`         | Domínio público — baked no build + runtime               | `http://localhost:3000`                       |
+| `CSRF_SECRET`         | >= 32 chars — assina tokens double-submit                | `openssl rand -base64 32`                     |
+| `RESEND_API_KEY`      | `re_...` — emails transacionais                          | `re_abc123`                                   |
+| `RESEND_FROM`         | `no-reply@seu-dominio.com`                               | `no-reply@merp.com.br`                        |
+| `TRUST_PROXY`         | `true` atrás de nginx/Cloudflare                         | `true`                                        |
+| `TRUSTED_PROXY_CIDRS` | Faixas de IP dos proxies em que confiamos (notação CIDR) | `172.28.0.0/16`                               |
+
+> **O que é um CIDR:** notação de faixa de IP — `172.28.0.0/16` cobre de
+> `172.28.0.0` a `172.28.255.255`; `/32` significa **um único** IP (ex.:
+> `127.0.0.1/32`). Aceita várias entradas por vírgula: `127.0.0.1/32,::1/128`.
+>
+> **O que é `TRUSTED_PROXY_CIDRS`:** a lista dos proxies em que o app confia
+> para ler `X-Forwarded-For` (quem diz o IP real do cliente). Sem isso, vale o
+> IP do socket — ou seja, todos os clientes parecem o mesmo. Detalhes e o porquê
+> do risco de forjar esse header em
+> [Environment Variables → Segurança](../07-reference/env-variables.md#segurança).
 
 ## Desenvolvimento Local
 

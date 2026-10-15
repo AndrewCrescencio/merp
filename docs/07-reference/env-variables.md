@@ -44,15 +44,15 @@ Todas as variáveis de ambiente usadas pelo projeto. Template oficial: `.env.exa
 
 ## Variáveis Opcionais
 
-| Variável              | Descrição                                     | Default                           | Notas                                                                                 |
-| --------------------- | --------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------- |
-| `TRUST_PROXY`         | `true` se atrás de nginx/Cloudflare           | `false`                           | Se `true`, `TRUSTED_PROXY_CIDRS` obrigatório                                          |
-| `TRUSTED_PROXY_CIDRS` | CIDR exato do proxy (Docker: `172.28.0.0/16`) | (obrigatório se TRUST_PROXY=true) | Fail-closed se proxy=true sem CIDRS. Em cloud, descobrir pelo runbook `deploy-secure` |
-| `PORT`                | Porta do servidor                             | `3000`                            | Fixado em 3000 no compose prod                                                        |
-| `HOST`                | Bind address                                  | `0.0.0.0`                         |                                                                                       |
-| `LOG_LEVEL`           | Nível de log (debug/info/warn/error)          | `info`                            | Via `shared/logger.ts`                                                                |
-| `DB_PORT`             | Porta Postgres (host access)                  | `5432`                            | Para `docker compose` apenas                                                          |
-| `NODE_ENV`            | Ambiente                                      | `development`                     | `production` em prod                                                                  |
+| Variável              | Descrição                                                                                                       | Default                           | Notas                                                                                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `TRUST_PROXY`         | `true` se atrás de nginx/Cloudflare                                                                             | `false`                           | Se `true`, `TRUSTED_PROXY_CIDRS` obrigatório                                                                       |
+| `TRUSTED_PROXY_CIDRS` | Lista das faixas de IP dos proxies em que confiamos (notação CIDR, várias por vírgula). Docker: `172.28.0.0/16` | (obrigatório se TRUST_PROXY=true) | Fail-closed se proxy=true sem CIDRS. Em cloud, descobrir pelo runbook `deploy-secure`. Ver [Segurança](#segurança) |
+| `PORT`                | Porta do servidor                                                                                               | `3000`                            | Fixado em 3000 no compose prod                                                                                     |
+| `HOST`                | Bind address                                                                                                    | `0.0.0.0`                         |                                                                                                                    |
+| `LOG_LEVEL`           | Nível de log (debug/info/warn/error)                                                                            | `info`                            | Via `shared/logger.ts`                                                                                             |
+| `DB_PORT`             | Porta Postgres (host access)                                                                                    | `5432`                            | Para `docker compose` apenas                                                                                       |
+| `NODE_ENV`            | Ambiente                                                                                                        | `development`                     | `production` em prod                                                                                               |
 
 ## Variáveis Docker Compose (Apenas no compose)
 
@@ -96,4 +96,37 @@ O `docker-compose.prod.yml` usa **fail-closed** (`${VAR:?}`) — todas as variá
 - **NUNCA** commitar `.env` real (já no `.gitignore`)
 - `BETTER_AUTH_SECRET` e `CSRF_SECRET`: gere com `openssl rand -base64 32` (64 chars)
 - `DATABASE_URL` (owner) e `APP_DATABASE_URL` (app): credenciais diferentes
-- `TRUSTED_PROXY_CIDRS`: deve corresponder exatamente ao subnet da rede Docker (`172.28.0.0/16` no compose prod)
+- `TRUSTED_PROXY_CIDRS`: deve corresponder ao proxy real (no compose prod,
+  `172.28.0.0/16`, a subnet da rede Docker) — ver os dois tópicos abaixo
+
+### O que é um CIDR
+
+CIDR (Classless Inter-Domain Routing) é a **notação de faixa de IP**. O número
+depois da barra diz quantos bits do endereço são fixos:
+
+| Entrada         | Significado                                     |
+| --------------- | ----------------------------------------------- |
+| `172.28.0.0/16` | de `172.28.0.0` a `172.28.255.255` (65 536 IPs) |
+| `10.0.0.0/8`    | a rede `10.x.x.x` inteira                       |
+| `127.0.0.1/32`  | apenas esse IP (`/32` fixa tudo = 1 endereço)   |
+| `::1/128`       | o mesmo, em IPv6                                |
+
+### O que é `TRUSTED_PROXY_CIDRS`
+
+`X-Forwarded-For` é o cabeçalho que um proxy escreve para dizer "este é o IP
+real do cliente". Mas ele vem **dentro da requisição** — qualquer cliente pode
+mandá-lo forjado. Confiar nele às cegas deixaria um atacante escolher o próprio
+IP, contornando o rate limit por IP e poluindo a auditoria.
+
+`TRUSTED_PROXY_CIDRS` é a **lista de faixas de IP dos proxies em que
+confiamos**. O app só lê `X-Forwarded-For` quando **quem abriu a conexão TCP
+direto** (o "peer imediato", o endereço do socket) está nessa lista.
+
+- Aceita **várias** entradas separadas por vírgula: `127.0.0.1/32,::1/128`
+- É **obrigatória** quando `TRUST_PROXY=true` (fail-closed) — sem ela o boot de
+  produção é recusado
+- Errar o valor **não abre buraco**: o header é ignorado e vale o endereço do
+  socket. O risco é o contrário — errar para baixo derruba o rate limit, pois
+  todos os clientes cairiam no mesmo bucket `rate:ip:<proxy>`
+- Implementação: `server/utils/shared/ip.ts` · como descobrir o valor certo:
+  runbook [`deploy-secure`](../05-operations/security/deploy-secure.md)

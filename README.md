@@ -176,18 +176,28 @@ segurar a promise depois da resposta. Em Docker (processo longo) ela conclui.
 
 ## Variáveis de ambiente obrigatórias (produção)
 
-| Variável              | Descrição                                               |
-| --------------------- | ------------------------------------------------------- |
-| `DATABASE_URL`        | Owner role (migrações) — **não** chega no container app |
-| `APP_DATABASE_URL`    | App role (non-superuser) — **obrigatório** em produção  |
-| `BETTER_AUTH_SECRET`  | >= 32 chars — boot falha sem ela                        |
-| `BETTER_AUTH_URL`     | Domínio público real (links de verificação/reset)       |
-| `CORS_ORIGIN`         | Domínio público — baked no build + runtime              |
-| `CSRF_SECRET`         | >= 32 chars — assina tokens double-submit               |
-| `RESEND_API_KEY`      | `re_...` — emails transacionais                         |
-| `RESEND_FROM`         | `no-reply@seu-dominio.com`                              |
-| `TRUST_PROXY`         | `true` atrás de nginx/Cloudflare                        |
-| `TRUSTED_PROXY_CIDRS` | CIDR do subnet da rede Docker (ex.: `172.28.0.0/16`)    |
+| Variável              | Descrição                                                               |
+| --------------------- | ----------------------------------------------------------------------- |
+| `DATABASE_URL`        | Owner role (migrações) — **não** chega no container app                 |
+| `APP_DATABASE_URL`    | App role (non-superuser) — **obrigatório** em produção                  |
+| `BETTER_AUTH_SECRET`  | >= 32 chars — boot falha sem ela                                        |
+| `BETTER_AUTH_URL`     | Domínio público real (links de verificação/reset)                       |
+| `CORS_ORIGIN`         | Domínio público — baked no build + runtime                              |
+| `CSRF_SECRET`         | >= 32 chars — assina tokens double-submit                               |
+| `RESEND_API_KEY`      | `re_...` — emails transacionais                                         |
+| `RESEND_FROM`         | `no-reply@seu-dominio.com`                                              |
+| `TRUST_PROXY`         | `true` atrás de nginx/Cloudflare                                        |
+| `TRUSTED_PROXY_CIDRS` | Faixas de IP (CIDR) dos proxies em que confiamos (ex.: `172.28.0.0/16`) |
+
+> **CIDR** = notação de faixa de IP: `172.28.0.0/16` cobre de `172.28.0.0` a
+> `172.28.255.255`; `/32` significa um único IP; aceita várias entradas por
+> vírgula (`127.0.0.1/32,::1/128`).
+>
+> **`TRUSTED_PROXY_CIDRS`** é a lista que autoriza o app a ler
+> `X-Forwarded-For` (o header que diz o IP real do cliente, e que qualquer
+> cliente pode forjar). Sem ela, todo cliente parece ter o mesmo IP e o rate
+> limit colapsa. Explicação completa em `docs/07-reference/env-variables.md`,
+> seção _Segurança_.
 
 ## Estrutura de pastos (Vertical Slices)
 

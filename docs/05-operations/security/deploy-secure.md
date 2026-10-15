@@ -184,6 +184,17 @@ README (seção _Deploy — caminho grátis_). As que costumam dar problema:
 
 ### 4.2 `TRUST_PROXY` — não existe "subnet do Vercel" para documentar
 
+> **Em uma frase:** `TRUSTED_PROXY_CIDRS` é a lista das faixas de IP dos
+> proxies em que o app confia para ler `X-Forwarded-For` — o header que diz o
+> IP real do cliente, e que **qualquer cliente pode forjar**. Por isso só é
+> lido quando **quem abriu a conexão TCP direto** com a função está na lista.
+>
+> **Notação CIDR** (`IP/bits`, quantos bits do endereço são fixos):
+> `172.28.0.0/16` = de `172.28.0.0` a `172.28.255.255` · `127.0.0.1/32` = um
+> único IP · `::1/128` = o mesmo em IPv6. Aceita **várias** separadas por
+> vírgula. Ver
+> [env-variables → Segurança](../../07-reference/env-variables.md#segurança).
+
 O `X-Forwarded-For` só é lido quando `TRUST_PROXY=true` **e** o peer TCP
 imediato da função está em `TRUSTED_PROXY_CIDRS` (`server/utils/shared/ip.ts`).
 Do ponto de vista da função, o peer é o **proxy local da plataforma**, não um

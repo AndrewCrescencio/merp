@@ -17,6 +17,10 @@ export function missingProductionEnv(env: NodeJS.ProcessEnv): string[] {
   if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32) {
     missing.push('BETTER_AUTH_SECRET (mínimo 32 caracteres)')
   }
+  // TRUSTED_PROXY_CIDRS = lista de faixas de IP (CIDR) dos proxies em que
+  // confiamos para dizer quem é o cliente real. Ex.: '127.0.0.1/32,::1/128'
+  // (ver server/utils/shared/ip.ts para a notação). Exigida porque confiar em
+  // X-Forwarded-For sem saber de quem vem é aceitar IP forjado.
   if (env.TRUST_PROXY === 'true' && parseTrustedProxyCidrs(env.TRUSTED_PROXY_CIDRS).length === 0) {
     missing.push('TRUSTED_PROXY_CIDRS (obrigatória quando TRUST_PROXY=true)')
   }
