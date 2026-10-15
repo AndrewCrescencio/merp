@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// `currentLevel` é lido no load do módulo, por isso cada nível precisa de um
-// import novo — vi.resetModules + stubEnv antes do import.
+// `currentLevel` é lido no load do módulo — cada nível exige um import novo.
 async function loadLogger(level?: string) {
   vi.resetModules()
   vi.stubEnv('LOG_LEVEL', level ?? '')
