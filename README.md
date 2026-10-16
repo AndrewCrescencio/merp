@@ -225,26 +225,30 @@ shared/
 
 ## Endpoints principais
 
-| Endpoint                          | Auth                     | Descrição                                                |
-| --------------------------------- | ------------------------ | -------------------------------------------------------- |
-| `POST /api/auth/register`         | Público                  | Registro com consentTermsVersion (LGPD)                  |
-| `POST /api/auth/login`            | Público                  | Login + rememberMe → cookie httpOnly Secure SameSite=Lax |
-| `POST /api/auth/logout`           | Sessão                   | Revoga sessão + cookie                                   |
-| `GET /api/auth/me`                | Sessão                   | Perfil + empresas + activeCompanyId                      |
-| `POST /api/auth/companies`        | Sessão                   | Cria empresa (owner bootstrap)                           |
-| `GET /api/auth/companies?q=`      | Sessão                   | Busca empresas onde é membro                             |
-| `POST /api/auth/companies/switch` | Sessão                   | Troca activeCompanyId (valida membership)                |
-| `POST /api/auth/invite`           | Sessão (owner)           | Cria convite — token retornado **uma vez**               |
-| `POST /api/auth/invites/accept`   | Sessão (email = convite) | Aceita convite → cria membership                         |
-| `GET /api/auth/export`            | Sessão                   | LGPD Art. 18 — perfil + empresas + sessões + authEvents  |
-| `GET /api/health`                 | Público                  | Sempre 200; `auth`/`db` indicam readiness                |
+| Endpoint                                         | Auth                     | Descrição                                                |
+| ------------------------------------------------ | ------------------------ | -------------------------------------------------------- |
+| `POST /api/auth/register`                        | Público                  | Registro com consentTermsVersion (LGPD)                  |
+| `POST /api/auth/login`                           | Público                  | Login + rememberMe → cookie httpOnly Secure SameSite=Lax |
+| `POST /api/auth/logout`                          | Sessão                   | Revoga sessão + cookie                                   |
+| `GET /api/v1/me`                                 | Sessão                   | Perfil + empresas + activeCompanyId                      |
+| `POST /api/v1/companies`                         | Sessão                   | Cria empresa (owner bootstrap)                           |
+| `GET /api/v1/companies?q=`                       | Sessão                   | Busca empresas onde é membro                             |
+| `POST /api/v1/companies/{companyId}/invitations` | Sessão (owner)           | Cria convite — token retornado **uma vez**               |
+| `POST /api/v1/me/invitations/accept`             | Sessão (email = convite) | Aceita convite → cria membership                         |
+| `GET /api/v1/me/data-export`                     | Sessão                   | LGPD Art. 18 — perfil + empresas + sessões + authEvents  |
+| `GET /api/health/live`                           | Público                  | Liveness: sempre 200, sem tocar DB nem auth              |
+| `GET /api/health/ready`                          | Público                  | Readiness: 200 com `auth`/`db` ok, 503 quando falha      |
+
+Rotas autenticadas de recurso vêm com o tenant no path
+(`/api/v1/companies/{companyId}/...`, ADR-005/R5); `companyId` nunca vai no
+body. Ver `specs/000-foundation/rest-api.md` para R1–R8.
 
 ## Segurança (resumo)
 
 - **Rate limit**: IP 20/min, email 5/min, user 60/min (sliding window)
 - **Anti-enumeração**: corpo idêntico **e** piso de tempo (`enforceMinimumTime`) em `register`/`forget-password` — o relógio também vaza existência de conta. O Better Auth aplica hash dummy no sign-in e piso de 500ms na verificação de email
 - **Lockout**: (email+IP) 10 tentativas + global email 50 tentativas → 30min
-- **CSRF**: double-submit (`x-csrf-token`); isentos: register, login, forget-password, reset-password, send-verification-email + todos os GET
+- **CSRF**: double-submit (`x-csrf-token`); isentos: `register`, `login`, `password/forgot`, `password/reset`, `email/verification`, `email/verification/confirm`, `health/live`, `health/ready` + todos os GET
 - **CORS**: origem explícita (sem wildcard); `X-CSRF-Token` liberado no preflight
 - **Cookies**: `merp-session_token` — httpOnly, Secure (prod), SameSite=Lax — Lax (não Strict) para permitir links de verificação/reset enviados por email funcionarem cross-site.
 - **RLS**: policies em `drizzle/` (journal + custom applier — ver runbook acima)

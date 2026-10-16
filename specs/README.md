@@ -78,10 +78,16 @@ apontam para `specs/packs/erp-b2b/<x>/`, não para os caminhos numerados antigos
 - **RLS 0024 precisa ser reexecutado em produção** (ver ADR-011) — a versão antiga referenciava a coluna inexistente `location_id` em `location` e abortava a meio caminho, deixando as policies de `location` pela metade. `scripts/apply-custom-sql.ts` é idempotente e repara por completo; reexecutar no próximo deploy.
 - **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.
 - **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).
-- **`006-core-order`** tem spec + data-model + contracts; implementação em andamento (T12).
+- **`006-core-order`** tem spec + data-model + contracts; handlers implementados (5 endpoints em `/api/v1/companies/{companyId}/orders/` — list, create, get, cancel, complete).
 - **Packs `erp-b2b/*`** são plan-only, sem `spec.md`/`data-model.md`/`contracts/`; código não referencia esses módulos. Restaurados do histórico em 2026-10-16: `sales`, `catalog`, `crm`, `finance`. Ainda removidos: `admin`.
 - **`specs/001-auth-context/` e `specs/002-vertical-slices/` restaurados do histórico (2026-10-16)** ao mesmo tempo que `consolidated-specs.md` existe — são duas fontes para o mesmo conteúdo. ADR-001 manda manter o consolidado como fonte; os arquivos soltos voltaram para sustentar as refs dos planos ERP.
+- **`docs/review/`, `docs/audit/` e ADRs antigos** citam paths pré-migração, mas são **históricos** e não devem ser reescritos — mexer neles falsificaria o registro.
 
 > Dívidas pagas (2026-10-12, removidas): `withTenant` suporta `locationId` + `app.location_id`
 > (T02); schemas núcleo definidos em `schema.ts` (T03); `line_total` half-up via `round_half_up`
 > (T04). Ver ADRs + audit AUD-001.
+>
+> Dívida paga (2026-10-16): `contracts/auth-api.md` e `quickstart.md` foram reescritos
+> linha-a-linha contra os handlers reais (paths `/api/v1`, verbos PATCH/DELETE com id no
+> path, token só no body — R6 —, rotas removidas `companies/switch`,
+> `reset-password/[token]` e `GET /api/metrics` retiradas, CSRF documentado).

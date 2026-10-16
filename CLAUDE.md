@@ -34,26 +34,42 @@ Instruções para Claude Code trabalhando neste repositório. Baseado em `consti
 
 ## Padrão de Criação de Endpoint
 
+URL = caminho do arquivo. Rota de recurso de empresa fica em
+`/api/v1/companies/{companyId}/...` — o `companyId` vem do **path** (R5), nunca do body.
+Veja `docs/07-reference/create-endpoint-guide.md` para o exemplo completo.
+
 ```ts
-// server/api/<contexto>/<recurso>/<acao>.method.ts
-import { defineAuthHandler } from '#shared/handler'
+// server/api/v1/companies/[companyId]/<recurso>/index.post.ts
+import { defineEventHandler, readBody, setResponseStatus } from 'h3'
 import { repository } from '#shared/utils/<contexto>'
-import { z } from 'zod'
+import {
+  requireTenant,
+  assertCompanyRole,
+  sendUnauthorizedError,
+  validateRecursoInput,
+} from '#shared'
 
-const schema = z.object({/* ... */})
+export default defineEventHandler(async (event) => {
+  const user = event.context.user as { id: string; email: string } | undefined
+  if (!user) sendUnauthorizedError('Authentication required.')
 
-export default defineAuthHandler(async (event) => {
-  const { companyId, locationId, userId } = event.context.auth
-  const input = await readValidatedBody(event, schema.parse)
-  return repository.method({ companyId, locationId, userId, ...input })
+  // companyId vem do PATH (middleware tenant), nunca do body (R5).
+  const { companyId, role } = requireTenant(event)
+  const input = validateRecursoInput(await readBody(event))
+  await assertCompanyRole(role, 'owner', 'You are not a member of this company', 'Not allowed')
+
+  const created = await repository.method({ companyId, userId: user.id, ...input })
+  setResponseStatus(event, 201)
+  return created
 })
 ```
 
 ```ts
 // server/utils/<contexto>/repository.ts
 export const repository = {
-  async method({ companyId, locationId, userId, ... }) {
-    return withTenant(companyId, locationId, userId, async (tx) => {
+  async method({ companyId, userId, ... }) {
+    // locationId: null = escopo company (limpa a GUC -> RLS fail-closed)
+    return withTenant(companyId, null, userId, async (tx) => {
       // queries Drizzle usando tx
     })
   }
@@ -62,11 +78,15 @@ export const repository = {
 
 **Regras:**
 
-- `defineAuthHandler` para autenticado, `definePublicHandler` para público
-- Validação Zod **sempre**
-- `withTenant(companyId, locationId, userId, fn)` — 3 IDs obrigatórios
-- Repository usa `tx` (transaction) do `withTenant`
-- Schema: `companyId` + `locationId` NOT NULL + RLS policy
+- Rota nova em `/api/v1/companies/{companyId}/...` (R1/R5); só `api/auth/` e `api/health/` ficam fora
+- `requireTenant(event)` é a única fonte do tenant; `companyId` nunca vem do body
+- `getRouterParam(event, '<recurso>Id')` — a chave tem de casar com o dir `[<recurso>Id]`; nunca `[id]`
+- `defineAuthHandler` (autenticado, sem tenant) / `defineEventHandler` (o resto) — não existe `definePublicHandler`
+- Validação Zod **sempre** (validators `validate*Input` em `~~/server/utils/shared`)
+- `withTenant(tenantId, locationId, userId, fn)` — os 3 aceitam `null` (limpa a GUC → fail-closed); `locationId: null` é o escopo company legítimo, não omissão
+- Repository usa `tx` (transaction) do `withTenant`; conflito de unicidade → `sendConflictError` (409), não 500
+- Schema: `companyId` NOT NULL + FK + RLS (4 policies, padrão `OR get_location_id() IS NULL` = ADR-002)
+- Rate limit por usuário (60/min) já roda no middleware `auth` — não repita no handler
 
 ---
 
@@ -74,12 +94,15 @@ export const repository = {
 
 ```
 server/
-├ api/                    # Handlers (h3)
-│   ├ auth/               # 21 endpoints flat
-│   ├ orders/ print/ restaurant/ # contextos downstream
-│   ├ .well-known/        # security.txt (RFC 9116)
-│   └ health.get.ts       # Público
-├ middleware/             # auth, csrf, no-store, pii-audit
+├ api/                    # Handlers (h3) — URL = caminho do arquivo
+│   ├ v1/                 # /api/v1 (recurso de empresa; R1/R5)
+│   │   ├ me/             # /api/v1/me — usuário autenticado (6 endpoints)
+│   │   └ companies/[companyId]/  # tenant no path: members, invitations,
+│   │                       # orders, print, restaurant (33 endpoints)
+│   ├ auth/               # /api/auth — fluxos Better Auth (7 endpoints)
+│   └ health/             # /api/health — live/ready (públicos)
+├ routes/                 # Rotas fora de /api: .well-known/security.txt (RFC 9116)
+├ middleware/             # 00-no-store, 01/02-csrf, auth (sessão+rate limit), tenant, pii-audit
 ├ utils/
 │   ├ auth/               # Contextos auth
 │   │   ├ identity/       # queries.ts, client.ts (Better Auth)
@@ -105,9 +128,9 @@ docs/                     # Documentação operacional
 - ❌ Alterar `drizzle/` migrations, RLS policies, auth logic, fiscal/financeiro sem ADR
 - ❌ Criar Service layer — handler chama repository direto
 - ❌ Interface `IRepository` sem 2+ impls reais
-- ❌ `withTenant` sem `locationId`
+- ❌ `withTenant` omitido em query Drizzle de tabela tenant-scoped
 - ❌ Hard delete em dados fiscais (soft delete only)
-- ❌ `CREATE POLICY` com `OR get_location_id() IS NULL` (fail-open)
+- ❌ `CREATE POLICY` que não exige `get_tenant_id()` (fail-open). O escape `OR get_location_id() IS NULL` **não** é fail-open: ele só dispensa o filtro de location, o tenant continua exigido — é o padrão normativo de ADR-002
 - ❌ Importar entre contextos (ex: identity ⤳ company) — ESLint bloqueia
 - ❌ Commits sem `npm run lint` + `npm run typecheck` verdes
 - ❌ Push/merge/PR sem revisão humana

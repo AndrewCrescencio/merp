@@ -88,12 +88,12 @@ shared/
 
 ### 2.2 Restrições do Nuxt/Nitro que moldam o design
 
-| Restrição                                                      | Consequência de design                                                                                                                                                                                                                                                                       |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **URL da rota = caminho do arquivo** em `server/api/`          | Handlers NÃO podem ser aninhados por feature sem mudar a URL. Ex.: `server/api/auth/identity/register.post.ts` viraria `/api/auth/identity/register`. Logo, os handlers continuam em `server/api/auth/` (flat) — a verticalidade se expressa no **núcleo** (`server/utils/auth/<feature>/`). |
-| **Auto-imports** (`nitro.imports.dirs`)                        | Hoje importa `server/utils/auth` inteiro. Após a divisão, apontar para os arquivos certos ou manter imports explícitos (o código já usa imports explícitos via `~~`).                                                                                                                        |
-| **Drizzle exige um ponto de entrada de schema** para migrações | `drizzle.config.ts` aponta para `./server/utils/schema.ts`. O schema pode ser dividido por feature **desde que** exista um registry raiz re-exportando tudo (única fonte para `drizzle-kit` e para o adapter do Better Auth).                                                                |
-| **Middleware é global**                                        | `server/middleware/auth.ts` é cross-cutting — permanece onde está, mas passa a usar os repositórios das features (não o god repository).                                                                                                                                                     |
+| Restrição                                                      | Consequência de design                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **URL da rota = caminho do arquivo** em `server/api/`          | O aninhamento do handler só existe quando a URL tem esses segmentos. `/api/auth/*` fica **flat** porque a URL não tem sub-path. Recurso de empresa, em contrário, aninha sob `/api/v1/companies/{companyId}/...` (R5) — o tenant está na URL, logo está no path. Em ambos os casos a verticalidade do domínio vive no **núcleo** (`server/utils/<contexto>/<feature>/`), não no `server/api/`. |
+| **Auto-imports** (`nitro.imports.dirs`)                        | Hoje importa `server/utils/auth` inteiro. Após a divisão, apontar para os arquivos certos ou manter imports explícitos (o código já usa imports explícitos via `~~`).                                                                                                                                                                                                                          |
+| **Drizzle exige um ponto de entrada de schema** para migrações | `drizzle.config.ts` aponta para `./server/utils/schema.ts`. O schema pode ser dividido por feature **desde que** exista um registry raiz re-exportando tudo (única fonte para `drizzle-kit` e para o adapter do Better Auth).                                                                                                                                                                  |
+| **Middleware é global**                                        | `server/middleware/auth.ts` é cross-cutting — permanece onde está, mas passa a usar os repositórios das features (não o god repository).                                                                                                                                                                                                                                                       |
 
 ---
 
@@ -182,8 +182,8 @@ shared/                                        # infra do app (inalterado)
 
 ### 3.3 Regras de ouro (convenções a registrar na constituição)
 
-1. Handler (`server/api/auth/*`) importa **apenas** os repositórios/helpers
-   da feature que serve — nunca o repositório de outra feature.
+1. Handler (qualquer arquivo em `server/api/**`) importa **apenas** os
+   repositórios/helpers da feature que serve — nunca o de outra feature.
 2. Feature **nunca importa** o repositório de outra feature. Se precisar,
    é sinal de fronteira errada → revisar a fronteira.
 3. Repositório com >10 métodos deve ser justificado ou dividido.
@@ -279,7 +279,10 @@ Quando nenhum handler usar mais o bridge: **deletar** `repository.ts`.
 
 ## 5. O que NÃO muda
 
-- URLs das rotas (`/api/auth/...` intactas — handlers flat).
+- URLs de `/api/auth/...` intactas (handlers flat — a URL não tem sub-path).
+  Recursos de empresa migraram para `/api/v1/companies/{companyId}/...`
+  (ADR-005 + R5); o caminho do arquivo continua espelhando a URL, que é a
+  restrição de Nitro que interessava.
 - Contrato de erros HTTP (`{ error, message }`) e `error-handler.ts`.
 - `withTenant` + RLS (defesa em profundidade).
 - Co-locação e convenção de nomes de testes.

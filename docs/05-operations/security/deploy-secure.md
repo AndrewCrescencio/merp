@@ -242,7 +242,7 @@ Rode tudo uma vez, em produção de verdade.
 
 | #   | Ação                                         | Esperado                                                                |
 | --- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| 1   | `GET /api/health`                            | `200`                                                                   |
+| 1   | `GET /api/health/ready`                      | `200` com `auth`/`db` `ok` (`503` = instância fora do rotation)         |
 | 2   | Novo cadastro com email inexistente          | `201` e **email de verificação chega**                                  |
 | 3   | Clicar no link do email                      | conta verificada                                                        |
 | 4   | Repetir o cadastro com o **mesmo** email     | `201` idêntico, mesmo formato e duração — não revela que a conta existe |

@@ -46,31 +46,31 @@ o que `sendAuthError` em `server/utils/shared/errors.ts` serializa.
 
 ## Sucesso por Endpoint
 
-| HTTP | Endpoint                                                    | Corpo                                                                         |
-| ---- | ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 201  | `register`                                                  | `{ id, email, name, createdAt }` — **idêntico** para email duplicado (AUD-03) |
-| 201  | `companies`, `invite`                                       | dados do recurso criado                                                       |
-| 200  | `login`                                                     | `{ id, email, name }` + cookie de sessão                                      |
-| 200  | `forget-password`                                           | `{ status: true, message }` — **idêntico** se o email não existir (AUD-04)    |
-| 200  | `reset-password`, `send-verification-email`, `verify-email` | `{ status: true }`                                                            |
-| 200  | `logout`                                                    | `{ message: 'Logged out successfully' }`                                      |
+| HTTP | Endpoint                                                             | Corpo                                                                         |
+| ---- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 201  | `register`                                                           | `{ id, email, name, createdAt }` — **idêntico** para email duplicado (AUD-03) |
+| 201  | `companies`, `invite`                                                | dados do recurso criado                                                       |
+| 200  | `login`                                                              | `{ id, email, name }` + cookie de sessão                                      |
+| 200  | `password/forgot`                                                    | `{ status: true, message }` — **idêntico** se o email não existir (AUD-04)    |
+| 200  | `password/reset`, `email/verification`, `email/verification/confirm` | `{ status: true }`                                                            |
+| 200  | `logout`                                                             | `{ message: 'Logged out successfully' }`                                      |
 
 ## Códigos de Erro
 
-| HTTP | `error`               | Onde                                                              | Descrição                                           |
-| ---- | --------------------- | ----------------------------------------------------------------- | --------------------------------------------------- |
-| 400  | `validation_error`    | qualquer                                                          | Body inválido (Zod, tamanho, formato)               |
-| 401  | `unauthorized`        | endpoints com sessão                                              | Sessão ausente ou inválida                          |
-| 401  | `session_expired`     | endpoints com sessão (`server/middleware/auth.ts:131`)            | Havia cookie, mas a sessão expirou ou foi revogada  |
-| 401  | `invalid_credentials` | `login`                                                           | Email ou senha errados — resposta genérica          |
-| 401  | `account_deactivated` | `login`                                                           | Conta desativada ou consentimento retirado (AUD-07) |
-| 403  | `email_not_verified`  | `login`                                                           | Email não verificado (bloqueia login)               |
-| 403  | `forbidden`           | `companies*`, `invites*`                                          | Não é membro da empresa ou não é owner              |
-| 404  | `not_found`           | `verify-email`, `reset-password/[token]`                          | Token inválido ou expirado                          |
-| 429  | `rate_limit_exceeded` | `register`, `login`, `forget-password`, `send-verification-email` | IP 20/min, email 5/min, user 60/min                 |
-| 503  | `service_unavailable` | qualquer com banco down                                           | Falha de banco não-classificada                     |
-| 503  | `upstream_timeout`    | chamadas ao Better Auth (`callBetterAuth`, timeout 5s)            | Tempo esgotado aguardando o Better Auth             |
-| 503  | `auth_unavailable`    | qualquer com Better Auth fora                                     | Instância do Better Auth inicializando              |
+| HTTP | `error`               | Onde                                                         | Descrição                                           |
+| ---- | --------------------- | ------------------------------------------------------------ | --------------------------------------------------- |
+| 400  | `validation_error`    | qualquer                                                     | Body inválido (Zod, tamanho, formato)               |
+| 401  | `unauthorized`        | endpoints com sessão                                         | Sessão ausente ou inválida                          |
+| 401  | `session_expired`     | endpoints com sessão (`server/middleware/auth.ts:131`)       | Havia cookie, mas a sessão expirou ou foi revogada  |
+| 401  | `invalid_credentials` | `login`                                                      | Email ou senha errados — resposta genérica          |
+| 401  | `account_deactivated` | `login`                                                      | Conta desativada ou consentimento retirado (AUD-07) |
+| 403  | `email_not_verified`  | `login`                                                      | Email não verificado (bloqueia login)               |
+| 403  | `forbidden`           | `companies*`, `invites*`                                     | Não é membro da empresa ou não é owner              |
+| 404  | `not_found`           | `email/verification/confirm`, `password/reset`               | Token inválido ou expirado                          |
+| 429  | `rate_limit_exceeded` | `register`, `login`, `password/forgot`, `email/verification` | IP 20/min, email 5/min, user 60/min                 |
+| 503  | `service_unavailable` | qualquer com banco down                                      | Falha de banco não-classificada                     |
+| 503  | `upstream_timeout`    | chamadas ao Better Auth (`callBetterAuth`, timeout 5s)       | Tempo esgotado aguardando o Better Auth             |
+| 503  | `auth_unavailable`    | qualquer com Better Auth fora                                | Instância do Better Auth inicializando              |
 
 ### `409` nunca é retornado
 
@@ -167,12 +167,12 @@ Idêntico para email inexistente e para senha errada — inclusive em duração
 ## Notas de Implementação
 
 - **Anti-enumeração**: `register` devolve `201` com corpo forjado e
-  `forget-password` devolve `200` idêntico, ambos com piso de tempo
+  `password/forgot` devolve `200` idêntico, ambos com piso de tempo
   (`enforceMinimumTime`) para o relógio não denunciar a existência da conta.
   `login` devolve `401` genérico com custo de scrypt equalizado. O frontend deve
-  tratar `register`/`forget-password` como "verifique seu email" sempre.
+  tratar `register`/`password/forgot` como "verifique seu email" sempre.
 - **CSRF**: `POST`/`PATCH`/`DELETE` autenticados exigem header `x-csrf-token`.
-  Isentos: auth público (register, login, forget-password, reset-password,
-  send-verification-email) + todos `GET`.
+  Isentos: auth público (register, login, password/forgot, password/reset,
+  email/verification) + todos `GET`.
 - **RLS**: erro `42501` (insufficient_privilege) → `forbidden` `403`. Não vaza se
   o recurso existe.

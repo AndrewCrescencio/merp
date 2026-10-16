@@ -101,11 +101,11 @@
 
 ## Fluxo Principal
 
-1. **Abrir mesa** → `POST /api/v1/restaurant/tables/:id/open` (cria order dine_in, vincula table)
-2. **Lançar item** → `POST /api/v1/orders` (order_type=dine_in, items...)
+1. **Abrir mesa** → `POST /api/v1/companies/{companyId}/restaurant/tables/{tableId}/open`
+2. **Lançar item** → `POST /api/v1/companies/{companyId}/orders` (order_type=dine_in, items...)
 3. **KDS recebe** → kitchen_ticket criado por trigger/evento, status=pending
-4. **Item pronto** → `PATCH /api/v1/restaurant/kitchen-tickets/:id/status` (status=ready)
-5. **Fechar conta** → `PATCH /api/v1/orders/:id/status` (status=completed) + pagamento
+4. **Item pronto** → ⚠️ **sem endpoint** — a transição de status do ticket não está implementada (R4 exige `POST .../{ticketId}/{verbo}`, não `PATCH /status`)
+5. **Fechar conta** → `POST /api/v1/companies/{companyId}/orders/{orderId}/complete` (R4: verb, não `PATCH /status`) ou `POST .../restaurant/tables/{tableId}/close`
 6. **Pagamento** → NFC-e (fase posterior)
 
 ## FSM kitchen_ticket

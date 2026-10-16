@@ -1,141 +1,208 @@
 # Restaurant API Contracts
 
-Base path: `/api/v1/restaurant`
+Base path: `/api/v1/companies/{companyId}/restaurant`
 
-Versionamento: `/api/v1` (ADR-005).
+O `companyId` vem do **PATH** (R1/R5) — nunca do body. O middleware `server/middleware/tenant.ts` valida membership antes do handler rodar (não-membro e empresa inexistente respondem o mesmo `404`).
 
-Erro padrão, rate limits, CSRF, idempotency: ver `specs/000-foundation/endpoint-pattern.md` e `specs/006-core-order/contracts/order-api.md`.
+Versionamento: `/api/v1` (ADR-005). Erro padrão, rate limits, CSRF: ver `specs/000-foundation/rest-api.md` (R1–R8).
+
+**Sessão**: todos os endpoints exigem sessão (`server/middleware/auth.ts` aplica `401`). CSRF só para métodos não-GET.
+
+> **Limitação conhecida (H07)**: os handlers de restaurant ainda não têm fonte de `locationId` e passam `''`, o que zera a GUC `app.location_id` e faz o RLS operar em escopo **company** (fail-closed entre empresas, não entre locations). Resolver isso exige definir a origem do `locationId` — decisão em aberto.
 
 ---
 
-## POST /api/v1/restaurant/tables/:id/open
+## GET /api/v1/companies/{companyId}/restaurant/tables
 
-Abre uma mesa (cria order dine_in vinculada).
+Lista as mesas da empresa.
 
-**Auth**: Required (session + CSRF)
+**Auth**: session
 
-**Path Params**: `id` (table uuid)
+**Query**: nenhuma
 
-**Request Body**:
+**Success**: `200 OK`
 
 ```json
-{ "cover_count": 2, "waiter_id": "uuid" }
+{ "tables": [] }
 ```
 
-**Success Response**: `201 Created` — retorna order criado com satélite dine_in
-
-**Error Responses**: 400, 401, 403 (csrf), 404 (mesa não existe ou fora do tenant), 409 (mesa já ocupada), 422 (status inválido), 429, 503
+**Errors**: 400, 401, 403, 404, 429, 503
 
 ---
 
-## POST /api/v1/restaurant/tables/:id/close
+## POST /api/v1/companies/{companyId}/restaurant/tables/{tableId}/open
 
-Fecha a conta da mesa (transição order para completed).
+Abre uma mesa.
 
-**Auth**: Required (session + CSRF)
+**Auth**: session + CSRF
 
-**Path Params**: `id` (table uuid)
+**Path Params**: `tableId` (uuid)
 
-**Request Body**: `{ "payment_method": "pix|card|cash", "amount": 100.00 }` — opcional, para registrar pagamento
-
-**Success Response**: `200 OK` — order atualizado para completed
-
-**Error Responses**: 400, 401, 403, 404, 422 (mesa livre ou sem order ativo), 429, 503
-
----
-
-## POST /api/v1/restaurant/kitchen-tickets/:id/status
-
-Atualiza status do ticket no KDS.
-
-**Auth**: Required (session + CSRF — cozinha usa sessão de terminal)
-
-**Path Params**: `id` (kitchen_ticket uuid)
-
-**Request Body**:
+**Request Body** (camelCase):
 
 ```json
-{ "status": "in_progress" }
+{ "coverCount": 2, "waiterId": "uuid" }
 ```
 
-Valida FSM: pending → in_progress → ready → served.
+`coverCount` e `waiterId` são opcionais.
 
-**Success Response**: `200 OK` — ticket atualizado
+**Success**: `200 OK` — mesa aberta
+**Errors**: 400 (`table_id_required`), 401, 403, 404, 429, 500 (`failed_to_open_table`), 503
 
-**Error Responses**: 400, 401, 403, 404, 422 (transição inválida), 429, 503
+> **Pendência R8**: criação deveria devolver `201`. Ver `specs/000-foundation/rest-api.md` §"Status de implementação".
 
 ---
 
-## GET /api/v1/restaurant/kitchen/display?station_id=...
+## POST /api/v1/companies/{companyId}/restaurant/tables/{tableId}/close
 
-Display do KDS — lista tickets da estação ordenados por prioridade/created_at.
+Fecha a conta da mesa.
 
-**Auth**: Required (session — terminal KDS)
+**Auth**: session + CSRF
 
-**Query**: `station_id` (required), `status` (filter: pending,in_progress,ready)
+**Path Params**: `tableId` (uuid)
 
-**Success Response**: `200 OK`
+**Request Body**: `{}` (sem campos)
+
+**Success**: `200 OK` — mesa fechada
+**Errors**: 400 (`table_id_required`, `not occupied`, `not found`), 401, 403, 404, 429, 500 (`failed_to_close_table`), 503
+
+> **Pendência R8**: condição de estado (`mesa livre`) responde `400`; o padrão de transição inválida é `409`.
+
+---
+
+## GET /api/v1/companies/{companyId}/restaurant/kitchen-tickets
+
+Display do KDS — lista tickets, com filtro por status.
+
+**Auth**: session
+
+**Query**:
+
+| Campo    | Tipo                                             | Obrigatório |
+| -------- | ------------------------------------------------ | ----------- |
+| `status` | `pending\|in_progress\|ready\|served\|cancelled` | não         |
+| `limit`  | int (≤ 100)                                      | não         |
+| `offset` | int (≥ 0)                                        | não         |
+
+**Success**: `200 OK`
+
+```json
+{ "tickets": [] }
+```
+
+**Errors**: 400 (`validation_error`), 401, 403, 404, 429, 503
+
+> **Não implementado**: a transição de status do ticket (`pending → in_progress → ready → served`) e o filtro por `station_id` não têm endpoint. Não há `PATCH .../status` — R4 proíbe transição por `PATCH /status`; o formato seria `POST .../kitchen-tickets/{ticketId}/{verbo}`.
+
+---
+
+## GET /api/v1/companies/{companyId}/restaurant/cashier-shifts
+
+Lista turnos de caixa.
+
+**Auth**: session
+
+**Query**:
+
+| Campo    | Tipo                                    | Obrigatório |
+| -------- | --------------------------------------- | ----------- |
+| `status` | `open\|closed\|reconciled\|discrepancy` | não         |
+| `userId` | uuid                                    | não         |
+| `limit`  | int (≤ 100)                             | não         |
+| `offset` | int (≥ 0)                               | não         |
+
+**Success**: `200 OK`
+
+```json
+{ "shifts": [] }
+```
+
+**Errors**: 400 (`validation_error`), 401, 403, 404, 429, 503
+
+---
+
+## POST /api/v1/companies/{companyId}/restaurant/cashier-shifts
+
+Abre um turno de caixa.
+
+**Auth**: session + CSRF
+
+**Request Body** (camelCase):
+
+```json
+{ "openingFloat": 150.0 }
+```
+
+`openingFloat` é **obrigatório** (`400 opening_float_required`).
+
+**Success**: `200 OK` — turno aberto
+**Errors**: 400 (`opening_float_required`, `already has an open shift`), 401, 403, 404, 429, 500 (`failed_to_open_cashier_shift`), 503
+
+> **Pendência R8**: criação deveria devolver `201`; turno já aberto responde `400`, o padrão é `409`.
+
+---
+
+## GET /api/v1/companies/{companyId}/restaurant/cashier-shifts/current
+
+Turno aberto do usuário autenticado.
+
+**Auth**: session
+
+**Success**: `200 OK` — turno
+**Errors**: 404 (`no_open_shift`), 401, 403, 429, 503
+
+---
+
+## GET /api/v1/companies/{companyId}/restaurant/cashier-shifts/{shiftId}
+
+Turno por id.
+
+**Auth**: session
+
+**Path Params**: `shiftId` (uuid)
+
+**Success**: `200 OK` — turno
+**Errors**: 400 (`shift_id_required`), 401, 403, 404 (`cashier_shift_not_found`), 429, 503
+
+---
+
+## POST /api/v1/companies/{companyId}/restaurant/cashier-shifts/{shiftId}/close
+
+Fecha um turno de caixa.
+
+**Auth**: session + CSRF
+
+**Path Params**: `shiftId` (uuid) — vem do **path**, não do body (R1/R5)
+
+**Request Body** (camelCase):
 
 ```json
 {
-  "tickets": [
-    {
-      "id": "uuid",
-      "order_id": "uuid",
-      "product_name": "Pizza Margherita",
-      "quantity": 2,
-      "status": "pending",
-      "priority": 1,
-      "created_at": "..."
-    },
-    {
-      "id": "uuid",
-      "product_name": "Batata Frita",
-      "quantity": 1,
-      "status": "in_progress",
-      "priority": 0,
-      "created_at": "..."
-    }
-  ]
+  "closingFloat": 150.0,
+  "expectedAmount": 1250.5,
+  "actualAmount": 1240.0,
+  "notes": "string opcional"
 }
 ```
 
-**Error Responses**: 400, 401, 403, 404, 429, 503
+`closingFloat`, `expectedAmount` e `actualAmount` são **obrigatórios** (`400 missing_required_fields`). O cálculo de `expected`/`difference` é responsabilidade do cliente — o handler persiste os valores enviados.
+
+**Success**: `200 OK` — turno fechado
+**Errors**: 400 (`missing_required_fields`, `not open`, `not found`), 401, 403, 404 (`cashier_shift_not_found`), 429, 500 (`failed_to_close_cashier_shift`), 503
+
+> **Pendência R8**: "já fechado" responde `400`; o padrão é `409`.
 
 ---
 
-## POST /api/v1/restaurant/cashier-shift/open
+## Formato de entidade
 
-Abre turno de caixa.
+Os campos de cada entidade vêm do schema Drizzle em `server/utils/schema/`:
 
-**Auth**: Required (session + CSRF)
+| Entidade           | Schema                |
+| ------------------ | --------------------- |
+| mesa               | `restaurant-table.ts` |
+| ticket de cozinha  | `kitchen-ticket.ts`   |
+| estação de cozinha | `kitchen-station.ts`  |
+| turno de caixa     | `cashier-shift.ts`    |
 
-**Request Body**:
-
-```json
-{ "register_id": "uuid", "opening_float": 150.0 }
-```
-
-**Success Response**: `201 Created` — cashier_shift criado
-
-**Error Responses**: 400, 401, 403, 409 (turno já aberto para este user/register), 429, 503
-
----
-
-## POST /api/v1/restaurant/cashier-shift/close
-
-Fecha turno de caixa.
-
-**Auth**: Required (session + CSRF)
-
-**Request Body**:
-
-```json
-{ "actual_cash": 1250.5 }
-```
-
-Calcula `expected_cash` (vendas do turno - sangrias + opening_float) e `difference`.
-
-**Success Response**: `200 OK` — shift fechado
-
-**Error Responses**: 400, 401, 403, 404 (turno não encontrado), 422 (já fechado), 429, 503
+Colunas em `snake_case` no banco; os handlers devolvem os objetos do Drizzle (camelCase).

@@ -57,7 +57,7 @@ Isolamento multi-tenant no banco, não na aplicação (ADR-002):
 
 - Todas as tabelas operacionais: `company_id` + `location_id` NOT NULL
 - `withTenant` seta GUCs: `app.tenant_id`, `app.location_id`, `app.user_id`
-- Policies: `USING = WITH CHECK = company_id = get_tenant_id() AND location_id = get_location_id()`
+- Policies: `USING = WITH CHECK = company_id = get_tenant_id()` e, nas tabelas location-scoped, `AND (location_id = get_location_id() OR get_location_id() IS NULL)` — o escape `OR ... IS NULL` dispensa só o filtro de location (escopo company), o tenant continua exigido. Padrão normativo de ADR-002; sem o escape, `withTenant(companyId, null, ...)` negaria todas as linhas
 - Role `merp_app` = `NOBYPASSRLS` (runtime); role `merp` = superuser (apenas migrações)
 - **Canary test roda primeiro na CI** — falha = pipeline para
 
@@ -107,7 +107,11 @@ Isolamento multi-tenant no banco, não na aplicação (ADR-002):
 ## 9. API Versioning: `/api/v1` Desde Já (ADR-005)
 
 - Novos endpoints em `/api/v1/`
-- Auth permanece em `/api/auth/` (flat, URLs fixas)
+- Escopo de tenant no path: `/api/v1/companies/{companyId}/...` (R5) — o
+  `companyId` nunca vem do body (fail-closed, §4)
+- Fluxos de auth (`login`, `register`, `logout`, `password/*`, `email/*`) e
+  `health` ficam em `/api/auth` e `/api/health` **sem versionamento**
+  (contrato próprio)
 - Sem versionamento = quebra futura
 
 ---

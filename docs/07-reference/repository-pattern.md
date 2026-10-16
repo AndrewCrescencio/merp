@@ -62,12 +62,17 @@ export type NovoRepository = typeof novoRepository
 
 ```ts
 import { novoRepository } from '#shared/utils/novo-contexto'
+import { requireTenant } from '#shared'
 
-export default defineAuthHandler(async (event) => {
-  const { companyId, locationId, userId } = event.context.auth
-  return novoRepository.metodo({ companyId, locationId, userId, ... })
+export default defineEventHandler(async (event) => {
+  // companyId vem do PATH (middleware tenant), nunca do body (R5).
+  const { companyId } = requireTenant(event)
+  const userId = event.context.user?.id ?? null
+  return novoRepository.metodo({ companyId, userId, ... })
 })
 ```
+
+Ver `docs/07-reference/create-endpoint-guide.md` para o handler completo (validação, RBAC, auditoria, status codes).
 
 ---
 

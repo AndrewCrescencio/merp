@@ -223,35 +223,35 @@ Base path: `/api/auth`
 - Response 200: `{ "status": true }` + cookie revogado
 - Erros: `401` (unauthorized), `503`
 
-#### `GET /api/auth/me`
+#### `GET /api/v1/me`
 
 - Response 200: `{ user, companies, activeCompanyId }`
 - Erros: `401`, `403`, `503`
 
-#### `POST /api/auth/companies`
+#### `POST /api/v1/companies`
 
 - Body: `{ "name": "string", "cnpj": "string?", "razaoSocial": "string?" }`
 - Response 201: Empresa criada + membership owner
 - Erros: `400`, `409` (cnpj conflict), `401`, `403`, `503`
 
-#### `POST /api/auth/invite`
+#### `POST /api/v1/companies/{companyId}/invitations`
 
 - Body: `{ "email": "string" }`
 - Response 201: `{ "token": "string", "expiresAt": "ISO8601" }`
 - Erros: `400`, `403` (not owner), `409` (invite pending), `401`, `503`
 
-#### `POST /api/auth/invites/accept`
+#### `POST /api/v1/me/invitations/accept`
 
 - Body: `{ "token": "string" }`
 - Response 200: `{ "status": true }`
 - Erros: `400` (token invalid/expired), `409` (already member), `503`
 
-#### `POST /api/auth/deactivate`
+#### `POST /api/v1/me/deactivate`
 
 - Response 200: `{ "status": true }` + revoga todas sessões
 - Erros: `401`, `503`
 
-#### `POST /api/auth/consent/withdraw`
+#### `POST /api/v1/me/consents/withdraw`
 
 - Response 200: `{ "status": true }`
 - Erros: `401`, `503`

@@ -1,8 +1,17 @@
 # Auth API Contracts
 
-Base path: `/api/auth`
+**Cobertura**: este arquivo documenta o contrato do **contexto auth** — os 7
+fluxos de `/api/auth`, os recursos em `/api/v1` que dele derivam (`/me/*`,
+`/companies*`, `/invitations*`), health e CORS. Rotas de domínio (`orders`,
+`print`, `restaurant`) vivem nos contracts dos seus contextos.
 
-**Versionamento**: endpoints de auth permanecem em `/api/auth` (exceção deliberada — contrato estável). Novos endpoints de domínio usam `/api/v1` (ver ADR-005).
+**Versionamento** (ADR-005): somente os **fluxos de autenticação**
+permanecem em `/api/auth` — `register`, `login`, `logout`, `password/*`,
+`email/*` — sem versionamento, contrato próprio. O que vivia sob
+`/api/auth` mas **não é fluxo de auth** (`/me`, `/companies`, `/invites`,
+`/consents`, `/deactivate`, `/data-export`) migrou para `/api/v1`, porque
+R5 põe o `companyId` no path. Health passou a `/api/health/live` e
+`/api/health/ready`.
 
 All endpoints follow consistent error format:
 
@@ -20,8 +29,12 @@ Error codes: `validation_error` (400), `unauthorized` (401), `session_expired` (
   The DB row always expires 7d after creation (FR-009).
 - **CSRF**: all `POST` endpoints require the `x-csrf-token` header matching the
   `merp-csrf_token` cookie, **except** the public account-recovery flows:
-  `register`, `login`, `forget-password`, `reset-password` (POST),
-  `send-verification-email`. `GET` endpoints never require CSRF.
+  `register`, `login`, `password/forgot`, `password/reset`,
+  `email/verification`. `GET` endpoints never require CSRF.
+- **Token nunca vai em path/query** (R6): `email/verification/confirm` e
+  `password/reset` recebem o token **só no body**. Os links de e-mail apontam
+  para páginas do Nuxt, que extraem o token da URL e fazem `POST` — a API não
+  expõe token em URL nem em log.
 - **Rate limits** (sliding window, 60s): 20 req/min per IP on public mutation
   endpoints, 5 req/min per email, 60 req/min per authenticated user (FR-010, AUD-16).
   `429` responses carry `Retry-After`, `RateLimit-Reset` and `RateLimit-Remaining` headers.
@@ -116,7 +129,7 @@ Authenticate with email and password. Creates a session (FR-005). Public. CSRF-e
 
 ---
 
-## POST /api/auth/send-verification-email
+## POST /api/auth/email/verification
 
 Resend the email verification link (AUD-04, FR-029). Public. CSRF-exempt.
 Always answers `{ "status": true }` regardless of whether the account exists or is already verified (anti-enumeration).
@@ -145,13 +158,17 @@ Always answers `{ "status": true }` regardless of whether the account exists or 
 
 ---
 
-## GET /api/auth/verify-email?token=...
+## POST /api/auth/email/verification/confirm
 
-Confirm email ownership by clicking the link from the email (AUD-04). Public.
+Confirm email ownership (AUD-04). Public. CSRF-exempt.
 The token is a signed JWT (1h expiry). Idempotent: verifying an already-verified
 email succeeds. Returns JSON (no redirect — the frontend routes on `{ status: true }`).
 
-**Query Parameters**: `token` (required)
+**Request Body** (R6: o token vem **só** no body, nunca em path/query):
+
+```json
+{ "token": "signed-jwt" }
+```
 
 **Success Response**: `200 OK`
 
@@ -169,7 +186,7 @@ email succeeds. Returns JSON (no redirect — the frontend routes on `{ status: 
 
 ---
 
-## POST /api/auth/forget-password
+## POST /api/auth/password/forgot
 
 Request a password reset link (AUD-04, FR-030). Public. CSRF-exempt.
 Always answers `{ "status": true, "message": ... }` regardless of whether the
@@ -202,13 +219,13 @@ account exists (anti-enumeration).
 
 ---
 
-## POST /api/auth/reset-password
+## POST /api/auth/password/reset
 
-Set a new password with the single-use token from the forget-password email
+Set a new password with the single-use token from the forgot-password email
 (AUD-04, FR-030). Public. CSRF-exempt. Revokes ALL existing sessions of the user
-(`revokeSessionsOnPasswordReset`). The token is accepted either in the body or
-in the `token` query parameter (same validation, no double-consumption). The new
-password runs the same weak/breached checks as registration.
+(`revokeSessionsOnPasswordReset`). The token is accepted **only in the body**
+(R6 — nunca em path/query). The new password runs the same weak/breached
+checks as registration.
 
 **Request Body**:
 
@@ -235,21 +252,6 @@ password runs the same weak/breached checks as registration.
 
 ---
 
-## GET /api/auth/reset-password/[token]
-
-Click-time validation of the reset link, without consuming the token (AUD-04).
-Public. Does NOT consume the token — single-use consumption happens in
-`POST /reset-password`. Redirects to the app origin (`BETTER_AUTH_URL`) with the
-token in the URL **hash fragment** (`#/reset-password?token=...`, never sent to
-the server or stored in logs); the `callbackURL` query param is ignored
-(anti-open-redirect, AUD-08).
-
-**Success Response**: `302 Found` → `Location: <origin>/#/reset-password?token=<token>`
-
-**Error Responses**: `302 Found` → `Location: <origin>/?error=INVALID_TOKEN`
-
----
-
 ## POST /api/auth/logout
 
 Terminate the current session (FR-006). Requires session + CSRF token.
@@ -273,9 +275,9 @@ Emits `session_invalidated` + `logout` audit events (FR-023).
 
 ---
 
-## GET /api/auth/me
+## GET /api/v1/me
 
-Return the currently authenticated user and active company context.
+Return the currently authenticated user and their company memberships.
 Requires session. PII access is audit-logged (FR-022).
 
 **Auth**: Required (session cookie)
@@ -287,10 +289,17 @@ Requires session. PII access is audit-logged (FR-022).
   "id": "uuid",
   "email": "user@example.com",
   "name": "User Name",
-  "activeCompanyId": "uuid-or-null",
+  "activeCompanyId": null,
   "companies": [{ "id": "uuid", "name": "Company Name", "role": "member" }]
 }
 ```
+
+> **`activeCompanyId` é sempre `null`** desde a migração R5: o endpoint
+> `POST /auth/companies/switch` foi removido e nenhum caminho escreve mais
+> nessa coluna (o único writer restante, `setActiveCompany`, está órfão).
+> O campo permanece no contrato por compatibilidade, mas **não é fonte de
+> tenant** — o escopo vive no path (`/api/v1/companies/{companyId}/...`) e o
+> `role` vem do `companies[]` acima.
 
 **Error Responses**:
 
@@ -301,7 +310,7 @@ Requires session. PII access is audit-logged (FR-022).
 
 ---
 
-## POST /api/auth/deactivate
+## POST /api/v1/me/deactivate
 
 Deactivate the own account (soft delete, FR-017). Requires session + CSRF token.
 Terminates ALL sessions of the user immediately and emits `session_invalidated`
@@ -325,7 +334,7 @@ Terminates ALL sessions of the user immediately and emits `session_invalidated`
 
 ---
 
-## POST /api/auth/consent/withdraw
+## POST /api/v1/me/consents/withdraw
 
 Withdraw LGPD consent (FR-021). Requires session + CSRF token. Deactivates the
 account immediately and terminates all sessions (same effect as `deactivate`,
@@ -349,7 +358,7 @@ Automated PII deletion/anonymization queue is out of scope (deferred).
 
 ---
 
-## GET /api/auth/export
+## GET /api/v1/me/data-export
 
 LGPD data portability export (FR-020, Art. 18). Requires session.
 PII access is audit-logged (FR-022).
@@ -380,7 +389,7 @@ Events recorded without a user id (e.g. failed logins for unknown emails) are ex
 
 ---
 
-## POST /api/auth/companies
+## POST /api/v1/companies
 
 Create a new company. The requesting user becomes its first member with role
 `owner` (FR-014). Requires session + CSRF token. `cnpj` (≤ 30 chars, check
@@ -420,7 +429,7 @@ digits validated when 14 digits are present) and `razaoSocial` are optional.
 
 ---
 
-## GET /api/auth/companies?q=...
+## GET /api/v1/companies?q=...
 
 Search companies scoped to membership (FR-015, AUD-10): only companies where the
 caller is a member are returned (name/CNPJ of unrelated companies never leak).
@@ -447,54 +456,20 @@ Requires session.
 
 ---
 
-## POST /api/auth/companies/switch
-
-Switch the active company context (`session.activeCompanyId`) for the current
-session. Requires session + CSRF token. Membership is re-validated inside the
-same transaction as the write (AUD-13), so a removal racing the switch cannot
-leave the session pointing at a company the user no longer belongs to.
-
-**Auth**: Required (session cookie)
-
-**Request Body**:
-
-```json
-{
-  "companyId": "uuid"
-}
-```
-
-**Success Response**: `200 OK`
-
-```json
-{ "message": "Active company switched" }
-```
-
-**Error Responses**:
-
-| Status | Error Code       | Condition                                     |
-| ------ | ---------------- | --------------------------------------------- |
-| 400    | validation_error | Missing `companyId`                           |
-| 401    | unauthorized     | No active session                             |
-| 403    | csrf_invalid     | Missing/invalid CSRF token                    |
-| 403    | forbidden        | User is not a member of the specified company |
-| 404    | not_found        | Company not found or deleted                  |
-
----
-
-## POST /api/auth/companies/update
+## PATCH /api/v1/companies/{companyId}
 
 Update company fields (owner only). Requires session + CSRF token. At least one
 of `name` / `cnpj` / `razaoSocial` must be present. Empty-string `cnpj` /
 `razaoSocial` clears the field. Emits a `company_updated` audit event.
 
-**Auth**: Required (session cookie, caller must be `owner`)
+**Auth**: Required (session cookie)
 
-**Request Body**:
+**Path Params**: `companyId` (uuid) — validado pelo middleware `tenant`, que responde `404` para não-membro ou empresa inexistente (não vaza existência entre tenants).
+
+**Request Body** (sem ids — R1/R5):
 
 ```json
 {
-  "companyId": "uuid",
   "name": "New Name",
   "cnpj": "12.345.678/0001-95",
   "razaoSocial": "New Legal Name"
@@ -505,33 +480,29 @@ of `name` / `cnpj` / `razaoSocial` must be present. Empty-string `cnpj` /
 
 **Error Responses**:
 
-| Status | Error Code       | Condition                                                                               |
-| ------ | ---------------- | --------------------------------------------------------------------------------------- |
-| 400    | validation_error | Missing `companyId`, no updatable field, oversized fields, or invalid CNPJ check digits |
-| 401    | unauthorized     | No active session                                                                       |
-| 403    | csrf_invalid     | Missing/invalid CSRF token                                                              |
-| 403    | forbidden        | Caller is not a member, or not an owner (`Only company owners can update companies`)    |
-| 404    | not_found        | Company not found or deleted                                                            |
-| 409    | conflict         | CNPJ already registered                                                                 |
+| Status | Error Code       | Condition                                                                             |
+| ------ | ---------------- | ------------------------------------------------------------------------------------- |
+| 400    | validation_error | No updatable field, oversized fields, or invalid CNPJ check digits                    |
+| 401    | unauthorized     | No active session                                                                     |
+| 403    | csrf_invalid     | Missing/invalid CSRF token                                                            |
+| 403    | forbidden        | Caller is a member but not an owner (`Only company owners can update companies`)      |
+| 404    | not_found        | Company not found, already deleted, **or caller is not a member** (middleware tenant) |
+| 409    | conflict         | CNPJ already registered                                                               |
 
 ---
 
-## POST /api/auth/companies/delete
+## DELETE /api/v1/companies/{companyId}
 
 Soft-delete a company (owner only, FR-019). Requires session + CSRF token.
 Sets `is_deleted`, purges all memberships and pending invites, and clears
 `activeCompanyId` of sessions pointing at the company. Other tenants'
 sessions stay valid. Emits a `company_deleted` audit event.
 
-**Auth**: Required (session cookie, caller must be `owner`)
+**Auth**: Required (session cookie)
 
-**Request Body**:
+**Path Params**: `companyId` (uuid)
 
-```json
-{
-  "companyId": "uuid"
-}
-```
+**Request Body**: nenhum — `DELETE` não tem body (R3). O `companyId` vem do path.
 
 **Success Response**: `200 OK`
 
@@ -541,35 +512,32 @@ sessions stay valid. Emits a `company_deleted` audit event.
 
 **Error Responses**:
 
-| Status | Error Code       | Condition                                                                            |
-| ------ | ---------------- | ------------------------------------------------------------------------------------ |
-| 400    | validation_error | Missing `companyId`                                                                  |
-| 401    | unauthorized     | No active session                                                                    |
-| 403    | csrf_invalid     | Missing/invalid CSRF token                                                           |
-| 403    | forbidden        | Caller is not a member, or not an owner (`Only company owners can delete companies`) |
-| 404    | not_found        | Company not found (or already deleted)                                               |
+| Status | Error Code   | Condition                                                                             |
+| ------ | ------------ | ------------------------------------------------------------------------------------- |
+| 401    | unauthorized | No active session                                                                     |
+| 403    | csrf_invalid | Missing/invalid CSRF token                                                            |
+| 403    | forbidden    | Caller is a member but not an owner (`Only company owners can delete companies`)      |
+| 404    | not_found    | Company not found, already deleted, **or caller is not a member** (middleware tenant) |
 
 ---
 
-## POST /api/auth/companies/members/delete
+## DELETE /api/v1/companies/{companyId}/members/{userId}
 
-Remove a company member (owner removes others) or leave a company (member
-removes self). Requires session + CSRF token. Owners can never be removed —
-not even by themselves. The removed user's sessions pointing at the company
-are detached (`activeCompanyId` cleared). Emits a `member_removed` audit event.
+Remove a company member (owner removes others) or leave a company (a member
+sends **their own** `userId` in the path). Requires session + CSRF token.
+Owners can never be removed — not even by themselves. Emits a `member_removed`
+audit event.
 
 **Auth**: Required (session cookie)
 
-**Request Body**:
+**Path Params**:
 
-```json
-{
-  "companyId": "uuid",
-  "userId": "uuid-or-omitted"
-}
-```
+| Param       | Obrigatório | Observação                                            |
+| ----------- | ----------- | ----------------------------------------------------- |
+| `companyId` | sim         | validado pelo middleware tenant (`404` se não-membro) |
+| `userId`    | sim         | o membro a remover; para sair, use o **seu** `userId` |
 
-Omit `userId` to leave the company yourself.
+**Request Body**: nenhum — `DELETE` não tem body (R3).
 
 **Success Response**: `200 OK`
 
@@ -577,33 +545,31 @@ Omit `userId` to leave the company yourself.
 { "message": "Member removed successfully" }
 ```
 
-(or `{ "message": "Left company successfully" }` when leaving)
+(or `{ "message": "Left company successfully" }` when `userId` is your own)
 
 **Error Responses**:
 
-| Status | Error Code       | Condition                                                                                               |
-| ------ | ---------------- | ------------------------------------------------------------------------------------------------------- |
-| 400    | validation_error | Missing `companyId`, or malformed `userId`                                                              |
-| 401    | unauthorized     | No active session                                                                                       |
-| 403    | csrf_invalid     | Missing/invalid CSRF token                                                                              |
-| 403    | forbidden        | Not a member / not an owner when removing others / target is an owner (`Cannot remove a company owner`) |
-| 404    | not_found        | Company not found, or member not found                                                                  |
+| Status | Error Code   | Condition                                                                                      |
+| ------ | ------------ | ---------------------------------------------------------------------------------------------- |
+| 401    | unauthorized | No active session                                                                              |
+| 403    | csrf_invalid | Missing/invalid CSRF token                                                                     |
+| 403    | forbidden    | Not an owner when removing others, or the target is an owner (`Cannot remove a company owner`) |
+| 404    | not_found    | Company not found / caller not a member (middleware tenant), or target member not found        |
 
 ---
 
-## POST /api/auth/invite
+## POST /api/v1/companies/{companyId}/invitations
 
 Create an invite (owner only). Requires session + CSRF token.
 
-**Auth**: Required (session cookie, caller must be `owner`)
+**Auth**: Required (session cookie)
 
-**Request Body**:
+**Path Params**: `companyId` (uuid) — validado pelo middleware `tenant` (`404` para não-membro ou empresa inexistente).
+
+**Request Body** (sem ids — R1/R5):
 
 ```json
-{
-  "companyId": "uuid",
-  "email": "user@example.com"
-}
+{ "email": "user@example.com" }
 ```
 
 **Success Response**: `201 Created`
@@ -625,19 +591,19 @@ expires after 7 days and is consumed on first successful accept. Emits an
 
 **Error Responses**:
 
-| Status | Error Code          | Condition                                             |
-| ------ | ------------------- | ----------------------------------------------------- |
-| 400    | validation_error    | `companyId` or `email` missing/invalid                |
-| 401    | unauthorized        | No active session                                     |
-| 403    | csrf_invalid        | Missing/invalid CSRF token                            |
-| 403    | forbidden           | Caller is not a member or not an owner of the company |
-| 404    | not_found           | Company not found or deleted                          |
-| 409    | conflict            | Invite already exists for this company and email      |
-| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min)                        |
+| Status | Error Code          | Condition                                                 |
+| ------ | ------------------- | --------------------------------------------------------- |
+| 400    | validation_error    | `email` missing/invalid                                   |
+| 401    | unauthorized        | No active session                                         |
+| 403    | csrf_invalid        | Missing/invalid CSRF token                                |
+| 403    | forbidden           | Caller is a member but not an owner of the company        |
+| 404    | not_found           | Company not found, deleted, **or caller is not a member** |
+| 409    | conflict            | Invite already exists for this company and email          |
+| 429    | rate_limit_exceeded | Rate limit per IP (20 req/min)                            |
 
 ---
 
-## POST /api/auth/invites/accept
+## POST /api/v1/me/invitations/accept
 
 Accept an invite by its secret token (AUD-01). Requires session + CSRF token;
 the invite target email must match the **session email** (never the body).
@@ -683,7 +649,7 @@ return the same generic 404 — no enumeration.
 
 ---
 
-## GET /api/auth/invites?companyId=...
+## GET /api/v1/me/invitations?companyId=...
 
 List invites of a company (metadata only — never tokens, AUD-01).
 Requires session; caller must be a member of the company.
@@ -721,43 +687,51 @@ Requires session; caller must be a member of the company.
 
 ---
 
-## GET /api/health
+## GET /api/health/live
 
-Health check (FR-025, FR-028). Public. Always returns `200 OK` with per-dependency
-status (graceful degradation — the process never crashes on init failure).
+Liveness (FR-025). Public, CSRF-exempt. **Always `200 OK`** enquanto o processo
+responde — não toca em DB nem em auth, para o healthcheck do Docker/load
+balancer não reiniciar o container por uma dependência temporariamente fora.
 
 ```json
-{
-  "status": "ok",
-  "auth": "ready",
-  "db": "ok"
-}
+{ "status": "ok" }
 ```
-
-`auth: "unavailable"` when the Better Auth instance failed to initialize;
-`db: "unavailable"` when the database is unreachable.
 
 ---
 
-## GET /api/metrics
+## GET /api/health/ready
 
-Prometheus text-format scrape for the spec threat-model thresholds. Public, no
-session. PII-free by design: only process stats and 0/1 readiness gauges.
+Readiness (FR-028). Public, CSRF-exempt. `200 OK` só com o banco acessível;
+**`503 Service Unavailable`** quando o banco está indisponível (fail-closed,
+para o load balancer tirar a instância do rotation).
 
+**Success**: `200 OK`
+
+```json
+{ "status": "ok", "auth": "ready", "db": "ok" }
 ```
-merp_process_uptime_seconds 12345
-merp_process_heap_used_bytes 98765432
-merp_auth_ready 1
-merp_db_ready 1
+
+**Down**: `503 Service Unavailable`
+
+```json
+{ "status": "unavailable", "auth": "ready", "db": "unavailable" }
 ```
 
-Gauges report `0` (instead of failing) when a dependency is down.
+`auth: "unavailable"` quando a instância Better Auth falhou ao inicializar.
+
+> **Removido**: `GET /api/metrics` não existe mais — o endpoint Prometheus foi
+> retirado junto com a migração R5.
 
 ---
 
-## GET /api/.well-known/security.txt
+## GET /.well-known/security.txt
 
 RFC 9116 security contact file. Public, cacheable (`max-age=86400`).
+
+> O path **não** tem prefixo `/api` — o handler vive em
+> `server/routes/.well-known/` (Nitro mapeia `server/routes/**` na raiz), fora
+> do `server/api/`. Exige `BETTER_AUTH_URL` para montar os contatos; sem ela,
+> cai no domínio padrão `app.merp.com.br`.
 
 ---
 
