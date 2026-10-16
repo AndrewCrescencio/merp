@@ -1,4 +1,5 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { requireLocationId } from '~~/server/utils/shared/location'
 import { createError, defineEventHandler, readBody } from 'h3'
 import { printRepository } from '~~/server/utils/print/repository'
 import { z } from 'zod'
@@ -30,7 +31,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const { companyId } = requireTenant(event)
-  const locationId = '' // H07: sem fonte de locationId; '' → get_location_id() = NULL → RLS fail-closed
+  // ADR-002: location real do membro. `null` = sem location no escopo → a RLS
+  // cai no escopo company pelo escape `OR get_location_id() IS NULL`.
+  const locationId = await requireLocationId(companyId, auth.user.id)
 
   try {
     const job = await printRepository.enqueuePrintJob({

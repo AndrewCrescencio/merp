@@ -1,4 +1,5 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { resolveLocationId } from '~~/server/utils/shared/location'
 import { createError, defineEventHandler } from 'h3'
 import { restaurantRepository } from '~~/server/utils/restaurant/repository'
 
@@ -10,7 +11,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const { companyId } = requireTenant(event)
-  const locationId = '' // H07: sem fonte de locationId; '' → get_location_id() = NULL → RLS fail-closed
+  // ADR-002: location real do membro. `null` = sem location no escopo → a RLS
+  // cai no escopo company pelo escape `OR get_location_id() IS NULL`.
+  const locationId = await resolveLocationId(companyId, auth.user.id)
 
   const tables = await restaurantRepository.listTables(companyId, locationId)
 

@@ -8,7 +8,13 @@ Versionamento: `/api/v1` (ADR-005). Erro padrão, rate limits, CSRF: ver `specs/
 
 **Sessão**: todos os endpoints exigem sessão (`server/middleware/auth.ts` aplica `401`). CSRF só para métodos não-GET.
 
-> **Limitação conhecida (H07)**: os handlers de restaurant ainda não têm fonte de `locationId` e passam `''`, o que zera a GUC `app.location_id` e faz o RLS operar em escopo **company** (fail-closed entre empresas, não entre locations). Resolver isso exige definir a origem do `locationId` — decisão em aberto.
+> **Escopo de location (H07 — fechado em 2026-10-16)**: o `locationId` vem de
+> `company_member.default_location_id` (ADR-002, migração `0028`), resolvido por
+> `resolveLocationId`/`requireLocationId` em `server/utils/shared/location.ts`.
+> Membro sem location definido opera em escopo **company** — a RLS permite pelo
+> escape `OR get_location_id() IS NULL`, fail-closed entre empresas. Writes
+> exigem location real: sem `default_location_id` devolvem 400 acionável em vez
+> de violar a FK de `location_id`.
 
 ---
 

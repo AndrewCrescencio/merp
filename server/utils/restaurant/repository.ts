@@ -146,14 +146,14 @@ export const restaurantRepository = {
 
   async getTable(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     tableId: string,
   ): Promise<RestaurantTableSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
       const table = await tx.query.restaurantTable.findFirst({
         where: and(
           eq(restaurantTable.companyId, companyId),
-          eq(restaurantTable.locationId, locationId),
+          locationId ? eq(restaurantTable.locationId, locationId) : undefined,
           eq(restaurantTable.id, tableId),
         ),
       })
@@ -161,12 +161,12 @@ export const restaurantRepository = {
     })
   },
 
-  async listTables(companyId: string, locationId: string): Promise<RestaurantTableSelect[]> {
+  async listTables(companyId: string, locationId: string | null): Promise<RestaurantTableSelect[]> {
     return withTenant(companyId, locationId, null, async (tx) => {
       return tx.query.restaurantTable.findMany({
         where: and(
           eq(restaurantTable.companyId, companyId),
-          eq(restaurantTable.locationId, locationId),
+          locationId ? eq(restaurantTable.locationId, locationId) : undefined,
         ),
         orderBy: [restaurantTable.number],
       })
@@ -237,7 +237,7 @@ export const restaurantRepository = {
 
   async getKitchenTicket(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     ticketId: string,
   ): Promise<KitchenTicketSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
@@ -250,13 +250,13 @@ export const restaurantRepository = {
 
   async listKitchenTickets(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     opts?: { status?: string; limit?: number; offset?: number },
   ): Promise<KitchenTicketSelect[]> {
     return withTenant(companyId, locationId, null, async (tx) => {
       const conditions = [
         eq(kitchenTicket.companyId, companyId),
-        eq(kitchenTicket.locationId, locationId),
+        ...(locationId ? [eq(kitchenTicket.locationId, locationId)] : []),
       ]
       if (opts?.status) conditions.push(eq(kitchenTicket.status, opts.status))
 
@@ -347,7 +347,7 @@ export const restaurantRepository = {
 
   async getCashierShift(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     shiftId: string,
   ): Promise<CashierShiftSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
@@ -360,13 +360,13 @@ export const restaurantRepository = {
 
   async listCashierShifts(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     opts?: { status?: string; userId?: string; limit?: number; offset?: number },
   ): Promise<CashierShiftSelect[]> {
     return withTenant(companyId, locationId, null, async (tx) => {
       const conditions = [
         eq(cashierShift.companyId, companyId),
-        eq(cashierShift.locationId, locationId),
+        ...(locationId ? [eq(cashierShift.locationId, locationId)] : []),
       ]
       if (opts?.status) conditions.push(eq(cashierShift.status, opts.status))
       if (opts?.userId) conditions.push(eq(cashierShift.userId, opts.userId))
@@ -382,7 +382,7 @@ export const restaurantRepository = {
 
   async getCurrentUserShift(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     userId: string,
   ): Promise<CashierShiftSelect | null> {
     return withTenant(companyId, locationId, userId, async (tx) => {

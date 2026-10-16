@@ -57,10 +57,13 @@ export const printRepository = {
     })
   },
 
-  async getPrinters(companyId: string, locationId: string): Promise<PrinterSelect[]> {
+  async getPrinters(companyId: string, locationId: string | null): Promise<PrinterSelect[]> {
     return withTenant(companyId, locationId, null, async (tx) => {
       return tx.query.printer.findMany({
-        where: and(eq(printer.companyId, companyId), eq(printer.locationId, locationId)),
+        where: and(
+          eq(printer.companyId, companyId),
+          locationId ? eq(printer.locationId, locationId) : undefined,
+        ),
         orderBy: [desc(printer.isDefault), desc(printer.createdAt)],
       })
     })
@@ -68,13 +71,13 @@ export const printRepository = {
 
   async getDefaultPrinter(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     type?: 'receipt' | 'kitchen' | 'label',
   ): Promise<PrinterSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
       const conditions = [
         eq(printer.companyId, companyId),
-        eq(printer.locationId, locationId),
+        ...(locationId ? [eq(printer.locationId, locationId)] : []),
         eq(printer.isDefault, true),
         eq(printer.status, 'online'),
       ]
@@ -145,14 +148,14 @@ export const printRepository = {
 
   async getJobById(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     jobId: string,
   ): Promise<PrintJobSelect | null> {
     return withTenant(companyId, locationId, null, async (tx) => {
       const job = await tx.query.printJob.findFirst({
         where: and(
           eq(printJob.companyId, companyId),
-          eq(printJob.locationId, locationId),
+          locationId ? eq(printJob.locationId, locationId) : undefined,
           eq(printJob.id, jobId),
         ),
       })
@@ -162,11 +165,14 @@ export const printRepository = {
 
   async listJobs(
     companyId: string,
-    locationId: string,
+    locationId: string | null,
     opts?: { status?: string; limit?: number; offset?: number },
   ): Promise<PrintJobSelect[]> {
     return withTenant(companyId, locationId, null, async (tx) => {
-      const conditions = [eq(printJob.companyId, companyId), eq(printJob.locationId, locationId)]
+      const conditions = [
+        eq(printJob.companyId, companyId),
+        ...(locationId ? [eq(printJob.locationId, locationId)] : []),
+      ]
       if (opts?.status) conditions.push(eq(printJob.status, opts.status))
 
       return tx.query.printJob.findMany({

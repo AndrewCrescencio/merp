@@ -44,6 +44,12 @@ withTenant(companyId, locationId, userId, fn, existingTx?)
 - Testes de RLS ganham dimensão `location`.
 - Índice `(company_id, location_id, created_at DESC)` em tabelas de movimento.
 - `company_member` ganha `default_location_id` (nullable).
+  **Implementado em 2026-10-16** (migração `0028`, `resolveLocationId` em
+  `server/utils/shared/location.ts`): fecha o H07 — os handlers de
+  restaurant/print/order forjavam a fonte com `''`, o que funcionava no GUC
+  (vira NULL → escopo company) mas quebrava nos `eq(col, locationId)` do
+  repositório, que enxergavam um valor concreto. `NULL` continua sendo estado
+  legítimo: significa "sem location no escopo" e cai no escopo company.
 
 ## Alternativas rejeitadas
 
