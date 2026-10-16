@@ -32,7 +32,6 @@ export interface CompanyCreateInput {
 }
 
 export interface InviteInput {
-  companyId: string
   email: string
 }
 
@@ -162,10 +161,6 @@ export function validateCompanyCreateInput(rawBody: unknown): CompanyCreateInput
 
 export function validateInviteInput(rawBody: unknown): InviteInput {
   const body = rawBody as Record<string, unknown>
-  if (!body?.companyId || typeof body.companyId !== 'string') {
-    sendValidationError('companyId is required')
-  }
-
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email)) {
     sendValidationError('A valid email is required')
@@ -175,15 +170,11 @@ export function validateInviteInput(rawBody: unknown): InviteInput {
     sendValidationError('A valid email is required')
   }
 
-  return { companyId: body.companyId, email }
+  return { email }
 }
 
-export function validateResetPasswordInput(
-  rawBody: unknown,
-  rawQuery: unknown,
-): ResetPasswordInput {
+export function validateResetPasswordInput(rawBody: unknown): ResetPasswordInput {
   const body = rawBody as Record<string, unknown>
-  const query = rawQuery as Record<string, unknown>
   if (!body?.newPassword || typeof body.newPassword !== 'string' || body.newPassword.length < 8) {
     sendValidationError('Password must be at least 8 characters')
   }
@@ -196,17 +187,19 @@ export function validateResetPasswordInput(
     sendValidationError('Password is too common. Choose a stronger password.')
   }
 
-  const token = typeof body?.token === 'string' && body.token ? body.token : query.token
-  if (typeof token !== 'string' || !token) {
+  // R6: token só no body — nunca em path/query da API.
+  const token = typeof body?.token === 'string' && body.token ? body.token : ''
+  if (!token) {
     sendValidationError('Invalid or expired reset link')
   }
 
   return { token, newPassword: body.newPassword }
 }
 
-export function validateVerifyEmailInput(rawQuery: unknown): VerifyEmailInput {
-  const query = rawQuery as Record<string, unknown>
-  const token = query.token
+// R6: token só no body — a página Nuxt lê o token da URL e faz POST com ele no body.
+export function validateVerifyEmailInput(rawBody: unknown): VerifyEmailInput {
+  const body = rawBody as Record<string, unknown>
+  const token = body?.token
   if (typeof token !== 'string' || !token) {
     sendValidationError('Invalid or expired verification link')
   }
@@ -242,20 +235,9 @@ export function validateCompanySearchInput(rawQuery: unknown): { q: string } {
   return { q: query.q.trim() }
 }
 
-export function validateCompanySwitchInput(rawBody: unknown): { companyId: string } {
-  const body = rawBody as Record<string, unknown>
-  if (!body.companyId || typeof body.companyId !== 'string') {
-    sendValidationError('Company ID is required')
-  }
-  return { companyId: body.companyId }
-}
-
 // Update aceita campos opcionais (o caller lê `name?`), ao contrário do create.
 export function validateCompanyUpdateInput(rawBody: unknown): Partial<CompanyCreateInput> {
   const body = rawBody as Record<string, unknown>
-  if (!body?.companyId || typeof body.companyId !== 'string') {
-    sendValidationError('companyId is required')
-  }
 
   const input: Partial<CompanyCreateInput> = {}
   if (body.name !== undefined) {
@@ -292,28 +274,6 @@ export function validateCompanyUpdateInput(rawBody: unknown): Partial<CompanyCre
     sendValidationError('At least one field (name, cnpj, razaoSocial) is required')
   }
   return input
-}
-
-export function validateDeleteCompanyInput(rawBody: unknown): { companyId: string } {
-  const body = rawBody as Record<string, unknown>
-  if (!body?.companyId || typeof body.companyId !== 'string') {
-    sendValidationError('companyId is required')
-  }
-  return { companyId: body.companyId }
-}
-
-export function validateRemoveMemberInput(rawBody: unknown): {
-  companyId: string
-  userId?: string
-} {
-  const body = rawBody as Record<string, unknown>
-  if (!body?.companyId || typeof body.companyId !== 'string') {
-    sendValidationError('companyId is required')
-  }
-  if (body.userId !== undefined && (typeof body.userId !== 'string' || body.userId.trim() === '')) {
-    sendValidationError('userId must be a non-empty string')
-  }
-  return { companyId: body.companyId, userId: body.userId?.trim() }
 }
 
 export function validateInviteAcceptInput(rawBody: unknown): { token: string } {

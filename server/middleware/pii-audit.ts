@@ -1,7 +1,7 @@
 import { defineEventHandler, getRequestURL } from 'h3'
 import { logger } from '#shared/logger'
 
-const piiEndpoints = ['/api/auth/me', '/api/auth/export']
+const piiEndpoints = ['/api/v1/me', '/api/v1/me/data-export']
 
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
       userId: user.id,
       email: user.email,
       path,
-      purpose: path === '/api/auth/export' ? 'data_export' : 'session_check',
+      purpose: path === '/api/v1/me/data-export' ? 'data_export' : 'session_check',
       timestamp: new Date().toISOString(),
     })
   }

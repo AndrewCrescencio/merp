@@ -47,6 +47,12 @@ vi.mock('#shared/auth', () => ({
   getAuth: vi.fn(async () => ({ api: {} })),
 }))
 
+// Sem rede em teste: o HIBP (checkPasswordBreach) é real e penduraria/timeout
+// sem acesso a api.pwnedpasswords.com — valida só a lógica de registro.
+vi.mock('~~/server/utils/shared/hibp', () => ({
+  checkPasswordBreach: vi.fn().mockResolvedValue({ breached: false, count: 0 }),
+}))
+
 describe('POST /api/auth/register', () => {
   beforeEach(() => {
     vi.clearAllMocks()

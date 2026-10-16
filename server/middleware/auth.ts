@@ -14,13 +14,13 @@ import {
 const publicRoutes = [
   '/api/auth/register',
   '/api/auth/login',
-  '/api/auth/verify-email',
-  '/api/auth/reset-password',
+  '/api/auth/email/verification/confirm',
+  '/api/auth/password/reset',
   // AUD-04: inicia o fluxo de recuperação — sempre deslogado por definição.
-  '/api/auth/forget-password',
+  '/api/auth/password/forgot',
   // FR-029: reenvio do link de verificação — conta não-verificada não tem
   // sessão (login devolve 403); exigir sessão criaria deadlock no onboarding.
-  '/api/auth/send-verification-email',
+  '/api/auth/email/verification',
   // Health: liveness (sempre 200) e readiness (503 se o banco cair) — públicos
   // para o healthcheck do Docker/load balancer sem sessão.
   '/api/health/live',
@@ -42,13 +42,6 @@ const publicRoutes = [
   '/auth/forget-password',
   '/auth/reset-password',
 ]
-
-// AUD-09: o GET /api/auth/reset-password/<token> (clique no link do email) é
-// dinâmico — prefixo em vez de match exato. Os fluxos de verificação e reset
-// se autenticam pelo próprio token (uso único + TTL 1h) com rate limit por IP;
-// exigir sessão quebrava o deadlock de email não-verificado (register →
-// verify-link 401 → login 403) e impedia reset de senha de quem não está logado.
-const publicRoutePrefixes = ['/api/auth/reset-password/']
 
 // FR-023: eventos de ciclo de vida da sessão. O registro do evento é
 // fire-and-forget — falha na auditoria não pode bloquear nem falhar a
@@ -82,10 +75,7 @@ function emitSessionEvent(
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
 
-  if (
-    publicRoutes.includes(path) ||
-    publicRoutePrefixes.some((prefix) => path.startsWith(prefix))
-  ) {
+  if (publicRoutes.includes(path)) {
     return
   }
 

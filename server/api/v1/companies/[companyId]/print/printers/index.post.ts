@@ -1,0 +1,64 @@
+import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { createError, defineEventHandler, readBody } from 'h3'
+import { printRepository } from '~~/server/utils/print/repository'
+import { z } from 'zod'
+
+const registerPrinterSchema = z.object({
+  name: z.string().min(1).max(100),
+  driver: z.enum(['escpos', 'star', 'epson', 'custom']),
+  connection: z.object({
+    type: z.enum(['network', 'usb', 'bluetooth']),
+    host: z.string().optional(),
+    port: z.number().int().positive().optional(),
+    mac: z.string().optional(),
+    path: z.string().optional(),
+  }),
+  stationIds: z.array(z.string().uuid()).min(1),
+  isActive: z.boolean().optional(),
+})
+
+export default defineEventHandler(async (event) => {
+  const auth = event.context.auth
+
+  if (!auth?.user) {
+    throw createError({ statusCode: 401, message: 'unauthenticated' })
+  }
+
+  const body = await readBody(event)
+  const parsed = registerPrinterSchema.safeParse(body)
+
+  if (!parsed.success) {
+    throw createError({
+      statusCode: 400,
+      message: 'validation_error',
+      data: parsed.error.flatten(),
+    })
+  }
+
+  const { companyId } = requireTenant(event)
+  const locationId = '' // H07: sem fonte de locationId; '' → get_location_id() = NULL → RLS fail-closed
+
+  try {
+    const input = parsed.data
+    const printer = await printRepository.registerPrinter({
+      companyId,
+      locationId,
+      name: input.name,
+      type:
+        input.driver === 'escpos'
+          ? 'receipt'
+          : input.driver === 'star'
+            ? 'receipt'
+            : input.driver === 'epson'
+              ? 'receipt'
+              : 'kitchen',
+      connectionType: input.connection.type,
+      connectionConfig: JSON.stringify(input.connection),
+      isDefault: input.isActive,
+    })
+
+    return printer
+  } catch {
+    throw createError({ statusCode: 500, message: 'failed_to_register_printer' })
+  }
+})

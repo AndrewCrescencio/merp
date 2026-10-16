@@ -17,7 +17,7 @@ const RESEND_API_URL = 'https://api.resend.com/emails'
 // de 500ms (timing) ou uma exceção (status) viraria oráculo de enumeração de
 // contas. 450ms deixa ~40ms de folga para o token e o lookup antes do piso.
 // Subir este valor exige subir também os pisos dos handlers que AGUARDAM o
-// envio: register.post.ts (700ms) e forget-password.post.ts (650ms).
+// envio: register.post.ts (700ms) e password/forgot.post.ts (650ms).
 const RESEND_TIMEOUT_MS = 450
 
 const HTML_ESCAPES: Record<string, string> = {
@@ -124,7 +124,7 @@ export async function sendVerificationNotice(email: string, url: string): Promis
   })
 }
 
-// O piso de tempo do /forget-password (650ms, em forget-password.post.ts)
+// O piso de tempo do /password/forgot (650ms, em password/forgot.post.ts)
 // cobre o atraso do envio: lá o caminho com e sem email respondem igual, e sem
 // o piso o Resend aqui denunciaria a existência da conta pelo relógio.
 export async function sendPasswordResetNotice(email: string, url: string): Promise<void> {

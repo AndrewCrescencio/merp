@@ -41,7 +41,7 @@ describe('02-csrf-validate middleware', () => {
   })
 
   it('não executa para métodos seguros (GET)', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/auth/me' })
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/v1/me' })
     mockGetMethod.mockReturnValue('GET')
 
     const handler = await import('./02-csrf-validate').then((m) => m.default)
@@ -61,7 +61,7 @@ describe('02-csrf-validate middleware', () => {
   })
 
   it('retorna 403 quando POST sem header x-csrf-token em rota não-isenta', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/auth/companies' })
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/v1/companies' })
     mockGetMethod.mockReturnValue('POST')
     mockValidateCsrf.mockReturnValue(false)
 
@@ -76,7 +76,7 @@ describe('02-csrf-validate middleware', () => {
   })
 
   it('não retorna erro quando CSRF válido', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/auth/companies' })
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/v1/companies' })
     mockGetMethod.mockReturnValue('POST')
     mockValidateCsrf.mockReturnValue(true)
 

@@ -28,8 +28,8 @@ describe('PII audit middleware', () => {
     expect(mockLoggerInfo).not.toHaveBeenCalled()
   })
 
-  it('logs pii_access for GET /api/auth/me', async () => {
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/me'))
+  it('logs pii_access for GET /api/v1/me', async () => {
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/v1/me'))
 
     const handler = await import('~~/server/middleware/pii-audit').then((m) => m.default)
 
@@ -45,14 +45,14 @@ describe('PII audit middleware', () => {
       event: 'pii_access',
       userId: 'user-1',
       email: 'user@example.com',
-      path: '/api/auth/me',
+      path: '/api/v1/me',
       purpose: 'session_check',
       timestamp: expect.any(String),
     })
   })
 
-  it('logs pii_access for /api/auth/export', async () => {
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/export'))
+  it('logs pii_access for /api/v1/me/data-export', async () => {
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/v1/me/data-export'))
 
     const handler = await import('~~/server/middleware/pii-audit').then((m) => m.default)
 
@@ -68,14 +68,14 @@ describe('PII audit middleware', () => {
       event: 'pii_access',
       userId: 'user-1',
       email: 'user@example.com',
-      path: '/api/auth/export',
+      path: '/api/v1/me/data-export',
       purpose: 'data_export',
       timestamp: expect.any(String),
     })
   })
 
   it('does not log when user is not authenticated', async () => {
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/me'))
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/v1/me'))
 
     const handler = await import('~~/server/middleware/pii-audit').then((m) => m.default)
 
@@ -86,7 +86,7 @@ describe('PII audit middleware', () => {
   })
 
   it('does not log when user is undefined', async () => {
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/me'))
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/v1/me'))
 
     const handler = await import('~~/server/middleware/pii-audit').then((m) => m.default)
 

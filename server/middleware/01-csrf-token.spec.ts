@@ -34,7 +34,7 @@ describe('01-csrf-token middleware', () => {
   })
 
   it('executa getOrCreateCsrfToken para métodos seguros (GET) em rota API', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/auth/me' })
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/v1/me' })
     mockGetMethod.mockReturnValue('GET')
 
     const handler = await import('./01-csrf-token').then((m) => m.default)
@@ -54,7 +54,7 @@ describe('01-csrf-token middleware', () => {
   })
 
   it('não executa para métodos não-seguros (POST) - validação feita no 02-csrf-validate', async () => {
-    mockGetRequestURL.mockReturnValue({ pathname: '/api/auth/companies' })
+    mockGetRequestURL.mockReturnValue({ pathname: '/api/v1/companies' })
     mockGetMethod.mockReturnValue('POST')
 
     const handler = await import('./01-csrf-token').then((m) => m.default)

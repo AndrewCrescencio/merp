@@ -125,7 +125,7 @@ export const printRepository = {
     })
   },
 
-  // Job lifecycle: só o endpoint de retry existe (server/api/print/jobs/[id]/retry.post.ts).
+  // Job lifecycle: só o endpoint de retry existe (server/api/v1/companies/[companyId]/print/jobs/[jobId]/retry.post.ts).
   // Os métodos de worker (markJobPrinting/completeJob/failJob/getPendingJobs) morreram com
   // server/tasks/process-print-queue.ts (RLS-004) — recriar junto com o worker que os chamar.
   async retryJob(companyId: string, jobId: string): Promise<PrintJobSelect | null> {

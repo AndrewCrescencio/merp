@@ -68,21 +68,18 @@ export function validateCsrf(event: H3Event): boolean {
 const csrfExemptPaths = new Set([
   '/api/auth/register',
   '/api/auth/login',
-  '/api/auth/verify-email',
-  '/api/auth/reset-password',
-  '/api/auth/forget-password',
+  '/api/auth/email/verification/confirm',
+  '/api/auth/password/reset',
+  '/api/auth/password/forgot',
   // FR-029: reenvio é público (sem sessão) — CSRF aqui não protege nada
   // (o atacante pode chamar direto); rate limit por IP/email é a defesa.
-  '/api/auth/send-verification-email',
+  '/api/auth/email/verification',
   '/api/health/live',
   '/api/health/ready',
 ])
 
-const csrfExemptPrefixes = ['/api/auth/reset-password/']
-
 export function isCsrfExempt(path: string): boolean {
-  if (csrfExemptPaths.has(path)) return true
-  return csrfExemptPrefixes.some((prefix) => path.startsWith(prefix))
+  return csrfExemptPaths.has(path)
 }
 
 export function getOrCreateCsrfToken(event: H3Event): string {

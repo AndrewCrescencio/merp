@@ -49,7 +49,7 @@ vi.mock('~~/server/utils/shared/security', () => ({
 describe('auth middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/me'))
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/v1/me'))
     mockGetAuth.mockResolvedValue({ api: { getSession: mockGetSession } })
     mockCreateAuthEvent.mockResolvedValue(undefined)
     mockSendAuthError.mockImplementation((status: number, error: string, message: string) => {
@@ -117,7 +117,7 @@ describe('auth middleware', () => {
   })
 
   it('skips auth for forget-password route (starts recovery, caller is always logged out)', async () => {
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/forget-password'))
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/password/forgot'))
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
 
@@ -128,9 +128,7 @@ describe('auth middleware', () => {
   })
 
   it('FR-029: skips auth for send-verification-email (unverified account has no session)', async () => {
-    mockGetRequestURL.mockReturnValue(
-      new URL('http://localhost:3000/api/auth/send-verification-email'),
-    )
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/email/verification'))
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
 
@@ -153,7 +151,7 @@ describe('auth middleware', () => {
 
   it('AUD-09: skips auth for verify-email route (email link, no session)', async () => {
     mockGetRequestURL.mockReturnValue(
-      new URL('http://localhost:3000/api/auth/verify-email?token=signed-jwt'),
+      new URL('http://localhost:3000/api/auth/email/verification/confirm'),
     )
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
@@ -166,17 +164,15 @@ describe('auth middleware', () => {
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 
-  it('AUD-09: skips auth for reset-password routes (email link GET and POST, no session)', async () => {
+  it('AUD-09: skips auth for reset-password route (email link POST, no session)', async () => {
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
 
-    for (const path of ['/api/auth/reset-password/some-token', '/api/auth/reset-password']) {
-      mockGetRequestURL.mockReturnValue(new URL(`http://localhost:3000${path}`))
+    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/password/reset'))
 
-      const event = { headers: new Headers() } as any
+    const event = { headers: new Headers() } as any
 
-      await expect(handler(event)).resolves.toBeUndefined()
-      expect(mockGetSession).not.toHaveBeenCalled()
-    }
+    await expect(handler(event)).resolves.toBeUndefined()
+    expect(mockGetSession).not.toHaveBeenCalled()
   })
 
   it('returns 503 auth_unavailable when auth instance cannot be resolved', async () => {
@@ -328,7 +324,7 @@ describe('auth middleware', () => {
       'session_expired',
       expect.objectContaining({
         event: 'session_expired',
-        path: '/api/auth/me',
+        path: '/api/v1/me',
       }),
     )
   })
