@@ -4,7 +4,7 @@ import { printRepository } from '~~/server/utils/print/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
-  const jobId = getRouterParam(event, 'id')
+  const jobId = getRouterParam(event, 'jobId')
 
   if (!auth?.user) {
     throw createError({ statusCode: 401, message: 'unauthenticated' })

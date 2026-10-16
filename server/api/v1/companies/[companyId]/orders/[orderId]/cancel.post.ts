@@ -4,7 +4,7 @@ import { orderRepository } from '~~/server/utils/order/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
-  const orderId = getRouterParam(event, 'id')
+  const orderId = getRouterParam(event, 'orderId')
 
   if (!auth?.user) {
     throw createError({ statusCode: 401, message: 'unauthenticated' })

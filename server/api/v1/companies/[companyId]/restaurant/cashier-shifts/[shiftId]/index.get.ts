@@ -4,7 +4,7 @@ import { restaurantRepository } from '~~/server/utils/restaurant/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
-  const shiftId = getRouterParam(event, 'id')
+  const shiftId = getRouterParam(event, 'shiftId')
 
   if (!auth?.user) {
     throw createError({ statusCode: 401, message: 'unauthenticated' })

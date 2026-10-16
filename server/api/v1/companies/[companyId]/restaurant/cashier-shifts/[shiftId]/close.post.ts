@@ -1,16 +1,18 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
-import { createError, defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 import { restaurantRepository } from '~~/server/utils/restaurant/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
+  // shiftId vem do PATH, nunca do body (R1/R5).
+  const shiftId = getRouterParam(event, 'shiftId')
   const body = await readBody(event)
 
   if (!auth?.user) {
     throw createError({ statusCode: 401, message: 'unauthenticated' })
   }
 
-  const { shiftId, closingFloat, expectedAmount, actualAmount, notes } = body
+  const { closingFloat, expectedAmount, actualAmount, notes } = body
 
   if (!shiftId || !closingFloat || !expectedAmount || !actualAmount) {
     throw createError({ statusCode: 400, message: 'missing_required_fields' })

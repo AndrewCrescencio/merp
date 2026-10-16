@@ -4,7 +4,7 @@ import { restaurantRepository } from '~~/server/utils/restaurant/repository'
 
 export default defineEventHandler(async (event) => {
   const auth = event.context.auth
-  const tableId = getRouterParam(event, 'id')
+  const tableId = getRouterParam(event, 'tableId')
   const body = await readBody(event)
 
   if (!auth?.user) {

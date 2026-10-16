@@ -169,6 +169,9 @@ jobs:
       - name: Check format
         run: npm run format:check
 
+      - name: Check route conventions (R1/R2/R5)
+        run: npm run check:routes
+
   typecheck:
     name: TypeCheck
     runs-on: ubuntu-latest
