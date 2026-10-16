@@ -31,18 +31,18 @@ UUID, mas o **tipo de coluna** é `text`. Ver ADR-006.
 
 ### Session
 
-| Field             | Type              | Constraints                                        |
-| ----------------- | ----------------- | -------------------------------------------------- |
-| id                | TEXT (UUID value) | PK                                                 |
-| user_id           | TEXT (UUID value) | NOT NULL, FK → User.id                             |
-| token             | TEXT              | NOT NULL, UNIQUE — session token (httpOnly cookie) |
-| expires_at        | TIMESTAMPTZ       | NOT NULL — fixed 7d TTL from creation (no refresh) |
-| remember_me       | BOOLEAN           | NOT NULL, DEFAULT false                            |
-| active_company_id | UUID              | NULLABLE, FK → Company.id                          |
-| created_at        | TIMESTAMPTZ       | NOT NULL, DEFAULT now()                            |
-| updated_at        | TIMESTAMPTZ       | NOT NULL, DEFAULT now()                            |
+| Field             | Type              | Constraints                                                    |
+| ----------------- | ----------------- | -------------------------------------------------------------- |
+| id                | TEXT (UUID value) | PK                                                             |
+| user_id           | TEXT (UUID value) | NOT NULL, FK → User.id                                         |
+| token             | TEXT              | NOT NULL, UNIQUE — session token (httpOnly cookie)             |
+| expires_at        | TIMESTAMPTZ       | NOT NULL — fixed 7d TTL from creation (no refresh)             |
+| remember_me       | BOOLEAN           | NOT NULL, DEFAULT false                                        |
+| active_company_id | UUID              | **LEGADO MORTO** — nenhum caminho lê/escreve (ver rest-api.md) |
+| created_at        | TIMESTAMPTZ       | NOT NULL, DEFAULT now()                                        |
+| updated_at        | TIMESTAMPTZ       | NOT NULL, DEFAULT now()                                        |
 
-**Indexes**: token (session lookup), user_id (user sessions), expires_at (purge expired), active_company_id
+**Indexes**: token (session lookup), user_id (user sessions), expires_at (purge expired)
 
 ### Company (Tenant)
 
@@ -60,16 +60,22 @@ UUID, mas o **tipo de coluna** é `text`. Ver ADR-006.
 
 ### CompanyMember
 
-| Field      | Type              | Constraints                                        |
-| ---------- | ----------------- | -------------------------------------------------- |
-| id         | TEXT (UUID value) | PK                                                 |
-| company_id | TEXT (UUID value) | NOT NULL, FK → Company.id                          |
-| user_id    | TEXT (UUID value) | NOT NULL, FK → User.id                             |
-| role       | TEXT              | NOT NULL, DEFAULT 'member' — future RBAC extension |
-| created_at | TIMESTAMPTZ       | NOT NULL, DEFAULT now()                            |
+| Field               | Type              | Constraints                                                 |
+| ------------------- | ----------------- | ----------------------------------------------------------- |
+| id                  | TEXT (UUID value) | PK                                                          |
+| company_id          | TEXT (UUID value) | NOT NULL, FK → Company.id                                   |
+| user_id             | TEXT (UUID value) | NOT NULL, FK → User.id                                      |
+| role                | TEXT              | NOT NULL, DEFAULT 'member' — future RBAC extension          |
+| default_location_id | TEXT (UUID value) | NULLABLE, FK → Location.id (`ON DELETE SET NULL`) — ADR-002 |
+| created_at          | TIMESTAMPTZ       | NOT NULL, DEFAULT now()                                     |
 
 **Unique constraints**: (company_id, user_id) — prevents duplicate membership
-**Indexes**: user_id (user's companies), company_id (company members)
+**Indexes**: user_id (user's companies), company_id (company members), default_location_id
+
+`default_location_id` é a fonte do `location_id` no escopo do membro
+(`resolveLocationId` em `server/utils/shared/location.ts`). `NULL` é estado
+legítimo: "sem location no escopo" → a RLS cai no escopo company pelo escape
+`OR get_location_id() IS NULL` de ADR-002.
 
 ### AuthEvent (Audit Log)
 

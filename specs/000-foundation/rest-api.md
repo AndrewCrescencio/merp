@@ -44,14 +44,13 @@ sem mudar as respostas — contrato, não regra de negócio):
   `/api/auth` mas **não são fluxo de auth** (`/me`, `/companies`, `/invites`,
   `/deactivate`, `/export`, `/consent`) migraram para `/api/v1` conforme R1/R5.
 - `POST /api/auth/companies/switch` foi **removido** — nenhum endpoint escreve
-  `activeCompanyId`; em R5 o `companyId` vem sempre do path. **O campo não foi
-  removido**: a coluna, as ~21 leituras (audit `tenantId` de
-  `session_created`/`logout`/`deactivate`, e o `activeCompanyId` devolvido por
-  `GET /api/v1/me`) e `setActiveCompany` seguem de pé, mas `setActiveCompany`
-  não tem chamador de produção. Resultado prático: o valor é sempre `null`
-  para sessão nova. Completar a remoção exige ADR — toca `drizzle/`,
-  `server/utils/schema/**`, `server/utils/auth/**` e
-  `server/middleware/auth*.ts`, todos protegidos.
+  `activeCompanyId`; em R5 o `companyId` vem sempre do path.
+  **Código morto removido em 2026-10-16**: `setActiveCompany`,
+  `getActiveCompany`, o campo no response de `GET /api/v1/me`, os fallbacks de
+  audit `tenantId` e os tipos associados. **A coluna
+  `session.active_company_id` permanece no schema** como legado morto — nenhum
+  caminho a lê nem a escreve. Removê-la exige migração (`drizzle/`,
+  `server/utils/schema/**`, `server/middleware/auth*.ts`, todos protegidos).
 
 ## Divergência de docs conhecida
 

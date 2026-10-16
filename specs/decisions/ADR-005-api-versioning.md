@@ -60,8 +60,10 @@ mudança; §9 da constituição foi corrigido em conjunto.
   (24 endpoints nos paths pré-migração); divergência conhecida, registrada em
   `specs/000-foundation/rest-api.md`.
 - Remoção de `POST /api/auth/companies/switch` deixou `setActiveCompany`
-  sem chamador de produção e `activeCompanyId` só-legado — ver
-  `specs/000-foundation/rest-api.md`.
+  sem chamador de produção. O código morto foi removido em 2026-10-16
+  (`setActiveCompany`, `getActiveCompany`, o campo em `GET /api/v1/me` e os
+  fallbacks de audit `tenantId`); a coluna `session.active_company_id`
+  permanece no schema como legado — ver `specs/000-foundation/rest-api.md`.
 
 ## Critério para reavaliar
 

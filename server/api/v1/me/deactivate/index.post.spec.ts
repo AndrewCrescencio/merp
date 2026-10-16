@@ -71,7 +71,7 @@ describe('POST /api/v1/me/deactivate', () => {
       email: 'test@example.com',
       eventType: 'session_invalidated',
       ipAddress: null,
-      metadata: { sessionId: 'session-1', userId: 'user-1', tenantId: 'company-1' },
+      metadata: { sessionId: 'session-1', userId: 'user-1' },
     })
     expect(mockCreateAuthEvent).toHaveBeenNthCalledWith(2, {
       userId: 'user-1',

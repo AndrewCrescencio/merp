@@ -224,31 +224,6 @@ describe('auth middleware', () => {
       metadata: {
         sessionId: 'session-1',
         userId: 'user-1',
-        tenantId: 'company-1',
-      },
-    })
-  })
-
-  it('emits session_validated with null tenantId when no active company', async () => {
-    const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
-    const session = { id: 'session-1', userId: 'user-1' }
-    mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
-    mockCreateAuthEvent.mockResolvedValue(undefined)
-
-    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
-
-    const event = { headers: new Headers(), context: {} } as any
-
-    await handler(event)
-
-    expect(mockCreateAuthEvent).toHaveBeenCalledWith({
-      userId: 'user-1',
-      email: 'user@example.com',
-      eventType: 'session_validated',
-      metadata: {
-        sessionId: 'session-1',
-        userId: 'user-1',
-        tenantId: null,
       },
     })
   })
@@ -346,7 +321,6 @@ describe('auth middleware', () => {
       metadata: {
         sessionId: null,
         userId: null,
-        tenantId: null,
       },
     })
   })

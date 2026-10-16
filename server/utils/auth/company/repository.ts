@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../db'
-import { company, companyMember, session } from '../../schema'
+import { company, companyMember } from '../../schema'
 import { withTenant } from '../../db/tenant-context'
 import { isPgConflict, sendConflictError, sendNotFoundError } from '../../shared/errors'
 import { randomUUID } from 'node:crypto'
@@ -124,11 +124,6 @@ export class CompanyRepository {
         sendNotFoundError('Company not found')
       }
       await tx.delete(companyMember).where(eq(companyMember.companyId, companyId))
-
-      await tx
-        .update(session)
-        .set({ activeCompanyId: null, updatedAt: new Date() })
-        .where(eq(session.activeCompanyId, companyId))
 
       return updated!
     })

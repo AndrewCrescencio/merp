@@ -104,11 +104,11 @@ O Auth bounded context gerencia identidade de usuários — registro, login, log
 
 ## Entidades-Chave
 
-| Entidade    | Descrição                                                                                                             | Atributos Principais                                                                   |
-| ----------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **User**    | Pessoa que acessa o sistema. Tem email, pode autenticar, e tem estado ativo/inativo. Pertence a uma ou mais empresas. | id, email, name, email_verified, is_active, consent_*                                  |
-| **Session** | Período de acesso autenticado ativo. Criada no login, destruída no logout ou expiração.                               | id, user_id, token, expires_at, ip_address, user_agent, remember_me, active_company_id |
-| **Company** | Tenant no modelo multi-tenant. Usuários são membros de empresas e operam dentro do seu escopo.                        | id, name, cnpj, razao_social, is_deleted                                               |
+| Entidade    | Descrição                                                                                                             | Atributos Principais                                                |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **User**    | Pessoa que acessa o sistema. Tem email, pode autenticar, e tem estado ativo/inativo. Pertence a uma ou mais empresas. | id, email, name, email_verified, is_active, consent_*               |
+| **Session** | Período de acesso autenticado ativo. Criada no login, destruída no logout ou expiração.                               | id, user_id, token, expires_at, ip_address, user_agent, remember_me |
+| **Company** | Tenant no modelo multi-tenant. Usuários são membros de empresas e operam dentro do seu escopo.                        | id, name, cnpj, razao_social, is_deleted                            |
 
 ## Critérios de Sucesso (Mensuráveis)
 

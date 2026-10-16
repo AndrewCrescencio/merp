@@ -1,7 +1,6 @@
 import { and, eq, like, or, sql } from 'drizzle-orm'
-import { db } from '../../db'
-import { company, companyMember, session } from '../../schema'
-import { sendForbiddenError, sendNotFoundError, handleDatabaseError } from '../../shared/errors'
+import { company, companyMember } from '../../schema'
+import { sendNotFoundError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
 import { escapeLikePattern, type CompanyResult } from './repository'
 
@@ -122,8 +121,7 @@ export class MembershipRepository {
   /**
    * Removes a member. `executedByUserId` drives the RLS authorization
    * (owner removes anyone; a member removes only itself) — never pass the
-   * target as executor. Detaches the removed user's sessions from the
-   * company. 404 when RLS denies or the membership does not exist.
+   * target as executor. 404 when RLS denies or the membership does not exist.
    */
   async removeCompanyMember(
     companyId: string,
@@ -139,56 +137,7 @@ export class MembershipRepository {
       if (deleted.length === 0) {
         sendNotFoundError('Company member not found')
       }
-
-      await tx
-        .update(session)
-        .set({ activeCompanyId: null, updatedAt: new Date() })
-        .where(and(eq(session.userId, targetUserId), eq(session.activeCompanyId, companyId)))
     })
-  }
-
-  /**
-   * Points a session at a company (`null` clears it). Membership is
-   * re-validated in the same transaction (TOCTOU-safe). 403 for non-members.
-   */
-  async setActiveCompany(
-    sessionId: string,
-    companyId: string | null,
-    userId: string,
-  ): Promise<void> {
-    await withTenant(companyId, null, userId, async (tx) => {
-      if (companyId !== null) {
-        const [membership] = await tx
-          .select({ id: companyMember.id })
-          .from(companyMember)
-          .where(and(eq(companyMember.companyId, companyId), eq(companyMember.userId, userId)))
-          .limit(1)
-
-        if (!membership) {
-          sendForbiddenError('User is not a member of the specified company')
-        }
-      }
-
-      await tx
-        .update(session)
-        .set({ activeCompanyId: companyId, updatedAt: new Date() })
-        .where(eq(session.id, sessionId))
-    })
-  }
-
-  /** Returns the session's active company id, or null. */
-  async getActiveCompany(sessionId: string): Promise<string | null> {
-    try {
-      const [found] = await db
-        .select({ activeCompanyId: session.activeCompanyId })
-        .from(session)
-        .where(eq(session.id, sessionId))
-        .limit(1)
-
-      return found?.activeCompanyId || null
-    } catch (error: unknown) {
-      return handleDatabaseError(error)
-    }
   }
 }
 

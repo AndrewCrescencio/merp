@@ -378,22 +378,16 @@ describe('MembershipRepository (unit)', () => {
   })
 
   describe('removeCompanyMember', () => {
-    it('removes member and detaches sessions', async () => {
+    it('removes member', async () => {
       mockTx.delete.mockReturnValue({
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: 'm1' }]),
-        }),
-      })
-      mockTx.update.mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
         }),
       })
 
       await repo.removeCompanyMember(companyId, userId, 'target-user')
 
       expect(mockTx.delete).toHaveBeenCalled()
-      expect(mockTx.update).toHaveBeenCalled()
     })
 
     it('throws Not Found when member not found', async () => {
@@ -406,85 +400,6 @@ describe('MembershipRepository (unit)', () => {
       await expect(repo.removeCompanyMember(companyId, userId, 'target-user')).rejects.toThrow(
         'Not Found',
       )
-    })
-  })
-
-  describe('setActiveCompany', () => {
-    it('sets active company for member', async () => {
-      mockTx.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([{ id: 'm1' }]),
-          }),
-        }),
-      })
-      mockTx.update.mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
-      })
-
-      await repo.setActiveCompany('session-id', companyId, userId)
-
-      expect(mockTx.update).toHaveBeenCalled()
-    })
-
-    it('throws Forbidden for non-member', async () => {
-      mockTx.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      })
-
-      await expect(repo.setActiveCompany('session-id', companyId, userId)).rejects.toThrow(
-        'Forbidden',
-      )
-    })
-
-    it('clears active company when null', async () => {
-      mockTx.update.mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
-      })
-
-      await repo.setActiveCompany('session-id', null, userId)
-
-      expect(mockTx.update).toHaveBeenCalled()
-    })
-  })
-
-  describe('getActiveCompany', () => {
-    it('returns active company id', async () => {
-      const dbSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([{ activeCompanyId: companyId }]),
-          }),
-        }),
-      })
-      ;(db as unknown as { select: ReturnType<typeof vi.fn> }).select = dbSelect
-
-      const result = await repo.getActiveCompany('session-id')
-
-      expect(result).toBe(companyId)
-    })
-
-    it('returns null when session not found', async () => {
-      const dbSelect = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      })
-      ;(db as unknown as { select: ReturnType<typeof vi.fn> }).select = dbSelect
-
-      const result = await repo.getActiveCompany('session-id')
-
-      expect(result).toBeNull()
     })
   })
 })

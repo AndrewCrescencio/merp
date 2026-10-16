@@ -33,7 +33,6 @@ export interface SessionResult {
   expiresAt: Date
   createdAt: Date
   updatedAt: Date
-  activeCompanyId?: string | null
   ipAddress?: string | null
   userAgent?: string | null
 }
@@ -229,7 +228,6 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
       metadata: {
         sessionId: sessionRow?.id ?? null,
         userId: user.id,
-        tenantId: sessionRow?.activeCompanyId ?? null,
       },
     })
 

@@ -27,7 +27,6 @@ export function defineAuthHandler<T extends AuthContextUser = AuthContextUser>(
 
     event.context.user = user
     event.context.session = session
-    event.context.tenantId = event.context.tenantId ?? null
     event.context.userId = user.id
 
     return handler(event, user)

@@ -225,7 +225,7 @@ Base path: `/api/auth`
 
 #### `GET /api/v1/me`
 
-- Response 200: `{ user, companies, activeCompanyId }`
+- Response 200: `{ id, email, name, companies[] }`
 - Erros: `401`, `403`, `503`
 
 #### `POST /api/v1/companies`
@@ -303,7 +303,7 @@ All 429 responses include: `Retry-After`, `RateLimit-Reset`, `RateLimit-Remainin
 | Tabela                | Descrição                                                                       | RLS             |
 | --------------------- | ------------------------------------------------------------------------------- | --------------- |
 | `user`                | Usuário global (email, name, password hash)                                     | Não (global)    |
-| `session`             | Sessão ativa (token, expires_at, active_company_id)                             | Não (global)    |
+| `session`             | Sessão ativa (token, expires_at)                                                | Não (global)    |
 | `account`             | OAuth accounts (não usado ainda)                                                | Não             |
 | `verification`        | Tokens de email/password reset                                                  | Não             |
 | `auth_event`          | Audit log de eventos auth                                                       | Sim (`user_id`) |

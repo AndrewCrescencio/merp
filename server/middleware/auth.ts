@@ -52,7 +52,6 @@ function emitSessionEvent(
     sessionId: string | null
     userId: string | null
     email: string
-    tenantId: string | null
     eventType: 'session_validated' | 'session_expired'
   },
 ): void {
@@ -65,7 +64,6 @@ function emitSessionEvent(
       metadata: {
         sessionId: input.sessionId,
         userId: input.userId,
-        tenantId: input.tenantId,
       },
     }),
     `session:${input.eventType}`,
@@ -121,7 +119,6 @@ export default defineEventHandler(async (event) => {
         sessionId: null,
         userId: null,
         email: 'unknown',
-        tenantId: null,
         eventType: 'session_expired',
       })
 
@@ -140,14 +137,11 @@ export default defineEventHandler(async (event) => {
     sessionId: session.session.id,
     userId: session.user.id,
     email: session.user.email,
-    tenantId: (session.session as { activeCompanyId?: string | null })?.activeCompanyId ?? null,
     eventType: 'session_validated',
   })
 
   event.context.user = session.user
   event.context.session = session.session
-  event.context.tenantId =
-    (session.session as { activeCompanyId?: string | null })?.activeCompanyId ?? null
   event.context.userId = session.user.id
   event.context.auth = { user: session.user, session: session.session }
 })

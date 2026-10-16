@@ -14,7 +14,6 @@ export interface AuthContextUser {
 
 export interface AuthContextSession {
   id: string
-  activeCompanyId?: string | null
 }
 
 /**
@@ -32,9 +31,7 @@ declare module 'h3' {
   interface H3EventContext {
     user?: AuthContextUser
     session?: AuthContextSession
-    tenantId?: string | null
     userId?: string
-    activeCompanyId?: string | null
     tenant?: TenantContext
   }
 }

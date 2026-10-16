@@ -289,17 +289,17 @@ Requires session. PII access is audit-logged (FR-022).
   "id": "uuid",
   "email": "user@example.com",
   "name": "User Name",
-  "activeCompanyId": null,
   "companies": [{ "id": "uuid", "name": "Company Name", "role": "member" }]
 }
 ```
 
-> **`activeCompanyId` é sempre `null`** desde a migração R5: o endpoint
-> `POST /auth/companies/switch` foi removido e nenhum caminho escreve mais
-> nessa coluna (o único writer restante, `setActiveCompany`, está órfão).
-> O campo permanece no contrato por compatibilidade, mas **não é fonte de
-> tenant** — o escopo vive no path (`/api/v1/companies/{companyId}/...`) e o
-> `role` vem do `companies[]` acima.
+> **`activeCompanyId` foi removido do contrato** (2026-10-16). Era sempre
+> `null` desde a migração R5: `POST /auth/companies/switch` já não existe e
+> `setActiveCompany` não tinha chamador em produção. O campo **nunca foi
+> fonte de tenant** — o escopo vive no path
+> (`/api/v1/companies/{companyId}/...`) e o `role` vem do `companies[]` acima.
+> A coluna `session.active_company_id` permanece no schema como legado morto:
+> nenhum caminho a lê nem a escreve.
 
 **Error Responses**:
 
@@ -494,8 +494,7 @@ of `name` / `cnpj` / `razaoSocial` must be present. Empty-string `cnpj` /
 ## DELETE /api/v1/companies/{companyId}
 
 Soft-delete a company (owner only, FR-019). Requires session + CSRF token.
-Sets `is_deleted`, purges all memberships and pending invites, and clears
-`activeCompanyId` of sessions pointing at the company. Other tenants'
+Sets `is_deleted`, purges all memberships and pending invites. Other tenants'
 sessions stay valid. Emits a `company_deleted` audit event.
 
 **Auth**: Required (session cookie)

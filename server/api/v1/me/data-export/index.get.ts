@@ -14,7 +14,6 @@ interface BetterAuthSession {
     token: string
     createdAt: Date
     updatedAt: Date
-    activeCompanyId?: string | null
     ipAddress?: string | null
     userAgent?: string | null
   }

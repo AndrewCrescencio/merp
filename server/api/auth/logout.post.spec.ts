@@ -146,7 +146,6 @@ describe('POST /api/auth/logout', () => {
       metadata: {
         sessionId: 'session-123',
         userId: 'user-1',
-        tenantId: 'company-1',
       },
     })
   })

@@ -14,8 +14,7 @@ export default defineEventHandler(async (event) => {
   await deactivateUser(user.id)
 
   const ip = getClientIp(event)
-  const session = event.context.session as
-    { id: string; activeCompanyId?: string | null } | undefined
+  const session = event.context.session as { id: string } | undefined
 
   await createAuthEvent({
     userId: user.id,
@@ -25,7 +24,6 @@ export default defineEventHandler(async (event) => {
     metadata: {
       sessionId: session?.id ?? null,
       userId: user.id,
-      tenantId: session?.activeCompanyId ?? null,
     },
   })
 
