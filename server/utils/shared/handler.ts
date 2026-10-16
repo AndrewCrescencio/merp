@@ -1,17 +1,14 @@
-import { defineEventHandler, readBody, type H3Event, createError } from 'h3'
+import { defineEventHandler, type H3Event, createError } from 'h3'
 import type { AuthContextUser } from './auth-context'
-import {
-  background,
-  checkIpRateLimit,
-  checkUserRateLimit,
-  createAuthEvent,
-  sendAuthUnavailableError,
-} from './index'
 
 /**
  * Wrapper for authenticated endpoints.
- * Validates session via middleware (user/session/tenantId already in context).
- * Runs user rate limit (60/min) and emits session_validated event.
+ * Session, rate limit (60/min) and session_validated already ran in
+ * server/middleware/auth.ts — calling checkUserRateLimit here de novo cobraria
+ * 2 tokens por request e dobraria o teto documentado (60/min → 30/min).
+ *
+ * Não resolve tenant: handler que precise de companyId no path usa
+ * `requireTenant(event)` (R5), do `~~/server/utils/shared/auth-context`.
  */
 export function defineAuthHandler<T extends AuthContextUser = AuthContextUser>(
   handler: (event: H3Event, user: T) => Promise<unknown>,
@@ -28,8 +25,6 @@ export function defineAuthHandler<T extends AuthContextUser = AuthContextUser>(
       })
     }
 
-    await checkUserRateLimit(event, user.id)
-
     event.context.user = user
     event.context.session = session
     event.context.tenantId = event.context.tenantId ?? null
@@ -37,86 +32,4 @@ export function defineAuthHandler<T extends AuthContextUser = AuthContextUser>(
 
     return handler(event, user)
   })
-}
-
-/**
- * Wrapper for public endpoints with IP rate limiting.
- * Runs checkIpRateLimit before readBody (blocks large bodies without parsing).
- */
-export function definePublicHandler(
-  handler: (event: H3Event, body: unknown) => Promise<unknown>,
-  options?: { rateLimit?: 'ip' | 'email'; validateBody?: (body: unknown) => void },
-) {
-  return defineEventHandler(async (event) => {
-    if (options?.rateLimit === 'ip') {
-      await checkIpRateLimit(event)
-    }
-
-    const body = await readBody(event)
-
-    if (options?.validateBody) {
-      options.validateBody(body)
-    }
-
-    if (options?.rateLimit === 'email' && body?.email) {
-      await checkIpRateLimit(event)
-    }
-
-    return handler(event, body)
-  })
-}
-
-/**
- * Wrapper for Better Auth endpoints (register, login, etc.)
- * Handles Better Auth initialization failures with 503 auth_unavailable.
- */
-export function defineBetterAuthHandler(
-  handler: (
-    event: H3Event,
-    auth: Awaited<ReturnType<typeof import('#shared/auth').getAuth>>,
-    body: unknown,
-  ) => Promise<unknown>,
-) {
-  return defineEventHandler(async (event) => {
-    const body = await readBody(event)
-
-    let authInstance: Awaited<ReturnType<typeof import('#shared/auth').getAuth>>
-    try {
-      const { getAuth } = await import('#shared/auth')
-      authInstance = await getAuth()
-    } catch {
-      sendAuthUnavailableError()
-    }
-
-    return handler(event, authInstance, body)
-  })
-}
-
-/**
- * Session lifecycle event emitter (FR-023) - fire-and-forget.
- */
-export function emitSessionEvent(
-  event: H3Event,
-  input: {
-    sessionId: string | null
-    userId: string | null
-    email: string
-    tenantId: string | null
-    eventType: 'session_validated' | 'session_expired' | 'session_created' | 'session_invalidated'
-  },
-): void {
-  background(
-    event,
-    createAuthEvent({
-      userId: input.userId,
-      email: input.email,
-      eventType: input.eventType,
-      metadata: {
-        sessionId: input.sessionId,
-        userId: input.userId,
-        tenantId: input.tenantId,
-      },
-    }),
-    `session:${input.eventType}`,
-  )
 }

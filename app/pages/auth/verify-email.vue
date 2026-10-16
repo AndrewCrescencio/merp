@@ -7,9 +7,10 @@ const success = ref(false)
 async function verify() {
   loading.value = true
   try {
-    await $fetch('/api/auth/verify-email', {
-      method: 'GET',
-      query: { token: route.query.token },
+    // R6: token só no body — o link do email abre esta página, que faz POST.
+    await $fetch('/api/auth/email/verification/confirm', {
+      method: 'POST',
+      body: { token: route.query.token },
     })
     success.value = true
   } catch (e: unknown) {

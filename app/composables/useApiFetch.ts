@@ -53,36 +53,36 @@ export function useAuthFetch() {
         body: { email, password, name, consentTermsVersion },
       }),
     logout: () => api('/api/auth/logout', { method: 'POST' }),
-    me: () => api('/api/auth/me'),
+    me: () => api('/api/v1/me'),
     verifyEmail: (token: string) =>
-      api('/api/auth/verify-email', { method: 'GET', query: { token } }),
+      api('/api/auth/email/verification/confirm', { method: 'POST', body: { token } }),
     forgetPassword: (email: string) =>
-      api('/api/auth/forget-password', { method: 'POST', body: { email } }),
+      api('/api/auth/password/forgot', { method: 'POST', body: { email } }),
     resetPassword: (token: string, newPassword: string) =>
-      api('/api/auth/reset-password', { method: 'POST', body: { token, newPassword } }),
+      api('/api/auth/password/reset', { method: 'POST', body: { token, newPassword } }),
     sendVerificationEmail: (email: string) =>
-      api('/api/auth/send-verification-email', { method: 'POST', body: { email } }),
-    deactivate: () => api('/api/auth/deactivate', { method: 'POST' }),
-    withdrawConsent: () => api('/api/auth/consent/withdraw', { method: 'POST' }),
+      api('/api/auth/email/verification', { method: 'POST', body: { email } }),
+    deactivate: () => api('/api/v1/me/deactivate', { method: 'POST' }),
+    withdrawConsent: () => api('/api/v1/me/consents/withdraw', { method: 'POST' }),
     createCompany: (name: string, cnpj?: string, razaoSocial?: string) =>
-      api('/api/auth/companies', { method: 'POST', body: { name, cnpj, razaoSocial } }),
+      api('/api/v1/companies', { method: 'POST', body: { name, cnpj, razaoSocial } }),
     getCompanies: (q?: string) =>
-      api('/api/auth/companies', { method: 'GET', query: q ? { q } : undefined }),
+      api('/api/v1/companies', { method: 'GET', query: q ? { q } : undefined }),
+    // R1: companyId vive no path, nunca no body.
     updateCompany: (
       companyId: string,
       data: { name?: string; cnpj?: string; razaoSocial?: string },
-    ) => api('/api/auth/companies', { method: 'POST', body: { companyId, ...data } }),
+    ) => api(`/api/v1/companies/${companyId}`, { method: 'PATCH', body: data }),
     deleteCompany: (companyId: string) =>
-      api('/api/auth/companies', { method: 'DELETE', body: { companyId } }),
-    switchCompany: (companyId: string) =>
-      api('/api/auth/companies/switch', { method: 'POST', body: { companyId } }),
+      api(`/api/v1/companies/${companyId}`, { method: 'DELETE' }),
     inviteMember: (companyId: string, email: string) =>
-      api('/api/auth/invite', { method: 'POST', body: { companyId, email } }),
+      api(`/api/v1/companies/${companyId}/invitations`, { method: 'POST', body: { email } }),
     getInvites: (companyId: string) =>
-      api('/api/auth/invites', { method: 'GET', query: { companyId } }),
+      api('/api/v1/me/invitations', { method: 'GET', query: { companyId } }),
     acceptInvite: (token: string) =>
-      api('/api/auth/invites/accept', { method: 'POST', body: { token } }),
-    removeMember: (companyId: string, userId?: string) =>
-      api('/api/auth/companies/members', { method: 'DELETE', body: { companyId, userId } }),
+      api('/api/v1/me/invitations/accept', { method: 'POST', body: { token } }),
+    // userId no path; omitir não existe mais — para sair, passe o próprio id.
+    removeMember: (companyId: string, userId: string) =>
+      api(`/api/v1/companies/${companyId}/members/${userId}`, { method: 'DELETE' }),
   }
 }

@@ -8,7 +8,7 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await $fetch('/api/auth/forget-password', {
+    await $fetch('/api/auth/password/forgot', {
       method: 'POST',
       body: { email: email.value.trim() },
     })

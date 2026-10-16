@@ -30,11 +30,10 @@ const STALE = [
 ]
 
 const SELF = fileURLToPath(import.meta.url)
-// app/ fica de fora até a migração do front landar (trilha separada): o front
-// commitado ainda chama os paths antigos e o teste falharia no próprio commit.
-// Re-incluir 'app' junto com a migração de app/ — é ela que passa a garantir
-// "CI verde só com o front chamando paths que existem".
-const ROOTS = ['server', 'shared'].map((d) => join(process.cwd(), d))
+// app/ entra na varredura junto: o front foi migrado para /api/v1 no mesmo
+// commit, então um literal antigo reaparecendo em .vue/.ts de app/ é regressão
+// e falha aqui — sem isso o CI só protege o back.
+const ROOTS = ['server', 'shared', 'app'].map((d) => join(process.cwd(), d))
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {

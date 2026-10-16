@@ -14,7 +14,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const api = useApiFetch()
 
   try {
-    await api('/api/auth/me')
+    await api('/api/v1/me')
   } catch (error: unknown) {
     const err = error as { status?: number }
     if (err.status === 401 || err.status === 403) {

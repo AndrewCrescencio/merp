@@ -21,7 +21,7 @@ async function submit() {
   }
   loading.value = true
   try {
-    await $fetch('/api/auth/reset-password', {
+    await $fetch('/api/auth/password/reset', {
       method: 'POST',
       body: { token: token.value, newPassword: password.value },
     })

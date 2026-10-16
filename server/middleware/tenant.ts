@@ -11,8 +11,8 @@ import { membershipRepository } from '~~/server/utils/auth/company/membership'
  * membership naquela empresa e grava `event.context.tenant = { companyId, role }`.
  *
  * R8: membro sem papel → 403; não-membro OU empresa inexistente → 404 (não
- * vaza existência entre tenants). A "empresa ativa" deixa de existir no
- * servidor — o tenant vive só no path.
+ * vaza existência entre tenants). A "empresa ativa" não participa da
+ * resolução de tenant — ele vive só no path.
  */
 const TENANT_PATH = /^\/api\/v1\/companies\/([^/]+)(\/|$)/
 
