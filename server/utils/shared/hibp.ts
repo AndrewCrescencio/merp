@@ -8,6 +8,13 @@ export async function checkPasswordBreach(password: string): Promise<{
     return { breached: false, count: 0 }
   }
 
+  // Fora de produção o registro não pode depender de um terceiro: o range API
+  // do HIBP é público (sem API key), então não há como desligá-lo por credencial
+  // — o gate é o ambiente. Falha-open já era o comportamento no catch.
+  if (process.env.NODE_ENV !== 'production') {
+    return { breached: false, count: 0 }
+  }
+
   const encoder = new TextEncoder()
   const data = encoder.encode(password)
   const hashBuffer = await crypto.subtle.digest('SHA-1', data)
