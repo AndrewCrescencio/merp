@@ -61,11 +61,15 @@ _(Os specs `naming.md`, `money.md`, `endpoint-pattern.md`, `rls-pattern.md`, `id
 
 Originalmente 003–007 especificavam ERP genérico. Com ADR-001 (núcleo + packs),
 foram absorvidas por `specs/packs/erp-b2b/`. **Fase 3 — decisões de limpeza:**
-todos os packs `erp-b2b/*` (catalog, sales, finance, crm, admin) foram removidos do repo
-(plan-only, não implementados; recuperáveis pela tag `archive/pre-docs-truth-<data>`).
+todos os packs foram removidos do repo (plan-only, não implementados);
+`sales`, `catalog`, `crm` e `finance` foram **restaurados do histórico em
+2026-10-16** — `admin` continua removido (recuperável em
+`e7cf53d:specs/packs/erp-b2b/admin/plan.md` ou na tag
+`archive/pre-docs-truth-<data>`).
 
 A numeração 003–005 fica reservada (não reutilizar). `006-core-order` e
-`007-print` usam a série nova (núcleo unificado + print).
+`007-print` usam a série nova (núcleo unificado + print). Os planos restaurados
+apontam para `specs/packs/erp-b2b/<x>/`, não para os caminhos numerados antigos.
 
 ---
 
@@ -75,7 +79,8 @@ A numeração 003–005 fica reservada (não reutilizar). `006-core-order` e
 - **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.
 - **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).
 - **`006-core-order`** tem spec + data-model + contracts; implementação em andamento (T12).
-- **Packs `erp-b2b/*` removidos** (decision Fase 3: plan-only, não implementados; código já não referencia esses módulos).
+- **Packs `erp-b2b/*`** são plan-only, sem `spec.md`/`data-model.md`/`contracts/`; código não referencia esses módulos. Restaurados do histórico em 2026-10-16: `sales`, `catalog`, `crm`, `finance`. Ainda removidos: `admin`.
+- **`specs/001-auth-context/` e `specs/002-vertical-slices/` restaurados do histórico (2026-10-16)** ao mesmo tempo que `consolidated-specs.md` existe — são duas fontes para o mesmo conteúdo. ADR-001 manda manter o consolidado como fonte; os arquivos soltos voltaram para sustentar as refs dos planos ERP.
 
 > Dívidas pagas (2026-10-12, removidas): `withTenant` suporta `locationId` + `app.location_id`
 > (T02); schemas núcleo definidos em `schema.ts` (T03); `line_total` half-up via `round_half_up`
