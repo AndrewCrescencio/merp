@@ -25,6 +25,11 @@ nenhum ficheiro de `server/`, `app/` ou `shared/` as importa.
   de `esbuild` para `0.25+` no subtree do `drizzle-kit` não foi feito pelo mesmo
   motivo: o `@esbuild-kit` usa a API do esbuild para transpilar configs, e uma
   quebra só apareceria quando alguém correr uma migração.
+- **`npm audit fix` (sem `--force`) foi executado em 2026-10-17 e não mudou
+  nada**: seguiu de 13 para 13, com os mesmos 3 advisories. O único efeito foi
+  podar 28 pacotes `cssnano`/`postcss` do lockfile — tooling de CSS sem relação
+  com segurança e com risco de quebrar o build. **Revertido.** Ou seja: a rota
+  "não rupturante" é confirmadamente inócua, não apenas teoricamente.
 
 ## Alcançabilidade verificada
 
