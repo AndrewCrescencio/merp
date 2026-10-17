@@ -288,3 +288,22 @@ export function validateConsentWithdrawInput(_body: unknown): Record<string, nev
   // No body validation needed for consent withdrawal
   return {}
 }
+
+/**
+ * Atribuição de loja padrão do membro. `null` é legítimo: limpa a atribuição e
+ * devolve o membro ao escopo company (estado dono/administrador).
+ */
+export function validateDefaultLocationInput(rawBody: unknown): {
+  defaultLocationId: string | null
+} {
+  const body = rawBody as Record<string, unknown> | null
+  const value = body?.defaultLocationId
+
+  if (value === null) {
+    return { defaultLocationId: null }
+  }
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    sendValidationError('defaultLocationId must be a location id or null')
+  }
+  return { defaultLocationId: value }
+}

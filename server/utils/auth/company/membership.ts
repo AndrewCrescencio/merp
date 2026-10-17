@@ -1,5 +1,5 @@
 import { and, eq, like, or, sql } from 'drizzle-orm'
-import { company, companyMember } from '../../schema'
+import { company, companyMember, location } from '../../schema'
 import { sendNotFoundError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
 import { escapeLikePattern, type CompanyResult } from './repository'
@@ -137,6 +137,51 @@ export class MembershipRepository {
       if (deleted.length === 0) {
         sendNotFoundError('Company member not found')
       }
+    })
+  }
+
+  /**
+   * Atribui (ou limpa com `null`) a loja padrão do membro — a ÚNICA fonte do
+   * `location_id` no escopo dele, e portanto o que decide quais lojas o membro
+   * enxerga. `null` devolve o membro ao escopo company (donos/admins).
+   *
+   * A location precisa pertencer à MESMA empresa e estar ativa; a policy de RLS
+   * de `location` já filtra por `company_id = get_tenant_id()`, então uma loja
+   * de outra empresa simplesmente não é encontrada (404, sem vazar).
+   */
+  async setMemberDefaultLocation(
+    companyId: string,
+    executedByUserId: string,
+    targetUserId: string,
+    defaultLocationId: string | null,
+  ): Promise<void> {
+    return await withTenant(companyId, null, executedByUserId, async (tx) => {
+      const [membership] = await tx
+        .select({ id: companyMember.id })
+        .from(companyMember)
+        .where(and(eq(companyMember.companyId, companyId), eq(companyMember.userId, targetUserId)))
+        .limit(1)
+
+      if (!membership) {
+        sendNotFoundError('Company member not found')
+      }
+
+      if (defaultLocationId !== null) {
+        const [found] = await tx
+          .select({ id: location.id })
+          .from(location)
+          .where(and(eq(location.id, defaultLocationId), eq(location.companyId, companyId)))
+          .limit(1)
+
+        if (!found) {
+          sendNotFoundError('Location not found')
+        }
+      }
+
+      await tx
+        .update(companyMember)
+        .set({ defaultLocationId })
+        .where(and(eq(companyMember.companyId, companyId), eq(companyMember.userId, targetUserId)))
     })
   }
 }

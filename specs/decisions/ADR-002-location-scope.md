@@ -10,11 +10,22 @@ Toda tabela **OPERACIONAL** carrega `company_id NOT NULL` E `location_id NOT NUL
 
 ### Classificação
 
-| Tipo                                   | Tabelas                                                                  | Colunas RLS                        |
-| -------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
-| company-only                           | company, company_member, invite, user, catalog, party                    | company_id                         |
-| company + location obrigatório         | order, order_item, stock_movement, cash_shift, kitchen_ticket, print_job | company_id, location_id            |
-| company + location opcional (nullable) | customer, supplier, price_list                                           | company_id, location_id (nullable) |
+> **Corrigido em 2026-10-16** contra o schema real. A tabela anterior estava
+> materialmente errada: listava `party` como company-only (ele é
+> `location_id NOT NULL` **e** tem policy location-scoped na `0024`), citava
+> `cash_shift`/`stock_movement`/`catalog`/`customer`/`supplier`/`price_list`,
+> que não existem, e omitia 8 tabelas reais. A DECISÃO abaixo não mudou — o
+> inventário é que estava errado.
+
+| Tipo                        | Tabelas                                                                                                                          | Colunas RLS                           |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| company-only                | company, company_member, invite, user, session, account, verification, auth_event, auth_security_state                           | company_id                            |
+| é uma loja (auto-referente) | location                                                                                                                         | company_id + `id = get_location_id()` |
+| company + location NOT NULL | order, order_item, party, payment, cashier_shift, kitchen_station, kitchen_ticket, restaurant_table, product, printer, print_job | company_id, location_id               |
+
+`order_dine_in` e `order_takeout` são **subtipos** de `order` ligados por FK:
+herdam o escopo pelo JOIN, então não duplicam `location_id`. Têm policy própria
+em `0024` (company-only).
 
 ### Policy template normativo
 
@@ -26,7 +37,16 @@ USING (company_id = get_tenant_id())
 USING (company_id = get_tenant_id()
 AND (location_id = get_location_id()
 OR get_location_id() IS NULL))
+
+-- location (não tem location_id: filtra pelo próprio id)
+USING (company_id = get_tenant_id()
+AND (id = get_location_id()
+OR get_location_id() IS NULL))
 ```
+
+O escape `OR get_location_id() IS NULL` **não é fail-open**: ele só dispensa o
+filtro de location quando não há uma no escopo; o tenant continua obrigatório.
+É o estado correto para quem opera sem loja atribuída (dono/admin).
 
 ### GUC novo
 
@@ -51,6 +71,24 @@ withTenant(companyId, locationId, userId, fn, existingTx?)
   repositório, que enxergavam um valor concreto. `NULL` continua sendo estado
   legítimo: significa "sem location no escopo" e cai no escopo company.
 
+### Origem do `location_id`: derivada do servidor
+
+O location **não vem do path nem do body** — vem de
+`company_member.default_location_id`, lido por `resolveLocationId` e injetado
+na GUC pelo `withTenant`. O cliente nunca envia location, portanto não tem como
+pedir loja alheia.
+
+Colocar no path (`/companies/{cid}/locations/{lid}/...`) foi rejeitado: obriga
+uma validação extra de membership-por-location para impedir que o cliente
+escolha a loja errada, e duplica a fonte de escopo. Diferente do
+`activeCompanyId` (derrubado pelo R5), aqui não há competição de fontes:
+`default_location_id` é a única.
+
+Atribuição é **owner-only** —
+`PATCH /api/v1/companies/{companyId}/members/{userId}/default-location`
+(`setMemberDefaultLocation`), que valida que a location pertence à mesma
+empresa e está ativa. Quem decide em qual loja o staff trabalha é a empresa.
+
 ## Alternativas rejeitadas
 
 | Alternativa                    | Motivo                                         |
@@ -58,6 +96,15 @@ withTenant(companyId, locationId, userId, fn, existingTx?)
 | `location_id` nullable em tudo | Falha-closed: `NULL` vaza dados cross-location |
 | Schema por tenant              | Complexidade operacional, não escala           |
 | `location_id` como array       | Query complexa, índice ineficiente             |
+
+## Desvios em relação a esta decisão
+
+Registrados porque contrariam a regra acima. Corrigir exige migração.
+
+| Tabela    | Desvio                                                                                                                  | Situação                                                                                                                                                             |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `payment` | Tem `company_id` + `location_id NOT NULL`, mas **nenhuma policy e nem `ENABLE ROW LEVEL SECURITY`** em nenhuma migração | Latente: nenhum código a usa nem a exporta do index — mas é a única tabela operacional descoberta. Antes de qualquer endpoint de pagamento, `0029` com as 4 policies |
+| `session` | Carrega `active_company_id`, que não é location e não participa do escopo                                               | Legado morto — ver `specs/000-foundation/rest-api.md`                                                                                                                |
 
 ## Perguntas abertas
 

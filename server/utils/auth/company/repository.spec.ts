@@ -13,6 +13,7 @@ vi.mock('../../db/tenant-context', () => ({
 vi.mock('../../schema', () => ({
   company: {},
   companyMember: {},
+  location: {},
   session: {},
 }))
 
@@ -400,6 +401,57 @@ describe('MembershipRepository (unit)', () => {
       await expect(repo.removeCompanyMember(companyId, userId, 'target-user')).rejects.toThrow(
         'Not Found',
       )
+    })
+  })
+
+  describe('setMemberDefaultLocation', () => {
+    // Cadeia select().from().where().limit() com resultados sequenciais — o
+    // método faz dois selects (membership, depois location).
+    function givenSelects(...rows: Array<Array<{ id: string }>>) {
+      const limit = vi.fn()
+      for (const row of rows) limit.mockResolvedValueOnce(row)
+      mockTx.select.mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit }),
+        }),
+      })
+    }
+
+    it('assigns a location belonging to the company', async () => {
+      givenSelects([{ id: 'm1' }], [{ id: 'loc-1' }])
+
+      await repo.setMemberDefaultLocation(companyId, userId, 'target-user', 'loc-1')
+
+      expect(mockTx.update).toHaveBeenCalled()
+    })
+
+    it('clears the assignment with null and skips the location lookup', async () => {
+      givenSelects([{ id: 'm1' }])
+
+      await repo.setMemberDefaultLocation(companyId, userId, 'target-user', null)
+
+      expect(mockTx.update).toHaveBeenCalled()
+      expect(mockTx.select).toHaveBeenCalledTimes(1)
+    })
+
+    it('404 when the location is not visible to this company (RLS)', async () => {
+      givenSelects([{ id: 'm1' }], [])
+
+      await expect(
+        repo.setMemberDefaultLocation(companyId, userId, 'target-user', 'other-company-loc'),
+      ).rejects.toThrow('Not Found')
+
+      expect(mockTx.update).not.toHaveBeenCalled()
+    })
+
+    it('404 when the target is not a member of the company', async () => {
+      givenSelects([])
+
+      await expect(
+        repo.setMemberDefaultLocation(companyId, userId, 'stranger', 'loc-1'),
+      ).rejects.toThrow('Not Found')
+
+      expect(mockTx.update).not.toHaveBeenCalled()
     })
   })
 })
