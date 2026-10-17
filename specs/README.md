@@ -77,6 +77,7 @@ apontam para `specs/packs/erp-b2b/<x>/`, não para os caminhos numerados antigos
 
 - **RLS 0024 precisa ser reexecutado em produção** (ver ADR-011) — a versão antiga referenciava a coluna inexistente `location_id` em `location` e abortava a meio caminho, deixando as policies de `location` pela metade. `scripts/apply-custom-sql.ts` é idempotente e repara por completo; reexecutar no próximo deploy.
 - **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.
+- **3 advisories de cadeia sem correção upstream** (ver ADR-012) — `braces` e `node-forge` estão nas versões mais recentes do npm e ainda são afetadas; `esbuild` só se resolve baixando `drizzle-kit` a `0.18.1`. **Não correr `npm audit fix --force`**: quebra a ferramenta de migração. Nenhuma é alcançável pelo runtime do servidor (verificado contra `.output`).
 - **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).
 - **`006-core-order`** tem spec + data-model + contracts; handlers implementados (5 endpoints em `/api/v1/companies/{companyId}/orders/` — list, create, get, cancel, complete).
 - **Packs `erp-b2b/*`** são plan-only, sem `spec.md`/`data-model.md`/`contracts/`; código não referencia esses módulos. Restaurados do histórico em 2026-10-16: `sales`, `catalog`, `crm`, `finance`. Ainda removidos: `admin`.
