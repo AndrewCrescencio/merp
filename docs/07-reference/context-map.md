@@ -114,24 +114,32 @@ Auth (Identity, Company, Invite)
 
 ## Dívidas Técnicas Conhecidas
 
-| Contexto      | Dívida                                                | Severidade    | Plano                                                              |
-| ------------- | ----------------------------------------------------- | ------------- | ------------------------------------------------------------------ |
-| Auth/Identity | `IdentityRepository` missing; 6 `auth.api.*` wrappers | Média         | Remover refs quebradas; handlers usam `auth.api.*` direto          |
-| Auth/Company  | `CompanyRepository` 26 métodos (violates <10 rule)    | Alta          | Dividir em `CompanyRepository` + `MembershipRepository` (T06 done) |
-| Order         | Handlers não implementados                            | Crítica (MVP) | T12: implementar 4 handlers + FSM + testes RLS                     |
-| Print         | `sendToPrinter` mock; sem templates ESC/POS           | Crítica (MVP) | T13: implementar TCP/USB + templates hardcoded                     |
-| Restaurant    | Zero implementação                                    | Crítica (MVP) | T14: após Order + Print                                            |
-| Shared        | Lint errors em testes (389 total)                     | Baixa         | Aceitar baseline; novos arquivos passam lint                       |
+> **Reavaliado em 2026-10-17** contra o código real. As cinco dívidas de MVP da
+> versão anterior já não existem: Order tem 5 handlers, Print 6, Restaurant 9,
+> `sendToPrinter` está sem mock/TODO e `npm run lint` passa limpo (eram 389 em
+> testes). `CompanyRepository` caiu de 26 para 10 métodos com o split T06.
 
----
+### Abertas
 
-## Próximos Passos (Roadmap 6 Semanas)
+| Dívida                                                       | Severidade | Estado / critério para fechar                                                                                                                                                                              |
+| ------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RLS `0024` precisa ser reexecutado em produção** (ADR-011) | Alta       | A versão antiga referenciava a coluna inexistente `location_id` em `location` e abortava a meio caminho. `scripts/apply-custom-sql.ts` é idempotente e repara por completo; reexecutar no próximo deploy   |
+| **`company_member.default_location_id` não tem UI**          | Média      | O endpoint existe (`PATCH .../members/{userId}/default-location`), mas nada a chama e a coluna nasce `NULL` — até ser populada, escritas de restaurant/print devolvem 400 e membros leem em escopo company |
+| **3 advisories de cadeia sem fix upstream** (ADR-012)        | Média      | `braces`/`node-forge` estão nas versões mais recentes do npm e ainda são afetadas. **Não correr `npm audit fix --force`** — quebra `drizzle-kit`                                                           |
+| **`session.active_company_id` legado morto**                 | Baixa      | Coluna preservada no schema (remover exigiria migração em ficheiro protegido); o código que a lia já foi removido                                                                                          |
+| **Pagamento (NFC-e) fora de escopo**                         | —          | Fase posterior por decisão do spec; a tabela **não existe** e foi removida do schema. Ao retomar: nasce com as 4 policies location-scoped no mesmo commit                                                  |
 
-1. **Semana 1-2**: Corrigir `withTenant` + GUC `app.location_id` + RLS location-scoped (H07/H08) — **desbloqueia tudo**
-2. **Semana 2-3**: Criar schemas núcleo faltantes: `location`, `party`, `product`, `payment` + RLS (H09)
-3. **Semana 3-4**: Implementar Core Order MVP (T12) — `order`, `order_item`, FSM, handlers, testes RLS
-4. **Semana 4-5**: Implementar Print MVP (T13) — `printer`, `print_job`, worker real, templates
-5. **Semana 5-6**: Implementar Restaurant Pack fluxo mesa (T14) — `restaurant_table`, `kitchen_ticket`, `cashier_shift`
+### Resolvidas
+
+| Dívida                                                               | Resolvido em                                        |
+| -------------------------------------------------------------------- | --------------------------------------------------- |
+| Order: handlers não implementados                                    | 5 handlers + FSM + testes RLS (T12)                 |
+| Print: `sendToPrinter` mock, sem templates                           | 6 handlers, sem mock/TODO (T13)                     |
+| Restaurant: zero implementação                                       | 9 handlers de mesa/cozinha/caixa (T14)              |
+| `withTenant` + GUC `app.location_id` + RLS location-scoped (H07/H08) | Migração `0028` + `resolveLocationId`               |
+| Schemas núcleo em falta (H09)                                        | `location`, `party`, `product` criados e com policy |
+| `CompanyRepository` 26 métodos (regra <10)                           | Split T06 → 10 métodos + `MembershipRepository`     |
+| Shared: 389 lint errors em testes                                    | `npm run lint` limpo                                |
 
 ---
 
