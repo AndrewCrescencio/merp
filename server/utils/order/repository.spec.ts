@@ -73,7 +73,7 @@ describe('orderRepository', () => {
     })
   })
 
-  it.skip('create: inserts order with items and returns order with items', async () => {
+  it('create: inserts order with items and returns order with items', async () => {
     const mockOrder = {
       id: 'order-1',
       companyId: 'company-1',
@@ -92,13 +92,9 @@ describe('orderRepository', () => {
       openedAt: new Date(),
     }
 
-    let findFirstCallCount = 0
-    mockTx.query.order.findFirst.mockImplementation(async () => {
-      findFirstCallCount++
-      if (findFirstCallCount === 1) return null // idempotency check
-      if (findFirstCallCount === 2) return { ...mockOrder, orderType: 'dine_in' } // getById
-      return null
-    })
+    // O input não leva idempotencyKey, então a checagem do topo do create não
+    // roda: o único `order.findFirst` é o do getById, que lê a linha recém-criada.
+    mockTx.query.order.findFirst.mockResolvedValue({ ...mockOrder, orderType: 'dine_in' })
 
     mockTx.insert
       .mockReturnValueOnce({
