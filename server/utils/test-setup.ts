@@ -131,10 +131,10 @@ export async function setup(): Promise<void> {
     // CREATE DATABASE não corre dentro de transação — comando isolado.
     await admin('CREATE DATABASE merp_test')
   } else if (!(await baselineApplied())) {
-    // merp_test legado: criado antes do squash 0000–0028 → baseline, o journal
-    // novo não tem hash nele e o migrate tentaria recriar tabelas que já existem.
+    // merp_test sem journal do baseline (legado do push, ou vazio recém-criado
+    // como no CI): o migrate tentaria recriar o que já existe ou partia de nada.
     // merp_test é descartável por contrato → recria do zero.
-    console.log('[test-setup] merp_test é anterior ao baseline — a recriar...')
+    console.log('[test-setup] merp_test sem journal do baseline — a recriar do zero...')
     await admin('DROP DATABASE merp_test WITH (FORCE)')
     await admin('CREATE DATABASE merp_test')
   } else {
