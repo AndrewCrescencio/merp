@@ -138,6 +138,30 @@ describe('printRepository', () => {
     expect(result.id).toBe('job-1')
   })
 
+  // Regressão medida: o bind de um objeto guardava "[object Object]" (e em
+  // jsonb — o tipo antigo da coluna — a inserção falhava com erro de parse).
+  // O que chega ao driver tem de ser JSON string.
+  it('enqueuePrintJob: envia payload como JSON string (coluna text)', async () => {
+    const values = vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([{ id: 'job-1', status: 'pending' }]),
+    })
+    mockTx.insert.mockReturnValueOnce({ values })
+
+    const { printRepository } = await import('./repository')
+    const result = await printRepository.enqueuePrintJob({
+      companyId: 'company-1',
+      locationId: 'location-1',
+      printerId: 'printer-1',
+      orderId: 'order-1',
+      template: 'receipt',
+      payload: { items: [1, 2], total: 9.9 },
+    })
+
+    expect(result.id).toBe('job-1')
+    const sent = values.mock.calls[0]?.[0] as { payload?: unknown }
+    expect(sent.payload).toBe('{"items":[1,2],"total":9.9}')
+  })
+
   it('enqueuePrintJob: throws if no default printer', async () => {
     mockTx.query.printer.findFirst.mockResolvedValue(null)
 

@@ -1,5 +1,5 @@
 import { withTenant } from '../db/tenant-context'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import { printer, printJob } from '../schema'
 import type { PrinterSelect, PrintJobSelect } from '../schema'
 
@@ -112,12 +112,11 @@ export const printRepository = {
           printerId: targetPrinterId,
           orderId: input.orderId,
           template: input.template,
-          // Coluna text (0001_baseline segue server/utils/schema/print-job.ts).
-          // Medido: como text este bind guarda "[object Object]" (e em jsonb —
-          // o tipo antigo — dava erro de parse). Payload nunca foi persistido
-          // utilizável; corrigir com JSON.stringify(input.payload) quando algo
-          // passar a ler payload.
-          payload: sql`${input.payload}`,
+          // Coluna text é "JSON string" no schema: o driver não serializa
+          // objetos, então o bind guardava "[object Object]" (e em jsonb — o
+          // tipo antigo — a inserção falhava). Stringificar aqui é o que
+          // garante JSON parseável na leitura.
+          payload: JSON.stringify(input.payload),
           priority: input.priority || 0,
           status: 'pending',
         })
