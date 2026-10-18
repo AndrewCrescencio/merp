@@ -29,11 +29,10 @@ db: ## Sobe só o PostgreSQL e espera o healthcheck ficar verde
 	@$(COMPOSE) up -d --wait postgres || \
 		echo "⚠ compose não subiu — se já houver um PostgreSQL respondendo na porta, o próximo passo usa esse."
 
-migrate-full: ## Migrações COMPLETAS (journal + policies de RLS). Use em banco novo.
+migrate-full: ## Migrações do journal (schema + funções + RLS) + verificação FORCE
 	npm run db:migrate:full
 
-migrate: ## Só o journal do Drizzle — NÃO aplica policies de RLS (use migrate-full)
-	npx drizzle-kit migrate
+migrate: migrate-full ## Alias de migrate-full — o journal contém tudo, incluindo RLS
 
 migrate-prod: ## Migrações COMPLETAS (journal + RLS) no container de produção
 	$(COMPOSE_PROD) build migrate

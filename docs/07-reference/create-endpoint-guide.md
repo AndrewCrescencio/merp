@@ -204,7 +204,7 @@ Uma tabela por arquivo em `server/utils/schema/`, exportada pelo `index.ts`. Col
 
 ---
 
-## 4. RLS Policy (aplicada via `scripts/apply-custom-sql.ts`)
+## 4. RLS Policy (na migração `drizzle/0002_rls_policies_grants.sql`)
 
 O padrão normativo (**ADR-002**, reafirmado em `drizzle/0025_force_rls_fixes.sql`) é **uma policy por operação** (`SELECT`/`INSERT`/`UPDATE`/`DELETE`), com os helpers `get_tenant_id()`/`get_location_id()` (fail-closed: `NULLIF(current_setting(..., true), '')`):
 
@@ -222,7 +222,8 @@ CREATE POLICY "party_insert_policy" ON "party" FOR INSERT
 ```
 
 - **`OR get_location_id() IS NULL` é obrigatório**: 107 das 108 linhas com `get_location_id()` o trazem. Sem ele, `withTenant(companyId, null, ...)` (escopo company) negaria **todas** as linhas e a tabela ficaria inacessível
-- Policies **não** declaram `TO <role>` (0 de 180 no repo) — o papel vem de `drizzle/0020_app_role_default_privileges.sql` + `FORCE ROW LEVEL SECURITY`
+- Policies **não** declaram `TO <role>` (0 de 180 no repo) — o papel vem dos `ALTER DEFAULT PRIVILEGES` de `merp_app` (na mesma migração 0002) + `FORCE ROW LEVEL SECURITY`
+- **Toda tabela nova com RLS exige `ENABLE` + `FORCE` na mesma migração** (nova migração via `npx drizzle-kit generate --name <nome>`), senão o `scripts/verify-rls.ts` do `db:migrate:full` falha — e sem FORCE o owner contorna as policies
 - Tabelas company-scoped (sem `location_id`) usam só `company_id = get_tenant_id()`
 - Tabelas dependentes de outra (`order_dine_in`, `order_takeout`) usam `EXISTS` sobre a pai
 

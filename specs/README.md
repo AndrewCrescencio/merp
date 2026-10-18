@@ -75,7 +75,7 @@ apontam para `specs/packs/erp-b2b/<x>/`, não para os caminhos numerados antigos
 
 ## Dívidas Conhecidas
 
-- **RLS 0024 precisa ser reexecutado em produção** (ver ADR-011) — a versão antiga referenciava a coluna inexistente `location_id` em `location` e abortava a meio caminho, deixando as policies de `location` pela metade. `scripts/apply-custom-sql.ts` é idempotente e repara por completo; reexecutar no próximo deploy.
+- **RLS 0024 precisa ser reexecutado em produção** (ver ADR-011) — **fechada pelo baseline**: as policies finais (0024–0027 consolidadas) estão em `drizzle/0002_rls_policies_grants.sql` e todo banco novo já nasce com elas; o applier `scripts/apply-custom-sql.ts` foi removido.
 - **2FA removido do escopo** (ver ADR-010) — landmine adapter × RLS. Critério para retomar: feature flag `auth.twoFactor` + migration dedicada + testes de RLS com `app.location_id`.
 - **3 advisories de cadeia sem correção upstream** (ver ADR-012) — `braces` e `node-forge` estão nas versões mais recentes do npm e ainda são afetadas; `esbuild` só se resolve baixando `drizzle-kit` a `0.18.1`. **Não correr `npm audit fix --force`**: quebra a ferramenta de migração. Nenhuma é alcançável pelo runtime do servidor (verificado contra `.output`).
 - **Specs 003–005 absorvidas** por `packs/erp-b2b/*` (ver mapa acima).

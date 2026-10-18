@@ -16,7 +16,7 @@ npm install
 # Start infrastructure
 docker compose up -d postgres
 
-# Run migrations (inclui RLS custom via scripts/apply-custom-sql.ts)
+# Run migrations (journal inteiro: funções, schema, RLS policies e grants)
 npm run db:migrate:full
 
 # Start dev server

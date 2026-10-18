@@ -52,13 +52,13 @@ ferramentas (`drizzle-kit`) usam `npx`.
 
 ## Banco de Dados
 
-| Comando                                  | Descrição                                                                                                 |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `npm run db:migrate:full`                | **Sempre usar em banco novo** — roda `drizzle-kit migrate` + `scripts/apply-custom-sql.ts` (RLS policies) |
-| `npx drizzle-kit migrate`                | Apenas migrações do journal Drizzle (sem RLS custom)                                                      |
-| `npx drizzle-kit generate --name <nome>` | Cria nova migração                                                                                        |
-| `npx drizzle-kit studio`                 | Abre Drizzle Studio (GUI)                                                                                 |
-| `npx drizzle-kit push`                   | Push schema para DB (dev, não usa migrações)                                                              |
+| Comando                                  | Descrição                                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run db:migrate:full`                | **Sempre usar em banco novo** — roda `drizzle-kit migrate` (0000→0002: funções, schema, RLS) + a guarda `scripts/verify-rls.ts` |
+| `npx drizzle-kit migrate`                | Migrações do journal Drizzle (o journal contém schema + funções + RLS policies)                                                 |
+| `npx drizzle-kit generate --name <nome>` | Cria nova migração                                                                                                              |
+| `npx drizzle-kit studio`                 | Abre Drizzle Studio (GUI)                                                                                                       |
+| `npx drizzle-kit push`                   | Sincroniza schema direto no DB (dev; **não** é o caminho oficial — o fluxo é `db:migrate:full`)                                 |
 
 ## Docker (via Makefile)
 
@@ -70,8 +70,8 @@ ferramentas (`drizzle-kit`) usam `npx`.
 | `make dev`          | Sobe stack dev (postgres + app)                                   |
 | `make dev-d`        | Sobe stack dev em background                                      |
 | `make prod`         | Sobe stack prod (app + postgres + nginx + certbot)                |
-| `make migrate-full` | Migrações completas (journal + RLS) — use em banco novo           |
-| `make migrate`      | Só o journal do Drizzle — **não** aplica policies de RLS          |
+| `make migrate-full` | Migrações do journal + verificação FORCE — use em banco novo      |
+| `make migrate`      | Alias de `migrate-full` (o journal contém tudo, incluindo RLS)    |
 | `make migrate-prod` | Roda migrações dentro do container                                |
 | `make studio`       | Abre Drizzle Studio                                               |
 
@@ -92,6 +92,6 @@ DB_AVAILABLE=true npm test
 
 ## Notas Importantes
 
-- **`db:migrate:full` vs `drizzle-kit migrate`**: O primeiro aplica TUDO (Drizzle journal + RLS custom via `apply-custom-sql.ts`). O segundo só aplica o journal. Em banco novo, **sempre use `db:migrate:full`**.
+- **`db:migrate:full` vs `drizzle-kit migrate`**: o journal contém a cadeia toda (`0000` funções/role → `0001` baseline → `0002` RLS/policies/grants), por isso `drizzle-kit migrate` sozinho já aplica as policies; `db:migrate:full` acrescenta a guarda `scripts/verify-rls.ts`, que falha se alguma tabela RLS ficar sem FORCE. Em banco novo, **sempre use `db:migrate:full`**.
 - **`APP_DATABASE_URL`**: Necessária para testes de integração (role `merp_app` sem bypass RLS). Configure no `.env` ou exporte inline.
 - **`BETTER_AUTH_SECRET`**: Obrigatória em produção (>= 32 chars). Em dev, o fallback existe mas não use em prod.

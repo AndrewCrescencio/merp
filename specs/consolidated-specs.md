@@ -320,14 +320,13 @@ All 429 responses include: `Retry-After`, `RateLimit-Reset`, `RateLimit-Remainin
 
 ### 5.4 Migrações
 
-- **Journal (14)**: `drizzle/meta/_journal.json` — aplicadas via `drizzle-kit migrate`
-- **Custom (10+)**: `drizzle/0014_*.sql` em diante — RLS, policies, grants, DEFAULT PRIVILEGES
-- **Aplicação**: `npm run db:migrate:full` roda ambos (ver `scripts/apply-custom-sql.ts`)
+- **Journal (3)**: `drizzle/meta/_journal.json` — tudo aplicado por `drizzle-kit migrate`, na ordem `0000_functions_and_roles` → `0001_baseline` → `0002_rls_policies_grants`
+- **Aplicação**: `npm run db:migrate:full` = `drizzle-kit migrate` + `scripts/verify-rls.ts` (guarda FORCE)
+- Migrações já aplicadas nunca se editam: o `drizzle.__drizzle_migrations` guarda o hash de cada uma
 
 ### 5.5 Grants merp_app
 
-- Migration 0017: grants explícitos nas tabelas existentes
-- Migration 0020: `ALTER DEFAULT PRIVILEGES` para tabelas/sequences futuras
+- `0002_rls_policies_grants.sql`: `GRANT ... ON ALL TABLES` + `ALTER DEFAULT PRIVILEGES` (tabelas/sequences futuras)
 - Teste: `grants-parity.test.ts` bloqueia CI se faltar grant
 
 ---

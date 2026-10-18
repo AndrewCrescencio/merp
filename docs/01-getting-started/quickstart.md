@@ -51,7 +51,7 @@ docker compose up -d postgres
 npm run db:migrate:full
 ```
 
-> ⚠️ **Sempre use `db:migrate:full`** — aplica migrações Drizzle + RLS policies customizadas (ver `scripts/apply-custom-sql.ts`).
+> ⚠️ **Sempre use `db:migrate:full`** — aplica o journal Drizzle inteiro (funções, schema, RLS policies e grants) e depois a guarda `scripts/verify-rls.ts`, que falha se alguma tabela RLS ficar sem FORCE.
 
 ## 5. Dev Server
 

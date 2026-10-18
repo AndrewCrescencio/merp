@@ -58,9 +58,9 @@ jobs:
         run: createdb -h localhost -U merp merp_test || true
 
       - name: Run Drizzle migrations + RLS (owner)
-        # db:migrate:full e não `drizzle-kit migrate`: a migração 0014 usa
-        # round_half_up(numeric), que vive num .sql fora do journal. Sem o
-        # passo prévio a migração 14 falha em banco novo. Inclui o custom SQL.
+        # db:migrate:full e não `drizzle-kit migrate` solto: o journal tem tudo
+        # (0000 funções/role, 0001 schema, 0002 RLS/policies/grants) e o segundo
+        # passo é a guarda scripts/verify-rls.ts (toda tabela RLS com FORCE).
         run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
 
       - name: Ensure merp_app role exists
@@ -126,9 +126,9 @@ jobs:
         run: createdb -h localhost -U merp merp_test || true
 
       - name: Run Drizzle migrations + RLS (owner)
-        # db:migrate:full e não `drizzle-kit migrate`: a migração 0014 usa
-        # round_half_up(numeric), que vive num .sql fora do journal. Sem o
-        # passo prévio a migração 14 falha em banco novo. Inclui o custom SQL.
+        # db:migrate:full e não `drizzle-kit migrate` solto: o journal tem tudo
+        # (0000 funções/role, 0001 schema, 0002 RLS/policies/grants) e o segundo
+        # passo é a guarda scripts/verify-rls.ts (toda tabela RLS com FORCE).
         run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
 
       - name: Ensure merp_app role exists

@@ -98,6 +98,11 @@ setCookie}`, que é o formato que `login.post.ts` consome. `session` é
   `scripts/apply-custom-sql.ts` repara o ambiente por completo**. O setup de
   testes reexecuta a todo run; em produção o reexecuto é manual e deve ser
   feito no próximo deploy.
+  **Atualização (baseline, 2026-10)**: esse reexecuto manual deixou de existir
+  — a cadeia virou `drizzle/0000_functions_and_roles` → `0001_baseline` →
+  `0002_rls_policies_grants` (squash do histórico 0000–0028) com a guarda
+  `scripts/verify-rls.ts`, e `scripts/apply-custom-sql.ts` foi removido. Banco
+  novo já nasce com as policies finais, inclusive as de `location`.
 - **`registerUser` perdeu o 2º argumento** e `RegisterInput.consentTermsVersion`
   é obrigatório: chamadores internos precisam informar o consentimento.
 - **`rethrowCompanyError`** só traduz `23505`; outros erros seguem intactos.

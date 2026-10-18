@@ -5,7 +5,7 @@ import { resolve } from 'path'
 // podem correr em paralelo sem globalSetup; os testes de integração partilham
 // um único PostgreSQL e semeiam ids fixos, por isso ficam sequenciais e com o
 // bootstrap da base de dados. Correr `npm run test:unit` paga só o arranque do
-// vitest (~1s) em vez do drizzle-kit push (~1,4s) mais 40 ficheiros em série.
+// vitest (~1s) em vez do drizzle-kit migrate (~1,4s) mais 40 ficheiros em série.
 export default defineConfig({
   resolve: {
     alias: {

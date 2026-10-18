@@ -104,9 +104,11 @@ Catálogo real (matriz tabela × policies): `docs/audit/2026-10-12-auditoria-sql
 
 ## Migrações
 
-- `drizzle/0000_*.sql` a `drizzle/0021_*.sql` — Journal Drizzle (schema + RLS básico)
-- `scripts/apply-custom-sql.ts` — Aplica RLS policies custom + grants (idempotente)
-- `npm run db:migrate:full` roda ambos em sequência
+- `drizzle/0000_functions_and_roles.sql` — `round_half_up` + role `merp_app`
+- `drizzle/0001_baseline.sql` — as 22 tabelas (gerado de `server/utils/schema/*.ts`)
+- `drizzle/0002_rls_policies_grants.sql` — ENABLE+FORCE, policies finais, funções, GRANTs
+- `npm run db:migrate:full` — `drizzle-kit migrate` + `scripts/verify-rls.ts` (guarda FORCE)
+- Migrações já aplicadas **nunca** se editam (o journal guarda o hash de cada uma)
 
 ## Consultas Úteis
 
