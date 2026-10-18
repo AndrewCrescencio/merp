@@ -112,8 +112,11 @@ export const printRepository = {
           printerId: targetPrinterId,
           orderId: input.orderId,
           template: input.template,
-          // Schema tipa payload como text, mas a coluna é jsonb: o objeto vai
-          // como parâmetro bind, exatamente como antes.
+          // Coluna text (0001_baseline segue server/utils/schema/print-job.ts).
+          // Medido: como text este bind guarda "[object Object]" (e em jsonb —
+          // o tipo antigo — dava erro de parse). Payload nunca foi persistido
+          // utilizável; corrigir com JSON.stringify(input.payload) quando algo
+          // passar a ler payload.
           payload: sql`${input.payload}`,
           priority: input.priority || 0,
           status: 'pending',
