@@ -23,7 +23,7 @@
     "format:check": "prettier . --check",
     "check:routes": "tsx scripts/check-routes.ts",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run check:routes",
-    "db:migrate:full": "tsx --env-file-if-exists=.env scripts/pre-migrate.ts && drizzle-kit migrate && tsx --env-file-if-exists=.env scripts/apply-custom-sql.ts"
+    "db:migrate:full": "drizzle-kit migrate && tsx --env-file-if-exists=.env scripts/verify-rls.ts"
   },
   "lint-staged": {
     "*.{ts,mjs,vue}": [
