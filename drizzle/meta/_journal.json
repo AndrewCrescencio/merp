@@ -5,106 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1781320669079,
-      "tag": "0000_bizarre_titania",
+      "when": 1792355532446,
+      "tag": "0000_functions_and_roles",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1781320818226,
-      "tag": "0001_dry_thunderbolt",
+      "when": 1792355696609,
+      "tag": "0001_baseline",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1781548643605,
-      "tag": "0002_stiff_infant_terrible",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1781626520705,
-      "tag": "0003_confused_jackpot",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1781627575225,
-      "tag": "0004_military_rocket_raccoon",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1782000000000,
-      "tag": "0005_misty_silver_sable",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1782400000000,
-      "tag": "0006_invites_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1785637860240,
-      "tag": "0007_abnormal_talkback",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1785689302446,
-      "tag": "0008_policy_insert_owner",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1785689646744,
-      "tag": "0009_company_delete_owner",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1785694729363,
-      "tag": "0010_next_morbius",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1786299567587,
-      "tag": "0011_sliding_window_rate_limit",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1787412079994,
-      "tag": "0012_dry_vanisher",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1787416176420,
-      "tag": "0013_noisy_mimic",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1791076914601,
-      "tag": "0014_add_order_tables",
+      "when": 1792355844968,
+      "tag": "0002_rls_policies_grants",
       "breakpoints": true
     }
   ]

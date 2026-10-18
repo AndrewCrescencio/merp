@@ -113,15 +113,15 @@ DB_AVAILABLE=true npm test
 
 ## Troubleshooting Comum
 
-| Problema                        | Causa                         | Solução                                           |
-| ------------------------------- | ----------------------------- | ------------------------------------------------- |
-| `BETTER_AUTH_SECRET` missing    | `.env` não configurado        | `cp .env.example .env` e preencher                |
-| `permission denied for table`   | Grants `merp_app` faltando    | `npm run db:migrate:full` (aplica migration 0020) |
-| `RLS BYPASS DETECTED` no canary | Testes rodando como owner     | Verificar `APP_DATABASE_URL` = `merp_app`         |
-| `CORS_ORIGIN` mismatch          | Build com origin errado       | `CORS_ORIGIN=http://localhost:3000 npm run build` |
-| Email não envia                 | `RESEND_API_KEY` inválido     | Verificar chave no Resend dashboard               |
-| `503 auth_unavailable`          | Better Auth falhou ao iniciar | Verificar `BETTER_AUTH_SECRET`, `DATABASE_URL`    |
-| `session_expired` 401           | Sessão expirou (7d TTL fixo)  | Re-login obrigatório                              |
+| Problema                        | Causa                         | Solução                                                |
+| ------------------------------- | ----------------------------- | ------------------------------------------------------ |
+| `BETTER_AUTH_SECRET` missing    | `.env` não configurado        | `cp .env.example .env` e preencher                     |
+| `permission denied for table`   | Grants `merp_app` faltando    | `npm run db:migrate:full` (migração 0002 dá os GRANTs) |
+| `RLS BYPASS DETECTED` no canary | Testes rodando como owner     | Verificar `APP_DATABASE_URL` = `merp_app`              |
+| `CORS_ORIGIN` mismatch          | Build com origin errado       | `CORS_ORIGIN=http://localhost:3000 npm run build`      |
+| Email não envia                 | `RESEND_API_KEY` inválido     | Verificar chave no Resend dashboard                    |
+| `503 auth_unavailable`          | Better Auth falhou ao iniciar | Verificar `BETTER_AUTH_SECRET`, `DATABASE_URL`         |
+| `session_expired` 401           | Sessão expirou (7d TTL fixo)  | Re-login obrigatório                                   |
 
 ## Logs Estruturados
 

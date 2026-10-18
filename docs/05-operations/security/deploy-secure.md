@@ -86,11 +86,11 @@ O MERP usa **duas roles distintas** por exigência do RLS:
 DATABASE_URL='<string pooled da role dona>' npm run db:migrate:full
 ```
 
-`db:migrate:full` = `pre-migrate` → `drizzle-kit migrate` →
-`apply-custom-sql.ts` (cliente `postgres` do Node — **não precisa de `psql`**).
-Ele cria as 23 tabelas, as 17 policies com `FORCE ROW LEVEL SECURITY`, e cria
-e concede privilégios à `merp_app` (`drizzle/0014_app_role_ensure.sql` +
-grants das `0015`, `0017`, `0020`).
+`db:migrate:full` = `drizzle-kit migrate` → `scripts/verify-rls.ts`
+(cliente `postgres` do Node — **não precisa de `psql`**). Ele cria as 22 tabelas,
+as 17 policies com `ENABLE` + `FORCE ROW LEVEL SECURITY` e concede os
+privilégios à `merp_app` — tudo nas migrações `0000_functions_and_roles`,
+`0001_baseline` e `0002_rls_policies_grants`.
 
 ### 2.2 ⚠️ A role `merp_app` nasce SEM senha — você define
 

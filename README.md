@@ -59,7 +59,7 @@ cp .env.example .env
 # 2. Suba infra (PostgreSQL)
 docker compose up -d postgres
 
-# 3. Rode migrações completas (Drizzle + RLS policies)
+# 3. Rode migrações completas (journal + guarda FORCE)
 npm run db:migrate:full
 
 # 4. Dev server
@@ -68,11 +68,14 @@ npm run dev
 
 ### Banco novo do zero
 
-`npx drizzle-kit migrate` sozinho aplica só as migrações do journal
-(`drizzle/meta/_journal.json`). As migrações de RLS/políticas (≥ `0010`,
-fora do journal — `0014_bootstrap_role_split`, `0016_company_select_membership`,
-`0017/0018/0019`, etc.) são aplicadas pelo applier idempotente
-`scripts/apply-custom-sql.ts`.
+O journal do Drizzle (`drizzle/meta/_journal.json`) contém a cadeia inteira, na
+ordem de aplicação:
+
+1. `0000_functions_and_roles` — `round_half_up` + role `merp_app` (sem senha);
+2. `0001_baseline` — as 22 tabelas geradas de `server/utils/schema/*.ts`;
+3. `0002_rls_policies_grants` — ENABLE+FORCE RLS, as 67 policies finais, as
+   funções (`get_tenant_id`, `is_company_owner`, ...), GRANTs e ALTER DEFAULT
+   PRIVILEGES de `merp_app`.
 
 **Use sempre `npm run db:migrate:full` em banco novo:**
 
@@ -81,8 +84,11 @@ docker compose up -d postgres
 npm run db:migrate:full
 ```
 
-> ⚠️ `npx drizzle-kit migrate` sozinho NÃO aplica as policies de RLS. Use
-> sempre `npm run db:migrate:full` em banco novo.
+> ⚠️ `db:migrate:full` = `drizzle-kit migrate` + `scripts/verify-rls.ts`, que
+> falha em alto e bom som se alguma tabela com RLS ficar sem FORCE. Não existe
+> mais applier custom nem passo prévio: tudo está no journal — e migrações já
+> aplicadas **nunca** são editadas (o `drizzle.__drizzle_migrations` guarda o
+> hash de cada uma).
 
 ## Containers (Docker)
 

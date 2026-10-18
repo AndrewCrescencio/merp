@@ -42,6 +42,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Gates estáticos da cadeia de migração, antes de tocar na base de dados:
+      # o journal tem de estar consistente, o schema do código tem de casar com
+      # o gerado e os prefixos dos ficheiros não podem repetir (um rebase mal
+      # resolvido deixa uma migração invisível no journal).
+      - name: Drizzle journal check
+        run: npx drizzle-kit check
+
+      - name: Schema drift (generate tem de ser no-op)
+        run: |
+          npx drizzle-kit generate
+          git diff --exit-code drizzle/
+
+      - name: Migration prefixes check
+        run: npx tsx scripts/check-migration-prefixes.ts
+
       - name: Wait for Postgres
         run: |
           for i in {1..30}; do
@@ -54,26 +69,17 @@ jobs:
           echo "Postgres not ready after 30s"
           exit 1
 
-      - name: Create test database
-        run: createdb -h localhost -U merp merp_test || true
-
       - name: Run Drizzle migrations + RLS (owner)
-        # db:migrate:full e não `drizzle-kit migrate`: a migração 0014 usa
-        # round_half_up(numeric), que vive num .sql fora do journal. Sem o
-        # passo prévio a migração 14 falha em banco novo. Inclui o custom SQL.
+        # db:migrate:full e não `drizzle-kit migrate` solto: o journal tem tudo
+        # (0000 funções/role, 0001 schema, 0002 RLS/policies/grants) e o segundo
+        # passo é a guarda scripts/verify-rls.ts (toda tabela RLS com FORCE).
         run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
 
-      - name: Ensure merp_app role exists
-        run: |
-          psql -U merp -d merp_test -h localhost -c "
-            DO \$\$ BEGIN
-              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merp_app') THEN
-                CREATE ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
-              ELSE
-                ALTER ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
-              END IF;
-            END \$\$;
-          "
+      - name: Set merp_app test password
+        # A migração 0000 cria a role merp_app (sem senha, de propósito: a
+        # credencial de produção não vive em migração). Aqui só se define a
+        # senha de teste — igual ao test-setup.ts.
+        run: psql -U merp -d merp_test -h localhost -c "ALTER ROLE merp_app WITH PASSWORD 'merp_app';"
 
       - name: Run RLS Canary (GATE B - blocks if RLS bypassed)
         # Sem "--": o vitest descarta o filtro depois de "--" e correria a
@@ -122,26 +128,17 @@ jobs:
           echo "Postgres not ready after 30s"
           exit 1
 
-      - name: Create test database
-        run: createdb -h localhost -U merp merp_test || true
-
       - name: Run Drizzle migrations + RLS (owner)
-        # db:migrate:full e não `drizzle-kit migrate`: a migração 0014 usa
-        # round_half_up(numeric), que vive num .sql fora do journal. Sem o
-        # passo prévio a migração 14 falha em banco novo. Inclui o custom SQL.
+        # db:migrate:full e não `drizzle-kit migrate` solto: o journal tem tudo
+        # (0000 funções/role, 0001 schema, 0002 RLS/policies/grants) e o segundo
+        # passo é a guarda scripts/verify-rls.ts (toda tabela RLS com FORCE).
         run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
 
-      - name: Ensure merp_app role exists
-        run: |
-          psql -U merp -d merp_test -h localhost -c "
-            DO \$\$ BEGIN
-              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merp_app') THEN
-                CREATE ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
-              ELSE
-                ALTER ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
-              END IF;
-            END \$\$;
-          "
+      - name: Set merp_app test password
+        # A migração 0000 cria a role merp_app (sem senha, de propósito: a
+        # credencial de produção não vive em migração). Aqui só se define a
+        # senha de teste — igual ao test-setup.ts.
+        run: psql -U merp -d merp_test -h localhost -c "ALTER ROLE merp_app WITH PASSWORD 'merp_app';"
 
       - name: Run full test suite (merp_app)
         # grants-parity.test.ts já corre aqui (server/**/*.test.ts); a etapa

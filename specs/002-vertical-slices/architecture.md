@@ -35,7 +35,6 @@ server/
 └── utils/
     ├── schema.ts                            # 198 linhas — TODAS as tabelas
     ├── db.ts                                # conexão (infra)
-    ├── apply-custom-sql.ts                  # infra (migrações RLS)
     ├── test-setup.ts                        # infra (setup de testes)
     └── auth/
         ├── repository.ts                    # 881 linhas — GOD REPOSITORY
@@ -125,7 +124,6 @@ server/
 │   └── purge-sessions.ts                      # usa identity (sessions)
 ├── error-handler.ts
 └── utils/
-    ├── apply-custom-sql.ts                      # infra (migrações RLS)
     ├── db.ts                                    # conexão (infra)
     ├── test-setup.ts                            # infra (setup de testes)
     ├── schema/
@@ -201,15 +199,14 @@ shared/                                        # infra do app (inalterado)
 concluídas. Desvios do plano: sem `dto.ts` por feature (os DTOs ficaram no
 próprio `repository.ts`); sem interfaces `I*Repository` nem classes
 `Drizzle*` (classe concreta + singleton por feature); `db.ts`,
-`db/tenant-context.ts`, `apply-custom-sql.ts`
-e `test-setup.ts` permaneceram em `server/utils/` (não movidos para
-`shared/`); `security` e `audit` foram para `server/utils/shared/` (D3).
+`db/tenant-context.ts` e `test-setup.ts` permaneceram em `server/utils/` (não
+movidos para `shared/`); `security` e `audit` foram para `server/utils/shared/` (D3).
 Pendente: Fase 5 (verificação final) e Fase 6 (governança).
 
 ### Fase 0 — Fundação (sem mudança de comportamento)
 
 - Criar `server/utils/shared/` e mover: `db.ts`, `db/tenant-context.ts`,
-  `apply-custom-sql.ts`, `test-setup.ts`.
+  `test-setup.ts`.
 - Mover helpers de erro HTTP (`sendXxxError`, `classifyDatabaseError`,
   `handleDatabaseError`, `withTimeout`, `TimeoutError`) para
   `server/utils/shared/errors.ts`.

@@ -139,13 +139,14 @@ docs/                     # Documentação operacional
 
 ## Arquivos Protegidos (Não Editar)
 
-- `drizzle/` — migrations + schema
+- `drizzle/` — migrations + schema (nunca editar uma já aplicada: o
+  `drizzle.__drizzle_migrations` guarda o hash e o migrate rejeita o desvio)
 - `server/utils/auth/**` — auth logic
 - `server/api/auth/**` — auth endpoints
 - `server/middleware/auth*.ts` — auth middleware
 - `server/utils/db/tenant-context.ts` — `withTenant`
 - `server/utils/schema/**` — Drizzle schema
-- `scripts/apply-custom-sql.ts` — RLS custom
+- `scripts/verify-rls.ts` — guarda FORCE (roda no `db:migrate:full`)
 - `server/utils/*isolation*.test.ts`, `*rls*.test.ts`, `grants-parity.test.ts` — security tests
 - `constitution.md` — só via ADR
 

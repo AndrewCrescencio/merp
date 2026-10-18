@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assertRlsForceApplied } from './apply-custom-sql'
+import { assertRlsForceApplied } from '../../scripts/verify-rls'
 
 // Cliente falso: devolve as linhas que a query de guarda devolveria.
 function fakeClient(rows: { relname: string }[]) {
@@ -20,6 +20,6 @@ describe('assertRlsForceApplied (guarda FORCE)', () => {
 
   it('inclui a instrução de correção na mensagem', async () => {
     const client = fakeClient([{ relname: 'product' }])
-    await expect(assertRlsForceApplied(client)).rejects.toThrow(/0025/)
+    await expect(assertRlsForceApplied(client)).rejects.toThrow(/0002_rls_policies_grants/)
   })
 })
