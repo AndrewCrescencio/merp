@@ -2,14 +2,18 @@ import { execSync } from 'child_process'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import postgres from 'postgres'
-import { assertRlsForceApplied } from '../../scripts/verify-rls'
+import { TEST_OWNER_URL, TEST_ADMIN_URL } from './test-urls'
 
 const COMPOSE_FILE = resolve(__dirname, '../../docker-compose.yml')
-const ADMIN_URL = process.env.TEST_ADMIN_URL ?? 'postgres://merp:merp@localhost:5432/postgres'
-const TEST_DB_URL = process.env.TEST_DB_URL ?? 'postgres://merp:merp@localhost:5432/merp_test'
+const ROOT = resolve(__dirname, '../..')
 
-function run(cmd: string): string {
-  return execSync(cmd, { encoding: 'utf-8', stdio: 'pipe' }).trim()
+function run(cmd: string, env: NodeJS.ProcessEnv = {}): string {
+  return execSync(cmd, {
+    encoding: 'utf-8',
+    stdio: 'pipe',
+    cwd: ROOT,
+    env: { ...process.env, ...env },
+  }).trim()
 }
 
 function isDockerAvailable(): boolean {
@@ -21,12 +25,25 @@ function isDockerAvailable(): boolean {
   }
 }
 
+// Só o primeiro falhanço é logado: canConnect repete nas tentativas e um mural
+// de erros iguais não diz mais nada. O código (28P01, ENOTFOUND, ECONNREFUSED,
+// ...) diz logo se é senha, DNS ou servidor em baixo — antes era engolido.
+let loggedFailure = false
+function logConnectionFailure(url: string, error: unknown): void {
+  if (loggedFailure) return
+  loggedFailure = true
+  const code = (error as { code?: string }).code ?? 'sem código'
+  const safe = url.replace(/\/\/([^:/@]+):[^@]*@/, '//$1:***@')
+  console.warn(`[test-setup] ${safe} inacessível (${code}).`)
+}
+
 async function canConnect(url: string): Promise<boolean> {
   const sql = postgres(url, { connect_timeout: 3, onnotice: () => {} })
   try {
     await sql`select 1`
     return true
-  } catch {
+  } catch (error) {
+    logConnectionFailure(url, error)
     return false
   } finally {
     await sql.end()
@@ -37,7 +54,7 @@ async function canConnect(url: string): Promise<boolean> {
 // nada a iniciar. Só recorre ao compose quando ninguém responde, e um compose
 // que falhe não derruba o setup desde que o servidor já responda.
 async function ensureServer(): Promise<boolean> {
-  if (await canConnect(ADMIN_URL)) {
+  if (await canConnect(TEST_ADMIN_URL)) {
     console.log('[test-setup] PostgreSQL já está acessível')
     return true
   }
@@ -56,14 +73,14 @@ async function ensureServer(): Promise<boolean> {
   }
 
   for (let i = 0; i < 30; i++) {
-    if (await canConnect(ADMIN_URL)) return true
+    if (await canConnect(TEST_ADMIN_URL)) return true
     await new Promise((r) => setTimeout(r, 1000))
   }
   return false
 }
 
 async function admin<T>(sql: string): Promise<T[]> {
-  const client = postgres(ADMIN_URL, { connect_timeout: 3, onnotice: () => {} })
+  const client = postgres(TEST_ADMIN_URL, { connect_timeout: 3, onnotice: () => {} })
   try {
     return (await client.unsafe(sql)) as T[]
   } finally {
@@ -85,7 +102,7 @@ async function baselineApplied(): Promise<boolean> {
 
   // Tem de consultar o merp_test: a conexão `admin` aponta para o database
   // `postgres`, onde o drizzle nunca criou a tabela de controle.
-  const client = postgres(TEST_DB_URL, { connect_timeout: 3, onnotice: () => {} })
+  const client = postgres(TEST_OWNER_URL, { connect_timeout: 3, onnotice: () => {} })
   try {
     const [reg] = await client.unsafe(`SELECT to_regclass('drizzle.__drizzle_migrations') AS t`)
     if (!reg?.t) return false
@@ -124,40 +141,22 @@ export async function setup(): Promise<void> {
     console.log('[test-setup] Base de dados merp_test já existe')
   }
 
-  console.log('[test-setup] A aplicar migrações (drizzle-kit migrate)...')
-  // O journal contém TUDO: funções+role (0000), schema (0001) e RLS/policies/
-  // grants (0002). Push foi removido: sincronizava o schema sem as policies e
-  // divergia do que `db:migrate:full` entrega. merp_test é descartável, mas o
-  // reset acima é o que garante que o journal é a única fonte.
-  run(
-    `DATABASE_URL="${TEST_DB_URL}" npx drizzle-kit migrate --config="${resolve(__dirname, '../../drizzle.config.ts')}"`,
-  )
+  console.log('[test-setup] A aplicar migrações (npm run db:migrate:full)...')
+  // O comando é o MESMO da produção/CI: journal completo (funções+role 0000,
+  // schema 0001, RLS/policies/grants 0002) mais a guarda scripts/verify-rls.ts
+  // no fim. Push foi removido: sincronizava o schema sem as policies e divergia
+  // do que db:migrate:full entrega. merp_test é descartável, mas o reset acima é
+  // o que garante que o journal é a única fonte.
+  run('npm run db:migrate:full', { DATABASE_URL: TEST_OWNER_URL })
 
-  console.log('[test-setup] A verificar FORCE em todas as tabelas RLS...')
-  const guard = postgres(TEST_DB_URL, { connect_timeout: 3, onnotice: () => {} })
-  try {
-    await assertRlsForceApplied(guard)
-  } finally {
-    await guard.end()
-  }
+  console.log('[test-setup] A definir senha de teste da role merp_app...')
+  // AUD-19: a migração 0000 cria a role merp_app SEM senha (credencial é
+  // segredo de operação e não pode estar em migração); este passo define a
+  // SENHA de teste. A role já existe — a migração acabou de correr.
+  await admin(`ALTER ROLE merp_app WITH PASSWORD 'merp_app'`)
 
-  console.log('[test-setup] A garantir role de app (merp_app) com grants...')
-  // AUD-19: a migração 0000 cria a role SEM senha (credencial é segredo de
-  // operação e não pode estar em migração); este passo garante a SENHA de teste.
-  // ALTER ROLE torna o passo idempotente.
-  await admin(
-    `DO $$ BEGIN
-       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'merp_app') THEN
-         CREATE ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
-       ELSE
-         ALTER ROLE merp_app WITH LOGIN PASSWORD 'merp_app';
-       END IF;
-     END $$`,
-  )
-
+  // Verificado empiricamente: o globalSetup corre ANTES dos workers arrancarem
+  // e estes herdam o process.env por fork — o DB_AVAILABLE escrito aqui chega aos
+  // testes (sem DB_AVAILABLE no shell, os 113 testes de integração correram).
   process.env.DB_AVAILABLE = 'true'
-}
-
-export async function teardown(): Promise<void> {
-  // Nothing to clean up — the container stays running for subsequent runs
 }

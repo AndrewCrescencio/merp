@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
+import { TEST_OWNER_URL, TEST_APP_URL } from './server/utils/test-urls.ts'
 
 // Duas velocidades, pelo motivo certo: os specs unitários são 100% mockados e
 // podem correr em paralelo sem globalSetup; os testes de integração partilham
@@ -16,9 +17,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Mesma fonte do globalSetup (server/utils/test-urls.ts): sem isto o
+    // DATABASE_URL do worker e o TEST_DB_URL do setup podiam apontar para
+    // bancos diferentes e os testes corriam contra o errado em silêncio.
     env: {
-      DATABASE_URL: 'postgres://merp:merp@localhost:5432/merp_test',
-      APP_DATABASE_URL: 'postgres://merp_app:merp_app@localhost:5432/merp_test',
+      DATABASE_URL: TEST_OWNER_URL,
+      APP_DATABASE_URL: TEST_APP_URL,
     },
     projects: [
       {
