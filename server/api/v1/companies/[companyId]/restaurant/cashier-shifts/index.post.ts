@@ -1,6 +1,7 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
 import { requireLocationId } from '~~/server/utils/shared/location'
-import { createError, defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import { sendConflictError, sendValidationError } from '~~/server/utils/shared'
 import { restaurantRepository } from '~~/server/utils/restaurant/repository'
 
 export default defineEventHandler(async (event) => {
@@ -14,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const { openingFloat } = body
 
   if (!openingFloat) {
-    throw createError({ statusCode: 400, message: 'opening_float_required' })
+    sendValidationError('opening_float_required')
   }
 
   const { companyId } = requireTenant(event)
@@ -29,11 +30,18 @@ export default defineEventHandler(async (event) => {
       userId: auth.user.id,
       openingFloat,
     })
+    // R8: criação → 201 + Location; turno aberto pendurante → 409.
+    setResponseStatus(event, 201)
+    setHeader(
+      event,
+      'Location',
+      `/api/v1/companies/${companyId}/restaurant/cashier-shifts/${shift.id}`,
+    )
     return shift
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
     if (msg.includes('already has an open shift')) {
-      throw createError({ statusCode: 400, message: msg })
+      sendConflictError(msg)
     }
     throw createError({ statusCode: 500, message: 'failed_to_open_cashier_shift' })
   }

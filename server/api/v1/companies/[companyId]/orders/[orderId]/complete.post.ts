@@ -1,4 +1,5 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { sendConflictError, sendNotFoundError } from '~~/server/utils/shared'
 import { createError, defineEventHandler, getRouterParam } from 'h3'
 import { orderRepository } from '~~/server/utils/order/repository'
 
@@ -19,12 +20,13 @@ export default defineEventHandler(async (event) => {
   try {
     const order = await orderRepository.complete(companyId, orderId)
     if (!order) {
-      throw createError({ statusCode: 404, message: 'order_not_found' })
+      sendNotFoundError('order_not_found')
     }
     return order
   } catch (error: unknown) {
+    // R8: estado atual impede a transição → 409 (conflito), não 400.
     if (error instanceof Error && error.message.includes('Cannot complete')) {
-      throw createError({ statusCode: 400, message: error.message })
+      sendConflictError(error.message)
     }
     throw error
   }

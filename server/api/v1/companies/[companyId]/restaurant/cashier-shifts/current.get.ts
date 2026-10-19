@@ -1,4 +1,5 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { sendNotFoundError } from '~~/server/utils/shared'
 import { resolveLocationId } from '~~/server/utils/shared/location'
 import { createError, defineEventHandler } from 'h3'
 import { restaurantRepository } from '~~/server/utils/restaurant/repository'
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
   const shift = await restaurantRepository.getCurrentUserShift(companyId, locationId, auth.user.id)
 
   if (!shift) {
-    throw createError({ statusCode: 404, message: 'no_open_shift' })
+    sendNotFoundError('no_open_shift')
   }
 
   return shift

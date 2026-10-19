@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, setResponseStatus } from 'h3'
+import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
 import { registerUser, generateUserId } from '~~/server/utils/auth/identity/queries'
 import {
   checkEmailRateLimit,
@@ -52,6 +52,8 @@ export default defineEventHandler(async (event) => {
   await enforceMinimumTime(start, MINIMUM_MS)
 
   setResponseStatus(event, 201)
+  // R8: o usuário criado é o recurso /api/v1/me do próprio requestante.
+  setHeader(event, 'Location', '/api/v1/me')
   return {
     id: user?.id ?? generateUserId(),
     email: user?.email ?? email,

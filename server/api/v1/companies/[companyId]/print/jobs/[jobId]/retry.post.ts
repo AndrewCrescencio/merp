@@ -1,4 +1,5 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { sendNotFoundError } from '~~/server/utils/shared'
 import { createError, defineEventHandler, getRouterParam } from 'h3'
 import { printRepository } from '~~/server/utils/print/repository'
 
@@ -19,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const job = await printRepository.retryJob(companyId, jobId)
 
   if (!job) {
-    throw createError({ statusCode: 404, message: 'print_job_not_found' })
+    sendNotFoundError('print_job_not_found')
   }
 
   return job

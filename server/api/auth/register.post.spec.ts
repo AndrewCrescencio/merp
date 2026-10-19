@@ -8,6 +8,7 @@ const mockCheckEmailRateLimit = vi.fn()
 const mockEnforceMinimumTime = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockSetResponseStatus = vi.fn()
+const mockSetHeader = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
 
@@ -16,6 +17,7 @@ vi.mock('h3', async (importOriginal) => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
   setResponseStatus: mockSetResponseStatus,
+  setHeader: mockSetHeader,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -311,6 +313,8 @@ describe('POST /api/auth/register', () => {
       createdAt,
     })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(expect.anything(), 201)
+    // R8: o usuário criado é apontado pelo header Location (/api/v1/me).
+    expect(mockSetHeader).toHaveBeenCalledWith(expect.anything(), 'Location', '/api/v1/me')
     expect(mockCreateAuthEvent).toHaveBeenCalled()
   })
 
@@ -333,6 +337,8 @@ describe('POST /api/auth/register', () => {
       createdAt: expect.any(Date),
     })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(expect.anything(), 201)
+    // R8: o usuário criado é apontado pelo header Location (/api/v1/me).
+    expect(mockSetHeader).toHaveBeenCalledWith(expect.anything(), 'Location', '/api/v1/me')
     expect(mockCreateAuthEvent).not.toHaveBeenCalled()
   })
 

@@ -1,4 +1,5 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { sendNotFoundError } from '~~/server/utils/shared'
 import { resolveLocationId } from '~~/server/utils/shared/location'
 import { createError, defineEventHandler, getRouterParam } from 'h3'
 import { restaurantRepository } from '~~/server/utils/restaurant/repository'
@@ -23,7 +24,7 @@ export default defineEventHandler(async (event) => {
   const shift = await restaurantRepository.getCashierShift(companyId, locationId, shiftId)
 
   if (!shift) {
-    throw createError({ statusCode: 404, message: 'cashier_shift_not_found' })
+    sendNotFoundError('cashier_shift_not_found')
   }
 
   return shift

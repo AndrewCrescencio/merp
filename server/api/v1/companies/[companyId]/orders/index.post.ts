@@ -1,6 +1,7 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
 import { requireLocationId } from '~~/server/utils/shared/location'
-import { createError, defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import { sendConflictError, sendNotFoundError, sendValidationError } from '~~/server/utils/shared'
 import { orderRepository } from '~~/server/utils/order/repository'
 import { z } from 'zod'
 
@@ -61,11 +62,7 @@ export default defineEventHandler(async (event) => {
   const parsed = createOrderSchema.safeParse(body)
 
   if (!parsed.success) {
-    throw createError({
-      statusCode: 400,
-      message: 'validation_error',
-      data: parsed.error.flatten(),
-    })
+    sendValidationError('validation_error')
   }
 
   const input = parsed.data
@@ -96,14 +93,17 @@ export default defineEventHandler(async (event) => {
         : undefined,
     })
 
+    // R8: criação → 201 + Location do recurso criado.
+    setResponseStatus(event, 201)
+    setHeader(event, 'Location', `/api/v1/companies/${companyId}/orders/${order.id}`)
     return order
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
     if (msg.includes('duplicate') || msg.includes('unique')) {
-      throw createError({ statusCode: 409, message: 'idempotency_conflict' })
+      sendConflictError('idempotency_conflict')
     }
     if (msg.includes('not found')) {
-      throw createError({ statusCode: 404, message: 'not found' })
+      sendNotFoundError('not found')
     }
     throw createError({ statusCode: 500, message: 'failed_to_create_order' })
   }

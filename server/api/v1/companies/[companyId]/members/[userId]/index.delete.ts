@@ -1,4 +1,4 @@
-import { defineEventHandler, getRouterParam } from 'h3'
+import { defineEventHandler, getRouterParam, sendNoContent } from 'h3'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import {
   assertCompanyRole,
@@ -44,7 +44,8 @@ export default defineEventHandler(async (event) => {
     await membershipRepository.removeCompanyMember(companyId, user.id, user.id)
     await emitRemoval(user.id)
 
-    return { message: 'Left company successfully' }
+    // R8: DELETE responde 204 sem corpo.
+    return sendNoContent(event)
   }
 
   // Remover outro membro: exige owner.
@@ -67,5 +68,6 @@ export default defineEventHandler(async (event) => {
   await membershipRepository.removeCompanyMember(companyId, user.id, userId)
   await emitRemoval(userId)
 
-  return { message: 'Member removed successfully' }
+  // R8: DELETE responde 204 sem corpo.
+  return sendNoContent(event)
 })

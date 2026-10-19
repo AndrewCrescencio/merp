@@ -1,4 +1,5 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { sendConflictError, sendNotFoundError, sendValidationError } from '~~/server/utils/shared'
 import { requireLocationId } from '~~/server/utils/shared/location'
 import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 import { restaurantRepository } from '~~/server/utils/restaurant/repository'
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const { closingFloat, expectedAmount, actualAmount, notes } = body
 
   if (!shiftId || !closingFloat || !expectedAmount || !actualAmount) {
-    throw createError({ statusCode: 400, message: 'missing_required_fields' })
+    sendValidationError('missing_required_fields')
   }
 
   const { companyId } = requireTenant(event)
@@ -37,14 +38,23 @@ export default defineEventHandler(async (event) => {
     })
 
     if (!shift) {
-      throw createError({ statusCode: 404, message: 'cashier_shift_not_found' })
+      sendNotFoundError('cashier_shift_not_found')
     }
 
     return shift
   } catch (error: unknown) {
+    // Erros já no contrato (helper disparado dentro do try) saem intactos;
+    // só erro cru do repo é re-mapeado abaixo.
+    if (error && typeof error === 'object' && 'statusCode' in error) {
+      throw error
+    }
     const msg = error instanceof Error ? error.message : String(error)
-    if (msg.includes('not open') || msg.includes('not found')) {
-      throw createError({ statusCode: 400, message: msg })
+    // R8: inexistente → 404; já fechado → estado atual impede fechar → 409.
+    if (msg.includes('not found')) {
+      sendNotFoundError(msg)
+    }
+    if (msg.includes('not open')) {
+      sendConflictError(msg)
     }
     throw createError({ statusCode: 500, message: 'failed_to_close_cashier_shift' })
   }

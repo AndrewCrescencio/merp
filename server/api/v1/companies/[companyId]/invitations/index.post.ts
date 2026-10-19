@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody, setResponseStatus } from 'h3'
+import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
   assertCompanyRole,
@@ -45,6 +45,7 @@ export default defineEventHandler(async (event) => {
   })
 
   setResponseStatus(event, 201)
+  setHeader(event, 'Location', `/api/v1/companies/${companyId}/invitations/${created.id}`)
   return {
     id: created.id,
     companyId: created.companyId,

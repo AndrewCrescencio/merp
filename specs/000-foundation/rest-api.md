@@ -18,21 +18,39 @@ Contrato de desenho das rotas HTTP do Merp, estabelecido na migração para
 | R7  | Filtros/paginação de query em camelCase (`?limit=&cursor=&status=`).                                                                                                                                                               | validação Zod por handler                                                 |
 | R8  | 201 + `Location` na criação; DELETE 204; async 202; transição inválida 409; inexistente **ou de outra empresa** 404; sem papel 403.                                                                                                | ver status abaixo                                                         |
 
-## Status de implementação
+## Status de implementação (verificado em runtime em 2026-10-19)
 
-R1–R7 implementados e impostos. **R8 está parcial** (a migração moveu as rotas
-sem mudar as respostas — contrato, não regra de negócio):
+R1–R7 implementados e impostos por `check-routes` + `stale-api-urls.spec`.
+**R8 completo**:
 
-- ✅ inexistente / de outra empresa → **404** (`middleware/tenant.ts` — membership
-  inexistente responde 404 sem vazar existência)
-- ✅ sem papel → **403** (`assertCompanyRole`)
-- ✅ criação → **201** (`register`, `companies`, `invitations`) — porém **sem header `Location`**
-- ❌ DELETE → hoje **200 + JSON**, não 204
-- ❌ transição inválida → hoje **400**, não 409 (ex.: `cancel`)
-- ❌ async → nenhum endpoint devolve 202
+- ✅ criação → **201 + `Location`**: `register` (`/api/v1/me`), `companies`,
+  `orders`, `invitations`, `print/printers`, `print/jobs`,
+  `restaurant/cashier-shifts` — `Location` = `/api/v1/.../{id}` do criado
+- ✅ DELETE → **204 sem corpo** (`sendNoContent`)
+- ✅ transição inválida → **409** (`{ error: 'conflict' }`) — ex.: cancel/complete
+  de pedido, mesa ocupada/livre, turno aberto/já fechado, convite duplicado
+- ✅ inexistente ou de outra empresa → **404** (`{ error: 'not_found' }`) —
+  membership ausente no middleware tenant e ramos `not found` dos handlers
+- ✅ sem papel → **403** (`{ error: 'forbidden' }`, `assertCompanyRole`)
+- ✅ **202: sem alvo** — nenhum endpoint é assíncrono (o `background()` dispara
+  e-mail em fluxos síncronos); se um async surgir, responder 202
 
-> Itens ❌ são pendências de contrato que precisam de decisão/ implementação
-> explícita; estão registrados aqui para não virarem divergência silenciosa.
+Os 4xx do contrato saem pelos helpers `send*Error`
+(`server/utils/shared/errors.ts`). `createError` cru com status < 500 não é
+JSON de contrato e o error-handler (FR-026) o normaliza como `internal_error`;
+os handlers usam helpers em todo ramo alcançável (restam só guards defensivos
+inalcançáveis: 401 pós-auth-middleware e `*_id_required` com param garantido
+pelo router).
+
+Verificação em runtime (2026-10-19, dev server + banco real):
+
+- **R3**: sweep de 10 GETs com contagens de 9 tabelas de negócio idênticas
+  antes/depois; nenhum `*.get.ts` escreve (varredura estática)
+- **R4**: não existe rota `PATCH .../status` (o path nem chega à API); transições
+  só como `POST {recurso}/{id}/{verbo}`
+- **R8**: todos os códigos acima exercitados de ponta a ponta (inclusive
+  DELETE 204 com 0 bytes e 404 cross-tenant nos dois sentidos); ramos 409/404
+  cobertos por specs de handler (`transitions.spec.ts`)
 
 ## Relação com ADR-005
 
@@ -51,11 +69,3 @@ sem mudar as respostas — contrato, não regra de negócio):
   `session.active_company_id` permanece no schema** como legado morto — nenhum
   caminho a lê nem a escreve. Removê-la exige migração (`drizzle/`,
   `server/utils/schema/**`, `server/middleware/auth*.ts`, todos protegidos).
-
-## Divergência de docs conhecida
-
-`specs/001-auth-context/contracts/auth-api.md` ainda documenta o contrato
-**antigo**: paths movidos para `/api/v1`, `POST /companies/switch` deletado,
-`GET /reset-password/[token]` deletado, `GET /api/health` dividido em
-`live`/`ready`, `GET /api/metrics` removido, e tokens agora só no body.
-Refresh desse arquivo é trabalho separado.

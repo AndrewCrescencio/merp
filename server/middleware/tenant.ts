@@ -1,5 +1,6 @@
 import { defineEventHandler, getRequestURL, createError } from 'h3'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
+import { sendNotFoundError } from '~~/server/utils/shared'
 
 /**
  * Tenant middleware (fail-closed). Roda DEPOIS do auth (ordem alfabética:
@@ -40,7 +41,8 @@ export default defineEventHandler(async (event) => {
 
   if (!role) {
     // Não-membro ou empresa inexistente: mesmo 404 para não enumerar tenants.
-    throw createError({ statusCode: 404, message: 'not_found' })
+    // Contrato { error, message } via helper — createError cru viraria 500 no error-handler (FR-026).
+    sendNotFoundError('Company not found')
   }
 
   event.context.tenant = { companyId, role }

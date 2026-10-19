@@ -5,11 +5,13 @@ const mockCreateAuthEvent = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
 const mockSetResponseStatus = vi.fn()
+const mockSetHeader = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
   setResponseStatus: mockSetResponseStatus,
+  setHeader: mockSetHeader,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -130,5 +132,11 @@ describe('POST /api/v1/companies/{companyId}/invitations', () => {
       token: 'tok-1',
     })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 201)
+    // R8: criação aponta o recurso criado no header Location.
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      event,
+      'Location',
+      '/api/v1/companies/company-1/invitations/invite-1',
+    )
   })
 })

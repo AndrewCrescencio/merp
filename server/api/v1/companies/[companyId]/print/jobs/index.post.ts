@@ -1,6 +1,7 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
 import { requireLocationId } from '~~/server/utils/shared/location'
-import { createError, defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import { sendValidationError } from '~~/server/utils/shared'
 import { printRepository } from '~~/server/utils/print/repository'
 import { z } from 'zod'
 
@@ -23,11 +24,7 @@ export default defineEventHandler(async (event) => {
   const parsed = enqueuePrintJobSchema.safeParse(body)
 
   if (!parsed.success) {
-    throw createError({
-      statusCode: 400,
-      message: 'validation_error',
-      data: parsed.error.flatten(),
-    })
+    sendValidationError('validation_error')
   }
 
   const { companyId } = requireTenant(event)
@@ -42,11 +39,14 @@ export default defineEventHandler(async (event) => {
       ...parsed.data,
     })
 
+    // R8: criação → 201 + Location do recurso criado.
+    setResponseStatus(event, 201)
+    setHeader(event, 'Location', `/api/v1/companies/${companyId}/print/jobs/${job.id}`)
     return job
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
     if (msg.includes('No default printer')) {
-      throw createError({ statusCode: 400, message: msg })
+      sendValidationError(msg)
     }
     throw createError({ statusCode: 500, message: 'failed_to_enqueue_print_job' })
   }

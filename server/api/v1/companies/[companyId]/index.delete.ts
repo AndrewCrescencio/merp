@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'h3'
+import { defineEventHandler, sendNoContent } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import {
   assertCompanyRole,
@@ -35,5 +35,6 @@ export default defineEventHandler(async (event) => {
     metadata: { companyId },
   })
 
-  return { message: 'Company deleted successfully' }
+  // R8: DELETE responde 204 sem corpo.
+  return sendNoContent(event)
 })

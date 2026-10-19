@@ -1,4 +1,5 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { sendNotFoundError } from '~~/server/utils/shared'
 import { createError, defineEventHandler, getRouterParam } from 'h3'
 import { orderRepository } from '~~/server/utils/order/repository'
 
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
   const order = await orderRepository.getById(companyId, orderId)
 
   if (!order) {
-    throw createError({ statusCode: 404, message: 'order_not_found' })
+    sendNotFoundError('order_not_found')
   }
 
   return order

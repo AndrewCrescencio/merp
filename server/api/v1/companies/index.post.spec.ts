@@ -7,11 +7,13 @@ const mockSetResponseStatus = vi.fn()
 const mockSendUnauthorizedError = vi.fn()
 const mockSendValidationError = vi.fn()
 const mockIsValidCnpj = vi.fn()
+const mockSetHeader = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   readBody: mockReadBody,
   setResponseStatus: mockSetResponseStatus,
+  setHeader: mockSetHeader,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -172,6 +174,8 @@ describe('POST /api/v1/companies', () => {
     )
     expect(result).toEqual({ id: 'company-1', name: 'Test Company' })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 201)
+    // R8: criação aponta o recurso criado no header Location.
+    expect(mockSetHeader).toHaveBeenCalledWith(event, 'Location', '/api/v1/companies/company-1')
   })
 
   it('trims company name', async () => {
