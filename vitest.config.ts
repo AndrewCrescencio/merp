@@ -1,12 +1,14 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
-import { TEST_OWNER_URL, TEST_APP_URL } from './server/utils/test-urls.ts'
+import { TEST_OWNER_URL, TEST_APP_URL } from './tests/support/test-urls.ts'
 
-// Duas velocidades, pelo motivo certo: os specs unitários são 100% mockados e
-// podem correr em paralelo sem globalSetup; os testes de integração partilham
-// um único PostgreSQL e semeiam ids fixos, por isso ficam sequenciais e com o
-// bootstrap da base de dados. Correr `npm run test:unit` paga só o arranque do
-// vitest (~1s) em vez do drizzle-kit migrate (~1,4s) mais 40 ficheiros em série.
+// CONVENÇÃO DE NOMES (um nome = um projeto):
+//   *.spec.ts = unitário, 100% mockado, paralelo, sem banco, sem globalSetup;
+//   *.test.ts = integração, PostgreSQL real, sequencial, globalSetup que aplica
+//               db:migrate:full (o MESMO comando da produção/CI);
+//   app/**    = componentes/páginas Vue no ambiente Nuxt (vitest.app.config.ts).
+// Correr `npm run test:unit` paga só o arranque do vitest (~1s) em vez do
+// drizzle-kit migrate (~1,4s) mais 40 ficheiros em série.
 export default defineConfig({
   resolve: {
     alias: {
@@ -17,7 +19,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    // Mesma fonte do globalSetup (server/utils/test-urls.ts): sem isto o
+    // Mesma fonte do globalSetup (tests/support/test-urls.ts): sem isto o
     // DATABASE_URL do worker e o TEST_DB_URL do setup podiam apontar para
     // bancos diferentes e os testes corriam contra o errado em silêncio.
     env: {
@@ -31,7 +33,6 @@ export default defineConfig({
           name: 'unit',
           include: ['server/**/*.spec.ts', 'shared/**/*.spec.ts'],
           fileParallelism: true,
-          globalSetup: [],
         },
       },
       {
@@ -39,11 +40,14 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: ['server/**/*.test.ts', 'shared/**/*.test.ts'],
-          globalSetup: ['./server/utils/test-setup.ts'],
+          globalSetup: ['./tests/support/test-setup.ts'],
           sequence: { shuffle: false },
           fileParallelism: false,
         },
       },
+      // Config próprio: o ambiente Nuxt precisa dos plugins do
+      // @nuxt/test-utils, que só o defineVitestConfig deles monta.
+      './vitest.app.config.ts',
     ],
   },
 })

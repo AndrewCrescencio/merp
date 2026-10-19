@@ -73,7 +73,7 @@ setCookie}`, que é o formato que `login.post.ts` consome. `session` é
 6. `server/utils/auth/company/repository.ts` — import de `sendNotFoundError` e
    mapeamento de conflito → 409.
 7. `server/utils/shared/validate.ts` — `consentTermsVersion` obrigatório.
-8. `server/utils/test-setup.ts` + `apply-custom-sql.ts` — setup da base de
+8. `tests/support/test-setup.ts` + `apply-custom-sql.ts` — setup da base de
    dados por TCP, sem depender de `docker compose exec`.
 9. Specs de auth passam a mockar `identity/queries` em vez do módulo
    `identity/repository`, que já não existe; `test-utils.ts` corrigido (a

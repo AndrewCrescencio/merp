@@ -1,0 +1,21 @@
+{
+  // Typecheck de tests/ (support de teste): o tsc -b cobre app/server/shared via
+  // .nuxt, mas tests/ não pertence a nenhum projeto do Nuxt — sem este tsconfig
+  // o test-setup.ts (globalSetup, referenciado por string) ficaria por verificar.
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "types": ["node"],
+    "paths": {
+      "~~/*": ["./*"],
+      "#shared/*": ["./shared/*"]
+    }
+  },
+  "include": ["tests/**/*.ts"]
+}

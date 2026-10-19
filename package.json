@@ -17,7 +17,7 @@
     "test:integration": "vitest run --project integration",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b --noEmit && tsc -p tsconfig.tests.json",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
@@ -36,29 +36,31 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.7",
-    "@nuxt/eslint": "^1.17.0",
     "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.4",
     "nuxt": "^4.6.1",
     "postgres": "^3.4.9",
     "vue": "^3.5.44",
-    "vue-router": "^5.4.0"
+    "vue-router": "^5.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@nuxt/test-utils": "^4.3.3",
+    "@nuxt/eslint": "^1.17.0",
+    "@nuxt/test-utils": "^4.3.4",
     "@types/node": "^24.19.2",
+    "@vue/test-utils": "^2.5.1",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
     "h3": "^1.15.11",
+    "happy-dom": "^21.0.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "nitropack": "^2.13.4",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.4",
-    "zod": "^4.6.7"
+    "vitest": "^5.0.4"
   },
   "overrides": {
     "@simple-git/argv-parser@<2.0.1": "^2.0.1",

@@ -2,12 +2,20 @@ node_modules/
 dist/
 .output/
 .nuxt/
+.nitro/
+.data/
+.cache/
 *.log
 .env
-.env.local
+.env.*
+!.env.example
 .DS_Store
 coverage/
 _snapshot/
 specs-docs-context.txt
 specs-docs.tar.gz
 tree.txt
+*.tsbuildinfo
+.eslintcache
+# artefacto do @nuxt/test-utils: escrito a cada run do projeto app (versão setups)
+.nuxtrc
