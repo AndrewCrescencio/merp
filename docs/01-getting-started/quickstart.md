@@ -53,21 +53,29 @@ npm run db:migrate:full
 
 > ⚠️ **Sempre use `db:migrate:full`** — aplica o journal Drizzle inteiro (funções, schema, RLS policies e grants) e depois a guarda `scripts/verify-rls.ts`, que falha se alguma tabela RLS ficar sem FORCE.
 
-## 5. Dev Server
+## 5. Seed (dev)
+
+```bash
+npm run db:seed
+```
+
+> Cria `owner@merp.test` / `DevSeed#2026` com empresa, location e catálogo mínimo do pack restaurant — pelos fluxos reais de registo/bootstrap. Idempotente e **dev-only**: recusa qualquer `DATABASE_URL`/`APP_DATABASE_URL` que não seja loopback.
+
+## 6. Dev Server
 
 ```bash
 npm run dev
 # → http://localhost:3000
 ```
 
-## 6. Testes
+## 7. Testes
 
 ```bash
 npm test         # Unit + integração (Vitest)
 npm run test:watch  # Watch mode
 ```
 
-## 7. Lint / Format
+## 8. Lint / Format
 
 ```bash
 npm run lint     # ESLint + Prettier check
