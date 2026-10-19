@@ -68,7 +68,7 @@ As 17 tabelas tenant-scoped têm RLS **+ `FORCE ROW LEVEL SECURITY`** (aplica-se
 - Policies **por operação** (`SELECT`/`INSERT`/`UPDATE`/`DELETE`) para o role `merp_app`, usando `get_tenant_id()`/`get_location_id()` (funções `public`, não `current_tenant()` — não existe)
 - Fail-closed: GUC ausente, vazia ou de outro tenant → **0 rows**; INSERT cross-tenant → `42501` (verificado em `server/utils/rls-matrix.test.ts`)
 - `merp_app` não é superuser nem tem BYPASSRLS; só o role de migrações (`merp`) ignora RLS
-- 6 tabelas ficam **sem RLS**: `user`, `session`, `account`, `verification`, `auth_security_state`, `email_queue`. As cinco primeiras são auth/globais; `email_queue` é resíduo da fila desativada — existe na migração `0019` mas nenhum código a escreve ou lê (`server/utils/schema/email.ts` foi removido)
+- 5 tabelas ficam **sem RLS**: `user`, `session`, `account`, `verification`, `auth_security_state` — o domínio do Better Auth (consultas por token/id de sessão, sem contexto de tenant). A antiga `email_queue` (fila desativada, sem código que a lesse ou escrevesse) saiu das migrações no baseline do SQL-1; só sobra em bases pré-baseline
 - `auth_event` **tem** RLS + `FORCE` (2 policies) — é escopada por empresa como as demais
 
 ## Packs Verticais
