@@ -20,7 +20,7 @@ The integration test suite MUST run as the `merp_app` role (non-superuser, `NOBY
 
 - `vitest.config.ts` sets `APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test`
 - `server/utils/db.ts` exports `db` (app role) and `createOwnerDbForSetupOnly()` (owner role, for test setup only)
-- Test setup (`server/utils/test-setup.ts`) uses owner role for DDL/migrations, seeds via `createOwnerDbForSetupOnly()`
+- Test setup (`tests/support/test-setup.ts`) uses owner role for DDL/migrations, seeds via `createOwnerDbForSetupOnly()`
 - All test assertions use `db` (app role) — RLS enforced
 
 ## Consequences

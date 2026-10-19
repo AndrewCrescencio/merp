@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createMockEvent, createAuthError } from '~~/server/utils/test-utils'
+import { createMockEvent, createAuthError } from '~~/tests/support/test-utils'
 
 const mockRegister = vi.fn()
 const mockCreateAuthEvent = vi.fn()
