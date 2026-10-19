@@ -55,6 +55,7 @@ ferramentas (`drizzle-kit`) usam `npx`.
 | Comando                                  | Descrição                                                                                                                       |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run db:migrate:full`                | **Sempre usar em banco novo** — roda `drizzle-kit migrate` (0000→0002: funções, schema, RLS) + a guarda `scripts/verify-rls.ts` |
+| `npm run db:seed`                        | Seed dev-only (`owner@merp.test` + empresa + location + catálogo): idempotente, pelos fluxos reais, recusa host não-loopback    |
 | `npx drizzle-kit migrate`                | Migrações do journal Drizzle (o journal contém schema + funções + RLS policies)                                                 |
 | `npx drizzle-kit generate --name <nome>` | Cria nova migração                                                                                                              |
 | `npx drizzle-kit studio`                 | Abre Drizzle Studio (GUI)                                                                                                       |
