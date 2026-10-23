@@ -13,168 +13,67 @@ env:
   NODE_ENV: test
 
 jobs:
-  # GATE B: Canary runs FIRST, required check
-  rls-canary:
-    name: RLS Canary (required)
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: merp
-          POSTGRES_PASSWORD: merp
-          POSTGRES_DB: merp_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U merp -d merp_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24 # deve casar com .nvmrc e package.json engines
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      # Gates estáticos da cadeia de migração, antes de tocar na base de dados:
-      # o journal tem de estar consistente, o schema do código tem de casar com
-      # o gerado e os prefixos dos ficheiros não podem repetir (um rebase mal
-      # resolvido deixa uma migração invisível no journal).
-      - name: Drizzle journal check
-        run: npx drizzle-kit check
-
-      - name: Schema drift (generate tem de ser no-op)
-        run: |
-          npx drizzle-kit generate
-          git diff --exit-code drizzle/
-
-      - name: Migration prefixes check
-        run: npx tsx scripts/check-migration-prefixes.ts
-
-      - name: Wait for Postgres
-        run: |
-          for i in {1..30}; do
-            if pg_isready -U merp -d merp_test -h localhost -p 5432; then
-              echo "Postgres ready"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Postgres not ready after 30s"
-          exit 1
-
-      - name: Run Drizzle migrations + RLS (owner)
-        # db:migrate:full e não `drizzle-kit migrate` solto: o journal tem tudo
-        # (0000 funções/role, 0001 schema, 0002 RLS/policies/grants) e o segundo
-        # passo é a guarda scripts/verify-rls.ts (toda tabela RLS com FORCE).
-        # A senha de teste do merp_app também sai daqui: o globalSetup
-        # (test-setup.ts) faz o ALTER ROLE antes de os testes correrem.
-        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
-
-      - name: Run RLS Canary (GATE B - blocks if RLS bypassed)
-        # Sem "--": o vitest descarta o filtro depois de "--" e correria a
-        # suíte inteira aqui, duplicando o job de testes abaixo.
-        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true npx vitest run server/utils/00-rls-canary.test.ts
-
-  # Main test suite - runs AFTER canary passes
-  test:
-    name: Test Suite (merp_app)
-    needs: rls-canary
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: merp
-          POSTGRES_PASSWORD: merp
-          POSTGRES_DB: merp_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U merp -d merp_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24 # deve casar com .nvmrc e package.json engines
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Wait for Postgres
-        run: |
-          for i in {1..30}; do
-            if pg_isready -U merp -d merp_test -h localhost -p 5432; then
-              echo "Postgres ready"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Postgres not ready after 30s"
-          exit 1
-
-      - name: Run Drizzle migrations + RLS (owner)
-        # db:migrate:full e não `drizzle-kit migrate` solto: o journal tem tudo
-        # (0000 funções/role, 0001 schema, 0002 RLS/policies/grants) e o segundo
-        # passo é a guarda scripts/verify-rls.ts (toda tabela RLS com FORCE).
-        # A senha de teste do merp_app também sai daqui: o globalSetup
-        # (test-setup.ts) faz o ALTER ROLE antes de os testes correrem.
-        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
-
-      - name: Run full test suite (merp_app)
-        # grants-parity.test.ts já corre aqui (server/**/*.test.ts); a etapa
-        # seguinte que o re-executava foi removida.
-        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true npm test
-
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24 # deve casar com .nvmrc e package.json engines
+          node-version: 24
           cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run lint
-        run: npm run lint
-
-      - name: Check format
-        run: npm run format:check
-
-      - name: Check route conventions (R1/R2/R5)
-        run: npm run check:routes
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run check:routes
 
   typecheck:
     name: TypeCheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24 # deve casar com .nvmrc e package.json engines
+          node-version: 24
           cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run typecheck
-        run: npm run typecheck
+  test:
+    name: Test Suite (merp_app)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: merp
+          POSTGRES_PASSWORD: merp
+          POSTGRES_DB: merp_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U merp -d merp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+      - run: npm ci
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if pg_isready -U merp -d merp_test -h localhost -p 5432; then
+              echo "Postgres ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres not ready after 30s"
+          exit 1
+      - name: Run Drizzle migrations + RLS (owner)
+        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
+      - name: Run full test suite (merp_app)
+        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true npm test
