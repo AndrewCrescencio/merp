@@ -7,7 +7,7 @@ import type {
   CashierShiftSelect,
 } from '~~/server/utils/schema'
 
-// FSM kitchen_ticket (specs/packs/restaurant/spec.md) — served/cancelled são terminais.
+// FSM kitchen_ticket (spec em tag pre-reset-limpo: specs/packs/restaurant/spec.md) — served/cancelled são terminais.
 const KITCHEN_TRANSITIONS: Record<string, readonly string[]> = {
   pending: ['in_progress', 'cancelled'],
   in_progress: ['ready', 'cancelled'],
@@ -199,7 +199,7 @@ export const restaurantRepository = {
     })
   },
 
-  // FSM kitchen_ticket (specs/packs/restaurant/spec.md): transições inválidas = 422.
+  // FSM kitchen_ticket (spec em tag pre-reset-limpo: specs/packs/restaurant/spec.md): transições inválidas = 422.
   // served/cancelled são terminais.
   async updateKitchenTicketStatus(
     input: UpdateKitchenTicketStatusInput,

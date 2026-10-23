@@ -103,7 +103,7 @@ for (const file of walk(API_ROOT)) {
   // R5: tudo em /v1 precisa de escopo de tenant no path — companies/{companyId}/…
   // ou o escopo-próprio me/… . Exceção: a raiz da coleção companies (listar as
   // empresas do usuário / criar empresa) é pré-tenant por natureza. auth/ e
-  // health/ ficam fora do v1 (§9 constitution).
+  // health/ ficam fora do v1 (CLAUDE.md).
   if (segments[0] === 'v1') {
     const isCompaniesRoot = segments[1] === 'companies' && segments.length === 2
     const scoped =

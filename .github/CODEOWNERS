@@ -7,7 +7,7 @@
 # Padrão: tudo pertence ao dono
 * @AndrewCrescencio
 
-# Dados e schema — o que não se mexe sem ADR (AGENTS.md, §Arquivos Protegidos)
+# Dados e schema — o que não se mexe sem ADR (CLAUDE.md, §Arquivos Protegidos)
 /drizzle/ @AndrewCrescencio
 /server/utils/schema/ @AndrewCrescencio
 /server/middleware/ @AndrewCrescencio
@@ -16,13 +16,8 @@
 /shared/auth.ts @AndrewCrescencio
 
 # Infra e deploy
-/Dockerfile @AndrewCrescencio
-/docker-compose*.yml @AndrewCrescencio
-/infra/ @AndrewCrescencio
 /.github/ @AndrewCrescencio
 
-# Governança — specs, ADRs e as instruções que orientam agentes
-/specs/ @AndrewCrescencio
-/AGENTS.md @AndrewCrescencio
+# Governança — instruções que orientam agentes
 /CLAUDE.md @AndrewCrescencio
-/constitution.md @AndrewCrescencio
+/AGENTS.md @AndrewCrescencio
