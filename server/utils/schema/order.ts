@@ -23,6 +23,8 @@ export const order = pgTable(
     totalAmount: numeric('total_amount', { precision: 12, scale: 2 }).notNull().default('0'),
     createdBy: text('created_by').notNull(),
     idempotencyKey: text('idempotency_key'),
+    // Hash do payload da criação: replay só se a chave voltar com o mesmo corpo.
+    idempotencyFingerprint: text('idempotency_fingerprint'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),

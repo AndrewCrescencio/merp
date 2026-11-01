@@ -1,8 +1,15 @@
 import { requireTenant } from '~~/server/utils/shared/auth-context'
 import { requireLocationId } from '~~/server/utils/shared/location'
-import { createError, defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import {
+  createError,
+  defineEventHandler,
+  getHeader,
+  readBody,
+  setHeader,
+  setResponseStatus,
+} from 'h3'
 import { sendConflictError, sendNotFoundError, sendValidationError } from '~~/server/utils/shared'
-import { orderRepository } from '~~/server/utils/order/repository'
+import { orderFingerprint, orderRepository } from '~~/server/utils/order/repository'
 import { z } from 'zod'
 
 const createOrderSchema = z
@@ -37,7 +44,8 @@ const createOrderSchema = z
         pickupPhone: z.string().optional(),
       })
       .optional(),
-    idempotencyKey: z.string().optional(),
+    // Alias depreciado do header `Idempotency-Key`; o header tem prioridade.
+    idempotencyKey: z.string().min(1).max(255).optional(),
   })
   .refine(
     (data) => {
@@ -71,35 +79,47 @@ export default defineEventHandler(async (event) => {
   // cai no escopo company pelo escape `OR get_location_id() IS NULL`.
   const locationId = await requireLocationId(companyId, auth.user.id)
 
+  // Header é o contrato (R4/R8); o body fica como alias temporário.
+  const headerKey = getHeader(event, 'idempotency-key')?.trim()
+  const idempotencyKey = headerKey || input.idempotencyKey
+  if (idempotencyKey && idempotencyKey.length > 255) {
+    sendValidationError('invalid_idempotency_key')
+  }
+
+  const createInput = {
+    companyId,
+    locationId,
+    orderType: input.orderType,
+    customerId: input.customerId,
+    partyId: input.partyId,
+    createdBy: auth.user.id,
+    items: input.items.map((item) => ({
+      ...item,
+      bomSnapshot: item.bomSnapshot ?? '',
+    })),
+    dineIn: input.dineIn,
+    takeout: input.takeout
+      ? {
+          ...input.takeout,
+          pickupAt: input.takeout.pickupAt ? new Date(input.takeout.pickupAt) : undefined,
+        }
+      : undefined,
+  }
+
   try {
     const order = await orderRepository.create({
-      companyId,
-      locationId,
-      orderType: input.orderType,
-      customerId: input.customerId,
-      partyId: input.partyId,
-      createdBy: auth.user.id,
-      idempotencyKey: input.idempotencyKey,
-      items: input.items.map((item) => ({
-        ...item,
-        bomSnapshot: item.bomSnapshot ?? '',
-      })),
-      dineIn: input.dineIn,
-      takeout: input.takeout
-        ? {
-            ...input.takeout,
-            pickupAt: input.takeout.pickupAt ? new Date(input.takeout.pickupAt) : undefined,
-          }
-        : undefined,
+      ...createInput,
+      idempotencyKey,
+      idempotencyFingerprint: idempotencyKey ? orderFingerprint(createInput) : undefined,
     })
 
-    // R8: criação → 201 + Location do recurso criado.
+    // R8: criação → 201 + Location do recurso criado (replay devolve o original).
     setResponseStatus(event, 201)
     setHeader(event, 'Location', `/api/v1/companies/${companyId}/orders/${order.id}`)
     return order
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
-    if (msg.includes('duplicate') || msg.includes('unique')) {
+    if (msg.includes('idempotency_mismatch')) {
       sendConflictError('idempotency_conflict')
     }
     if (msg.includes('not found')) {
