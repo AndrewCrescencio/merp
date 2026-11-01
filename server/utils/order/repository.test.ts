@@ -202,4 +202,33 @@ describe.skipIf(!dbAvailable)('orderRepository RLS', () => {
     await expect(orderRepository.complete(companyA, order.id)).rejects.toThrow('Cannot complete')
     await expect(orderRepository.cancel(companyA, order.id)).rejects.toThrow('Cannot cancel')
   })
+
+  it('idempotência: replay com payload igual, mismatch com payload diferente', async () => {
+    const base = {
+      companyId: companyA,
+      locationId: locationA,
+      orderType: 'takeout' as const,
+      createdBy: userA,
+      idempotencyKey: 'integration-idem-key',
+      items: [
+        {
+          productName: 'Idem Burger',
+          unitPrice: '10.00',
+          quantity: '1',
+          taxSnapshot: '{}',
+          bomSnapshot: '{}',
+        },
+      ],
+      takeout: { pickupName: 'Idem' },
+    }
+
+    const first = await orderRepository.create({ ...base, idempotencyFingerprint: 'fp-v1' })
+    const replay = await orderRepository.create({ ...base, idempotencyFingerprint: 'fp-v1' })
+    expect(replay.id).toBe(first.id)
+
+    // Mesma chave, corpo diferente → erro tipado (handler vira 409).
+    await expect(
+      orderRepository.create({ ...base, idempotencyFingerprint: 'fp-v2' }),
+    ).rejects.toThrow('idempotency_mismatch')
+  })
 })

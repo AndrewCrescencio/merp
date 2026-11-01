@@ -92,8 +92,8 @@ describe('orderRepository', () => {
       openedAt: new Date(),
     }
 
-    // O input não leva idempotencyKey, então a checagem do topo do create não
-    // roda: o único `order.findFirst` é o do getById, que lê a linha recém-criada.
+    // Sem idempotencyKey no input: o create só insere e lê a linha recém-criada
+    // no getById (único `order.findFirst`).
     mockTx.query.order.findFirst.mockResolvedValue({ ...mockOrder, orderType: 'dine_in' })
 
     mockTx.insert
@@ -212,5 +212,125 @@ describe('orderRepository', () => {
     const result = await orderRepository.list('company-1', { limit: 10 })
 
     expect(result).toHaveLength(2)
+  })
+
+  it('create: unique violation + mesmo fingerprint → replay da order existente', async () => {
+    mockTx.insert.mockReturnValueOnce({
+      values: vi.fn().mockReturnValue({
+        returning: vi
+          .fn()
+          .mockRejectedValue(
+            new Error(
+              'duplicate key value violates unique constraint "order_company_idempotency_key_idx"',
+            ),
+          ),
+      }),
+    })
+    mockTx.query.order.findFirst.mockResolvedValue({
+      id: 'order-1',
+      companyId: 'company-1',
+      status: 'open',
+      orderType: 'dine_in',
+      idempotencyFingerprint: 'fp-1',
+    })
+
+    const { orderRepository } = await import('./repository')
+    const result = await orderRepository.create({
+      companyId: 'company-1',
+      locationId: 'location-1',
+      orderType: 'dine_in',
+      createdBy: 'user-1',
+      idempotencyKey: 'key-1',
+      idempotencyFingerprint: 'fp-1',
+      items: [
+        {
+          productName: 'Test',
+          unitPrice: '10.00',
+          quantity: '1',
+          taxSnapshot: '{}',
+          bomSnapshot: '',
+        },
+      ],
+      dineIn: { tableId: 'table-1' },
+    })
+
+    expect(result.id).toBe('order-1')
+  })
+
+  it('create: unique violation + fingerprint diferente → idempotency_mismatch', async () => {
+    mockTx.insert.mockReturnValueOnce({
+      values: vi.fn().mockReturnValue({
+        returning: vi
+          .fn()
+          .mockRejectedValue(
+            new Error(
+              'duplicate key value violates unique constraint "order_company_idempotency_key_idx"',
+            ),
+          ),
+      }),
+    })
+    mockTx.query.order.findFirst.mockResolvedValue({
+      id: 'order-1',
+      companyId: 'company-1',
+      status: 'open',
+      orderType: 'dine_in',
+      idempotencyFingerprint: 'fp-OUTRA',
+    })
+
+    const { orderRepository } = await import('./repository')
+
+    await expect(
+      orderRepository.create({
+        companyId: 'company-1',
+        locationId: 'location-1',
+        orderType: 'dine_in',
+        createdBy: 'user-1',
+        idempotencyKey: 'key-1',
+        idempotencyFingerprint: 'fp-1',
+        items: [
+          {
+            productName: 'Test',
+            unitPrice: '10.00',
+            quantity: '1',
+            taxSnapshot: '{}',
+            bomSnapshot: '',
+          },
+        ],
+        dineIn: { tableId: 'table-1' },
+      }),
+    ).rejects.toThrow('idempotency_mismatch')
+  })
+
+  it('orderFingerprint: estável mesmo com chaves do item em ordem diferente', async () => {
+    const { orderFingerprint } = await import('./repository')
+
+    const a = orderFingerprint({
+      orderType: 'dine_in',
+      items: [
+        {
+          productName: 'Test',
+          unitPrice: '10.00',
+          quantity: '1',
+          taxSnapshot: '{}',
+          bomSnapshot: '',
+        },
+      ],
+      dineIn: { tableId: 'table-1' },
+    })
+    const b = orderFingerprint({
+      orderType: 'dine_in',
+      items: [
+        {
+          bomSnapshot: '',
+          taxSnapshot: '{}',
+          quantity: '1',
+          unitPrice: '10.00',
+          productName: 'Test',
+        },
+      ],
+      dineIn: { tableId: 'table-1' },
+    })
+
+    expect(a).toBe(b)
   })
 })
