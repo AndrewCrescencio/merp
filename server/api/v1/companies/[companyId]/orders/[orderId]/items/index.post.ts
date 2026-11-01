@@ -33,16 +33,22 @@ export default defineEventHandler(async (event) => {
     sendValidationError('invalid_unit_price')
   }
 
-  await tableOrderRepository.addItemToOrder(companyId, auth.user.id, tenant.locationId, orderId, {
-    productId: input.productId || undefined,
-    productName: input.productName,
-    unitPrice: input.unitPrice,
-    quantity: input.quantity,
-    taxSnapshot: input.taxSnapshot,
-    bomSnapshot: input.bomSnapshot,
-  })
+  const item = await tableOrderRepository.addItemToOrder(
+    companyId,
+    auth.user.id,
+    tenant.locationId,
+    orderId,
+    {
+      productId: input.productId || undefined,
+      productName: input.productName,
+      unitPrice: input.unitPrice,
+      quantity: input.quantity,
+      taxSnapshot: input.taxSnapshot,
+      bomSnapshot: input.bomSnapshot,
+    },
+  )
 
   setResponseStatus(event, 201)
-  setHeader(event, 'Location', `/api/v1/companies/${companyId}/orders/${orderId}/items`)
-  return { success: true, orderId }
+  setHeader(event, 'Location', `/api/v1/companies/${companyId}/orders/${orderId}/items/${item.id}`)
+  return { success: true, item }
 })

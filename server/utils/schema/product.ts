@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { pgTable, text, timestamp, boolean, numeric, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { company } from './company'
 import { location } from './location'
+import { kitchenStation } from './kitchen-station'
 
 export const product = pgTable(
   'product',
@@ -18,6 +19,9 @@ export const product = pgTable(
     name: text('name').notNull(),
     sku: text('sku'),
     unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull().default('0'),
+    kitchenStationId: text('kitchen_station_id').references(() => kitchenStation.id, {
+      onDelete: 'set null',
+    }),
     taxRuleId: text('tax_rule_id'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -26,6 +30,7 @@ export const product = pgTable(
   (table) => [
     index('product_company_id_idx').on(table.companyId),
     index('product_location_id_idx').on(table.locationId),
+    index('product_kitchen_station_id_idx').on(table.kitchenStationId),
     uniqueIndex('product_company_sku_idx').on(table.companyId, table.sku),
     index('product_is_active_idx').on(table.isActive),
   ],

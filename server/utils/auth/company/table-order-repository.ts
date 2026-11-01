@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { sendValidationError } from '../../shared'
 import { withTenant } from '../../db/tenant-context'
-import { order, restaurantTable } from '../../schema'
+import { order, orderItem, restaurantTable, kitchenTicket, kitchenStation } from '../../schema'
 
 export interface OpenTableInput {
   tableId: string
@@ -22,6 +22,22 @@ export interface OrderResult {
   customerId: string | null
   partyId: string | null
   createdBy: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface OrderItemResult {
+  id: string
+  companyId: string
+  locationId: string
+  orderId: string
+  productId: string | null
+  productName: string
+  unitPrice: string
+  quantity: string
+  taxSnapshot: string
+  bomSnapshot: string
+  lineTotal: string
   createdAt: Date
   updatedAt: Date
 }
@@ -175,6 +191,8 @@ export class TableOrderRepository {
   /**
    * Adds an item to an open order.
    * Validates that product (if provided) belongs to the same location.
+   * Creates kitchen ticket if product has kitchenStationId.
+   * Returns the created order item.
    */
   async addItemToOrder(
     companyId: string,
@@ -189,7 +207,7 @@ export class TableOrderRepository {
       taxSnapshot: string
       bomSnapshot: string
     },
-  ): Promise<void> {
+  ): Promise<OrderItemResult> {
     return await withTenant(companyId, locationId, userId, async (tx) => {
       // Lock the order to prevent concurrent modifications
       const [currentOrder] = await tx
@@ -210,10 +228,13 @@ export class TableOrderRepository {
         sendValidationError('order_not_open')
       }
 
+      let productId: string | null = input.productId || null
+      let kitchenStationId: string | null = null
+
       // If productId provided, validate it belongs to same location
       if (input.productId) {
         const [product] = await tx
-          .select()
+          .select({ kitchenStationId: import('~~/server/utils/schema').product.kitchenStationId })
           .from(import('~~/server/utils/schema').product)
           .where(
             and(
@@ -228,23 +249,62 @@ export class TableOrderRepository {
         if (!product) {
           sendValidationError('product_not_found_or_not_in_location')
         }
+
+        productId = input.productId
+        kitchenStationId = product.kitchenStationId
       }
 
       // Insert the order item
-      await tx.insert(import('~~/server/utils/schema').orderItem).values({
-        companyId,
-        locationId,
-        orderId,
-        productId: input.productId || null,
-        productName: input.productName,
-        unitPrice: input.unitPrice,
-        quantity: input.quantity,
-        taxSnapshot: input.taxSnapshot,
-        bomSnapshot: input.bomSnapshot,
-      })
+      const [createdItem] = await tx
+        .insert(orderItem)
+        .values({
+          companyId,
+          locationId,
+          orderId,
+          productId,
+          productName: input.productName,
+          unitPrice: input.unitPrice,
+          quantity: input.quantity,
+          taxSnapshot: input.taxSnapshot,
+          bomSnapshot: input.bomSnapshot,
+        })
+        .returning()
+
+      // If product has kitchenStationId, create a kitchen ticket
+      if (kitchenStationId) {
+        const [station] = await tx
+          .select()
+          .from(kitchenStation)
+          .where(
+            and(
+              eq(kitchenStation.id, kitchenStationId),
+              eq(kitchenStation.companyId, companyId),
+              eq(kitchenStation.locationId, locationId),
+              eq(kitchenStation.isActive, true),
+            ),
+          )
+          .limit(1)
+
+        if (!station) {
+          sendValidationError('kitchen_station_not_found_or_not_in_location')
+        }
+
+        // Create kitchen ticket
+        await tx.insert(kitchenTicket).values({
+          companyId,
+          locationId,
+          orderId,
+          orderItemId: createdItem.id,
+          stationId: kitchenStationId,
+          status: 'pending',
+          priority: 0,
+        })
+      }
 
       // Recalculate total
       await this.recalculateOrderTotal(tx, orderId)
+
+      return createdItem
     })
   }
 
@@ -280,14 +340,9 @@ export class TableOrderRepository {
 
       // Delete the item
       const deleted = await tx
-        .delete(import('~~/server/utils/schema').orderItem)
-        .where(
-          and(
-            eq(import('~~/server/utils/schema').orderItem.id, itemId),
-            eq(import('~~/server/utils/schema').orderItem.orderId, orderId),
-          ),
-        )
-        .returning({ id: import('~~/server/utils/schema').orderItem.id })
+        .delete(orderItem)
+        .where(and(eq(orderItem.id, itemId), eq(orderItem.orderId, orderId)))
+        .returning({ id: orderItem.id })
 
       if (deleted.length === 0) {
         sendValidationError('order_item_not_found')
@@ -306,8 +361,8 @@ export class TableOrderRepository {
       .select({
         total: sql<number>`coalesce(sum(line_total), 0)`,
       })
-      .from(import('~~/server/utils/schema').orderItem)
-      .where(eq(import('~~/server/utils/schema').orderItem.orderId, orderId))
+      .from(orderItem)
+      .where(eq(orderItem.orderId, orderId))
 
     await tx
       .update(order)
