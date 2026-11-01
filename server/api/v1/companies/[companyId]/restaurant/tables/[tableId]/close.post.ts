@@ -1,43 +1,39 @@
+import { defineEventHandler, readBody } from 'h3'
+import { z } from 'zod'
 import { requireTenant } from '~~/server/utils/shared/auth-context'
-import { sendConflictError, sendNotFoundError } from '~~/server/utils/shared'
-import { requireLocationId } from '~~/server/utils/shared/location'
-import { createError, defineEventHandler, getRouterParam } from 'h3'
-import { restaurantRepository } from '~~/server/utils/restaurant/repository'
+import { tableOrderRepository } from '~~/server/utils/auth/company/table-order-repository'
+import { sendValidationError } from '~~/server/utils/shared'
+
+const closeTableSchema = z.object({
+  cancelEmpty: z.boolean().optional(),
+})
 
 export default defineEventHandler(async (event) => {
-  const auth = event.context.auth
-  const tableId = getRouterParam(event, 'tableId')
+  const { companyId, tableId } = event.context.params as { companyId: string; tableId: string }
+  const auth = await requireTenant(event)
+  const tenant = event.context.tenant!
 
-  if (!auth?.user) {
-    throw createError({ statusCode: 401, message: 'unauthenticated' })
+  const body = await readBody(event)
+  const validation = closeTableSchema.safeParse(body)
+
+  if (!validation.success) {
+    sendValidationError('invalid_table_close_data')
   }
 
-  if (!tableId) {
-    throw createError({ statusCode: 400, message: 'table_id_required' })
-  }
-
-  const { companyId } = requireTenant(event)
-  // ADR-002: location real do membro. `null` = sem location no escopo → a RLS
-  // cai no escopo company pelo escape `OR get_location_id() IS NULL`.
-  const locationId = await requireLocationId(companyId, auth.user.id)
+  const input = validation.data
 
   try {
-    const table = await restaurantRepository.closeTable({
-      companyId,
-      locationId,
-      tableId,
-      userId: auth.user.id,
+    await tableOrderRepository.closeTable(companyId, auth.user.id, tenant.locationId, tableId, {
+      cancelEmpty: input.cancelEmpty ?? false,
     })
-    return table
+
+    setResponseStatus(event, 204)
+    return null
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error)
-    // R8: inexistente → 404; não ocupada → estado atual impede fechar → 409.
-    if (msg.includes('not found')) {
-      sendNotFoundError(msg)
+    const err = error as { statusCode?: number; status?: number; message?: string }
+    if (err.statusCode === 400 || err.status === 400) {
+      sendValidationError((err.message as string) || 'failed_to_close_table')
     }
-    if (msg.includes('not occupied')) {
-      sendConflictError(msg)
-    }
-    throw createError({ statusCode: 500, message: 'failed_to_close_table' })
+    throw error
   }
 })
