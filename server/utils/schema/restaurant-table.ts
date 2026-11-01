@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { pgTable, text, timestamp, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { company } from './company'
 import { location } from './location'
+import { order } from './order'
 
 export const restaurantTable = pgTable(
   'restaurant_table',
@@ -19,7 +20,7 @@ export const restaurantTable = pgTable(
     name: text('name'),
     capacity: integer('capacity').notNull().default(4),
     status: text('status').notNull().default('available'), // 'available', 'occupied', 'reserved', 'closed'
-    currentOrderId: text('current_order_id'),
+    currentOrderId: text('current_order_id').references(() => order.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -27,7 +28,11 @@ export const restaurantTable = pgTable(
     index('restaurant_table_company_id_idx').on(table.companyId),
     index('restaurant_table_location_id_idx').on(table.locationId),
     index('restaurant_table_status_idx').on(table.status),
-    uniqueIndex('restaurant_table_company_number_idx').on(table.companyId, table.number),
+    uniqueIndex('restaurant_table_company_location_number_idx').on(
+      table.companyId,
+      table.locationId,
+      table.number,
+    ),
   ],
 )
 

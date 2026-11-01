@@ -1,21 +1,19 @@
+import { defineEventHandler, getQuery } from 'h3'
 import { requireTenant } from '~~/server/utils/shared/auth-context'
-import { resolveLocationId } from '~~/server/utils/shared/location'
-import { createError, defineEventHandler } from 'h3'
-import { restaurantRepository } from '~~/server/utils/restaurant/repository'
+import { restaurantTableRepository } from '~~/server/utils/auth/company/restaurant-table-repository'
+import { assertCompanyMember } from '~~/server/utils/auth/company/authorization'
 
 export default defineEventHandler(async (event) => {
-  const auth = event.context.auth
+  const { companyId } = event.context.params as { companyId: string }
+  const auth = await requireTenant(event)
 
-  if (!auth?.user) {
-    throw createError({ statusCode: 401, message: 'unauthenticated' })
-  }
+  // Any member can list tables
+  await assertCompanyMember(companyId, auth.user.id)
 
-  const { companyId } = requireTenant(event)
-  // ADR-002: location real do membro. `null` = sem location no escopo → a RLS
-  // cai no escopo company pelo escape `OR get_location_id() IS NULL`.
-  const locationId = await resolveLocationId(companyId, auth.user.id)
+  const query = getQuery(event)
+  const locationId = query.locationId as string | undefined
 
-  const tables = await restaurantRepository.listTables(companyId, locationId)
+  const tables = await restaurantTableRepository.listTables(companyId, auth.user.id, locationId)
 
   return { tables }
 })

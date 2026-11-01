@@ -119,6 +119,24 @@ export class MembershipRepository {
   }
 
   /**
+   * Returns complete membership info including role and defaultLocationId.
+   * Accessible to owner/manager only.
+   */
+  async getCompanyMembershipWithDetails(userId: string, companyId: string) {
+    return await withTenant(companyId, null, userId, async (tx) => {
+      const [found] = await tx
+        .select({
+          role: companyMember.role,
+          defaultLocationId: companyMember.defaultLocationId,
+        })
+        .from(companyMember)
+        .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
+        .limit(1)
+      return found || null
+    })
+  }
+
+  /**
    * Removes a member. `executedByUserId` drives the RLS authorization
    * (owner removes anyone; a member removes only itself) — never pass the
    * target as executor. 404 when RLS denies or the membership does not exist.
