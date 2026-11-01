@@ -9,15 +9,14 @@ const openTableSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { companyId, tableId } = event.context.params as { companyId: string; tableId: string }
+  const params = event.context.params as { companyId?: string; tableId?: string }
+  const { companyId, tableId } = params
+  if (!companyId || !tableId) {
+    throw { statusCode: 404, message: 'Not found' }
+  }
+
   const auth = await requireTenant(event)
   const tenant = event.context.tenant!
-
-  // Validate table belongs to same location
-  if (tableId) {
-    // Location is determined by tenant middleware
-    // The repository will validate table belongs to this location
-  }
 
   const body = await readBody(event)
   const validation = openTableSchema.safeParse(body)

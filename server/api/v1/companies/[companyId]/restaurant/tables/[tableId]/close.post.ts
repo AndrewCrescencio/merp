@@ -9,7 +9,12 @@ const closeTableSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { companyId, tableId } = event.context.params as { companyId: string; tableId: string }
+  const params = event.context.params as { companyId?: string; tableId?: string }
+  const { companyId, tableId } = params
+  if (!companyId || !tableId) {
+    throw { statusCode: 404, message: 'Not found' }
+  }
+
   const auth = await requireTenant(event)
   const tenant = event.context.tenant!
 

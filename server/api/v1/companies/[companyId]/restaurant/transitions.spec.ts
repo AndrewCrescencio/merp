@@ -26,7 +26,12 @@ vi.mock('h3', () => ({
   },
 }))
 vi.mock('~~/server/utils/shared/auth-context', () => ({
-  requireTenant: () => ({ companyId: 'company-1', role: 'owner' }),
+  requireTenant: () => ({
+    user: { id: 'user-1', email: 'user@example.com', name: null },
+    companyId: 'company-1',
+    role: 'owner',
+    tenant: { locationId: 'location-1' },
+  }),
 }))
 vi.mock('~~/server/utils/shared/location', () => ({
   requireLocationId: async () => 'location-1',
@@ -41,7 +46,10 @@ vi.mock('~~/server/utils/restaurant/repository', () => ({
 }))
 
 const ev = {
-  context: { auth: { user: { id: 'user-1', email: 'user@example.com' } } },
+  context: {
+    auth: { user: { id: 'user-1', email: 'user@example.com' } },
+    params: { companyId: 'company-1', tableId: 'table-1' },
+  },
 } as any
 
 const load = (path: string) => import(path).then((m) => m.default)
