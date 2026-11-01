@@ -45,6 +45,22 @@ export default defineConfig({
           fileParallelism: false,
         },
       },
+      // e2e: servidor Nitro real (build do nuxt via @nuxt/test-utils), cookies,
+      // CSRF e fluxo Better Auth de verdade sobre HTTP. setupTimeout do
+      // @nuxt/test-utils cobre o build (~120s); testTimeout 30s cobre o piso
+      // de 700ms do register em cascata.
+      {
+        extends: true,
+        test: {
+          name: 'e2e',
+          include: ['tests/e2e/**/*.e2e.ts'],
+          globalSetup: ['./tests/e2e/setup.ts'],
+          sequence: { shuffle: false },
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 180_000,
+        },
+      },
       // Config próprio: o ambiente Nuxt precisa dos plugins do
       // @nuxt/test-utils, que só o defineVitestConfig deles monta.
       './vitest.app.config.ts',
