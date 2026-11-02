@@ -26,12 +26,22 @@ vi.mock('h3', () => ({
   },
 }))
 vi.mock('~~/server/utils/shared/auth-context', () => ({
+  requireUser: () => ({ id: 'user-1', email: 'user@example.com', name: null }),
   requireTenant: () => ({
     user: { id: 'user-1', email: 'user@example.com', name: null },
     companyId: 'company-1',
     role: 'owner',
     tenant: { locationId: 'location-1' },
   }),
+}))
+vi.mock('~~/server/utils/shared/location', () => ({
+  requireLocationId: async () => 'location-1',
+}))
+vi.mock('~~/server/utils/auth/company/table-order-repository', () => ({
+  tableOrderRepository: {
+    openTable: mockOpenTable,
+    closeTable: mockCloseTable,
+  },
 }))
 vi.mock('~~/server/utils/shared/location', () => ({
   requireLocationId: async () => 'location-1',

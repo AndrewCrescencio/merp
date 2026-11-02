@@ -1,25 +1,21 @@
-import { defineEventHandler, setResponseStatus } from 'h3'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { createError, defineEventHandler, getRouterParam, setResponseStatus } from 'h3'
+import { requireUser } from '~~/server/utils/shared/auth-context'
+import { requireLocationId } from '~~/server/utils/shared/location'
 import { tableOrderRepository } from '~~/server/utils/auth/company/table-order-repository'
 import { sendValidationError } from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
-  const { companyId, orderId, itemId } = event.context.params as {
-    companyId: string
-    orderId: string
-    itemId: string
+  const { companyId } = event.context.params as { companyId: string }
+  const orderId = getRouterParam(event, 'orderId')
+  const itemId = getRouterParam(event, 'itemId')
+  if (!orderId || !itemId) {
+    throw createError({ statusCode: 400, message: 'order_item_required' })
   }
-  const auth = await requireTenant(event)
-  const tenant = event.context.tenant!
+  const user = requireUser(event)
+  const locationId = await requireLocationId(companyId, user.id)
 
   try {
-    await tableOrderRepository.removeItemFromOrder(
-      companyId,
-      auth.user.id,
-      tenant.locationId,
-      orderId,
-      itemId,
-    )
+    await tableOrderRepository.removeItemFromOrder(companyId, user.id, locationId, orderId, itemId)
 
     setResponseStatus(event, 204)
     return null

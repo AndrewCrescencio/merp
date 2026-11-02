@@ -1,6 +1,6 @@
-import { defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { requireUser } from '~~/server/utils/shared/auth-context'
 import { kitchenStationRepository } from '~~/server/utils/auth/company/kitchen-station-repository'
 import { assertCompanyRole } from '~~/server/utils/auth/company/authorization'
 import { sendValidationError } from '~~/server/utils/shared'
@@ -12,11 +12,15 @@ const updateStationSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { companyId, stationId } = event.context.params as { companyId: string; stationId: string }
-  const auth = await requireTenant(event)
+  const { companyId } = event.context.params as { companyId: string }
+  const stationId = getRouterParam(event, 'stationId')
+  if (!stationId) {
+    throw createError({ statusCode: 400, message: 'station_id_required' })
+  }
+  const user = requireUser(event)
 
   // Only owner/manager can update stations
-  await assertCompanyRole(companyId, auth.user.id, ['owner', 'manager'])
+  await assertCompanyRole(companyId, user.id, ['owner', 'manager'])
 
   const body = await readBody(event)
   const validation = updateStationSchema.safeParse(body)
@@ -25,7 +29,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('invalid_station_data')
   }
 
-  const station = await kitchenStationRepository.updateStation(companyId, auth.user.id, stationId, {
+  const station = await kitchenStationRepository.updateStation(companyId, user.id, stationId, {
     name: validation.data.name,
     displayOrder: validation.data.displayOrder,
     isActive: validation.data.isActive,

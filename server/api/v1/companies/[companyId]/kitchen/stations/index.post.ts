@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
 import { z } from 'zod'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { requireUser } from '~~/server/utils/shared/auth-context'
 import { kitchenStationRepository } from '~~/server/utils/auth/company/kitchen-station-repository'
 import { assertCompanyRole } from '~~/server/utils/auth/company/authorization'
 import { sendValidationError } from '~~/server/utils/shared'
@@ -14,10 +14,10 @@ const createStationSchema = z.object({
 
 export default defineEventHandler(async (event) => {
   const { companyId } = event.context.params as { companyId: string }
-  const auth = await requireTenant(event)
+  const user = requireUser(event)
 
   // Only owner/manager can create stations
-  await assertCompanyRole(companyId, auth.user.id, ['owner', 'manager'])
+  await assertCompanyRole(companyId, user.id, ['owner', 'manager'])
 
   const body = await readBody(event)
   const validation = createStationSchema.safeParse(body)
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
   const station = await kitchenStationRepository.createStation(
     companyId,
-    auth.user.id,
+    user.id,
     input.locationId,
     {
       companyId,

@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
 import { z } from 'zod'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { requireUser } from '~~/server/utils/shared/auth-context'
 import { restaurantTableRepository } from '~~/server/utils/auth/company/restaurant-table-repository'
 import { assertCompanyRole } from '~~/server/utils/auth/company/authorization'
 import { sendValidationError } from '~~/server/utils/shared'
@@ -14,10 +14,10 @@ const createTableSchema = z.object({
 
 export default defineEventHandler(async (event) => {
   const { companyId } = event.context.params as { companyId: string }
-  const auth = await requireTenant(event)
+  const user = requireUser(event)
 
   // Only owner/manager can create tables
-  await assertCompanyRole(companyId, auth.user.id, ['owner', 'manager'])
+  await assertCompanyRole(companyId, user.id, ['owner', 'manager'])
 
   const body = await readBody(event)
   const validation = createTableSchema.safeParse(body)
@@ -28,18 +28,13 @@ export default defineEventHandler(async (event) => {
 
   const input = validation.data
 
-  const table = await restaurantTableRepository.createTable(
+  const table = await restaurantTableRepository.createTable(companyId, user.id, input.locationId, {
     companyId,
-    auth.user.id,
-    input.locationId,
-    {
-      companyId,
-      locationId: input.locationId,
-      number: input.number,
-      name: input.name,
-      capacity: input.capacity,
-    },
-  )
+    locationId: input.locationId,
+    number: input.number,
+    name: input.name,
+    capacity: input.capacity,
+  })
 
   setResponseStatus(event, 201)
   setHeader(event, 'Location', `/api/v1/companies/${companyId}/restaurant/tables/${table.id}`)

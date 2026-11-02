@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { createEvent as h3CreateEvent, type H3Event } from 'h3'
+import { companyMember } from '~~/server/utils/schema'
 
 const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_test'
 
@@ -305,12 +306,12 @@ describe.skipIf(!dbAvailable)('P0.3 CRUD (integration, RLS real)', () => {
     }
 
     // Owner aparece com role 'owner'
-    const ownerMember = members.members.find((m: any) => m.userId === owner.id)
+    const ownerMember = members.members.find((m: any) => m.userId === owner.id)!
     expect(ownerMember).toBeDefined()
     expect(ownerMember.role).toBe('owner')
 
     // Waiter aparece com role 'waiter' e default_location_id setado
-    const waiterMember = members.members.find((m: any) => m.userId === waiter.id)
+    const waiterMember = members.members.find((m: any) => m.userId === waiter.id)!
     expect(waiterMember).toBeDefined()
     expect(waiterMember.role).toBe('waiter')
     expect(waiterMember.defaultLocationId).toBe(mat.id)
@@ -330,7 +331,7 @@ describe.skipIf(!dbAvailable)('P0.3 CRUD (integration, RLS real)', () => {
     // Cria membro com role 'kitchen' usando withTenant diretamente
     const [createdMember] = await withTenant(created.id, null, owner.id, async (tx) =>
       tx
-        .insert(import('~~/server/utils/schema').companyMember)
+        .insert(companyMember)
         .values({
           companyId: created.id,
           userId: kitchenUser.id,
@@ -344,9 +345,9 @@ describe.skipIf(!dbAvailable)('P0.3 CRUD (integration, RLS real)', () => {
     // Verifica que o role 'kitchen' foi persistido
     const [foundMember] = await withTenant(created.id, null, owner.id, async (tx) =>
       tx
-        .select({ role: import('~~/server/utils/schema').companyMember.role })
-        .from(import('~~/server/utils/schema').companyMember)
-        .where(eq(import('~~/server/utils/schema').companyMember.userId, kitchenUser.id))
+        .select({ role: companyMember.role })
+        .from(companyMember)
+        .where(eq(companyMember.userId, kitchenUser.id))
         .limit(1),
     )
     expect(foundMember?.role).toBe('kitchen')

@@ -1,16 +1,20 @@
-import { defineEventHandler, setResponseStatus } from 'h3'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { createError, defineEventHandler, getRouterParam, setResponseStatus } from 'h3'
+import { requireUser } from '~~/server/utils/shared/auth-context'
 import { productRepository } from '~~/server/utils/auth/company/product-repository'
 import { assertCompanyRole } from '~~/server/utils/auth/company/authorization'
 
 export default defineEventHandler(async (event) => {
-  const { companyId, productId } = event.context.params as { companyId: string; productId: string }
-  const auth = await requireTenant(event)
+  const { companyId } = event.context.params as { companyId: string }
+  const productId = getRouterParam(event, 'productId')
+  if (!productId) {
+    throw createError({ statusCode: 400, message: 'product_id_required' })
+  }
+  const user = requireUser(event)
 
   // Only owner/manager can delete products
-  await assertCompanyRole(companyId, auth.user.id, ['owner', 'manager'])
+  await assertCompanyRole(companyId, user.id, ['owner', 'manager'])
 
-  await productRepository.softDeleteProduct(companyId, auth.user.id, productId)
+  await productRepository.softDeleteProduct(companyId, user.id, productId)
 
   setResponseStatus(event, 204)
   return null

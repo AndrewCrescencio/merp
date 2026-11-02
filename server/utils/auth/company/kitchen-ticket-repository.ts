@@ -37,7 +37,9 @@ export interface KitchenTicketResult {
   orderId: string
   orderItemId: string
   stationId: string
-  status: KitchenTicketStatus
+  // A coluna é `text` (Drizzle infere `string`); o domínio restrito vive no
+  // FSM (KITCHEN_TRANSITIONS) e no input de update, não no SELECT.
+  status: string
   priority: number
   createdAt: Date
   updatedAt: Date
@@ -124,8 +126,8 @@ export class KitchenTicketRepository {
         sendNotFoundError('Kitchen ticket not found')
       }
 
-      // Check if transition is valid
-      if (!allowed.includes(current.status)) {
+      // Check if transition is valid (coluna text → cast para o domínio do FSM)
+      if (!allowed.includes(current.status as KitchenTicketStatus)) {
         sendValidationError('invalid_kitchen_ticket_transition')
       }
 
@@ -174,7 +176,7 @@ export class KitchenTicketRepository {
     locationId?: string,
     stationId?: string,
   ): Promise<KitchenTicketResult[]> {
-    return await withTenant(companyId, locationId, userId, async (tx) => {
+    return await withTenant(companyId, locationId ?? null, userId, async (tx) => {
       const conditions = [eq(kitchenTicket.companyId, companyId)]
       if (locationId) {
         conditions.push(eq(kitchenTicket.locationId, locationId))

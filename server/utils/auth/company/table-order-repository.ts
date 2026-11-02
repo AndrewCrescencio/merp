@@ -1,7 +1,14 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { sendValidationError } from '../../shared'
 import { withTenant } from '../../db/tenant-context'
-import { order, orderItem, restaurantTable, kitchenTicket, kitchenStation } from '../../schema'
+import {
+  order,
+  orderItem,
+  restaurantTable,
+  kitchenTicket,
+  kitchenStation,
+  product,
+} from '../../schema'
 
 export interface OpenTableInput {
   tableId: string
@@ -37,7 +44,8 @@ export interface OrderItemResult {
   quantity: string
   taxSnapshot: string
   bomSnapshot: string
-  lineTotal: string
+  // Coluna generated (line_total) → Drizzle infere `string | null`.
+  lineTotal: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -89,6 +97,10 @@ export class TableOrderRepository {
           createdBy: userId,
         })
         .returning()
+
+      if (!createdOrder) {
+        sendValidationError('failed_to_create_order')
+      }
 
       // Update the table with current_order_id
       const [_updatedTable] = await tx
@@ -233,25 +245,25 @@ export class TableOrderRepository {
 
       // If productId provided, validate it belongs to same location
       if (input.productId) {
-        const [product] = await tx
-          .select({ kitchenStationId: import('~~/server/utils/schema').product.kitchenStationId })
-          .from(import('~~/server/utils/schema').product)
+        const [productRow] = await tx
+          .select({ kitchenStationId: product.kitchenStationId })
+          .from(product)
           .where(
             and(
-              eq(import('~~/server/utils/schema').product.id, input.productId),
-              eq(import('~~/server/utils/schema').product.companyId, companyId),
-              eq(import('~~/server/utils/schema').product.locationId, locationId),
-              eq(import('~~/server/utils/schema').product.isActive, true),
+              eq(product.id, input.productId),
+              eq(product.companyId, companyId),
+              eq(product.locationId, locationId),
+              eq(product.isActive, true),
             ),
           )
           .limit(1)
 
-        if (!product) {
+        if (!productRow) {
           sendValidationError('product_not_found_or_not_in_location')
         }
 
         productId = input.productId
-        kitchenStationId = product.kitchenStationId
+        kitchenStationId = productRow.kitchenStationId
       }
 
       // Insert the order item
@@ -269,6 +281,10 @@ export class TableOrderRepository {
           bomSnapshot: input.bomSnapshot,
         })
         .returning()
+
+      if (!createdItem) {
+        sendValidationError('failed_to_create_order_item')
+      }
 
       // If product has kitchenStationId, create a kitchen ticket
       if (kitchenStationId) {
@@ -356,7 +372,10 @@ export class TableOrderRepository {
   /**
    * Recalculates the total amount for an order based on its items.
    */
-  private async recalculateOrderTotal(tx: unknown, orderId: string): Promise<void> {
+  private async recalculateOrderTotal(
+    tx: Parameters<Parameters<typeof withTenant>[3]>[0],
+    orderId: string,
+  ): Promise<void> {
     const [result] = await tx
       .select({
         total: sql<number>`coalesce(sum(line_total), 0)`,
@@ -399,13 +418,13 @@ export class TableOrderRepository {
         return null
       }
 
-      const [order] = await tx
+      const [currentOrderRow] = await tx
         .select()
         .from(order)
         .where(eq(order.id, table.currentOrderId))
         .limit(1)
 
-      return order || null
+      return currentOrderRow || null
     })
   }
 }

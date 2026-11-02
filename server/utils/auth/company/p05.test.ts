@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { eq, sql } from 'drizzle-orm'
+import { eq, sql, and } from 'drizzle-orm'
 import { createEvent as h3CreateEvent, type H3Event } from 'h3'
+import { order as orderSchema, orderItem, restaurantTable } from '~~/server/utils/schema'
 
 const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_test'
 
@@ -9,7 +10,6 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => {
   let companyRepository: typeof import('~~/server/utils/auth/company/repository').companyRepository
   let locationRepository: typeof import('~~/server/utils/auth/company/location-repository').locationRepository
-  let _restaurantTableRepo: typeof import('~~/server/utils/auth/company/restaurant-table-repository')._restaurantTableRepository
   let withTenant: typeof import('~~/server/utils/db/tenant-context').withTenant
   let registerUserFn: typeof import('~~/server/utils/auth/identity/queries').registerUser
   let tenantMiddleware: (event: H3Event) => Promise<void>
@@ -26,9 +26,6 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     companyRepository = repoMod.companyRepository
     locationRepository = (await import('~~/server/utils/auth/company/location-repository'))
       .locationRepository
-    _restaurantTableRepo = (
-      await import('~~/server/utils/auth/company/restaurant-table-repository')
-    )._restaurantTableRepository
     withTenant = (await import('~~/server/utils/db/tenant-context')).withTenant
     registerUserFn = (await import('~~/server/utils/auth/identity/queries')).registerUser
 
@@ -165,9 +162,9 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     // Verificar current_order_id na mesa
     const [updatedTable] = await withTenant(created.id, mat.id, owner.id, async (tx) =>
       tx
-        .select({ currentOrderId: import('~~/server/utils/schema').restaurantTable.currentOrderId })
-        .from(import('~~/server/utils/schema').restaurantTable)
-        .where(eq(import('~~/server/utils/schema').restaurantTable.id, table.id))
+        .select({ currentOrderId: restaurantTable.currentOrderId })
+        .from(restaurantTable)
+        .where(eq(restaurantTable.id, table.id))
         .limit(1),
     )
     expect(updatedTable?.currentOrderId).toBe(order.id)
@@ -247,9 +244,9 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     // Verificar total da order (29.90 + 12.00 = 41.90)
     const [updatedOrder] = await withTenant(created.id, mat.id, owner.id, async (tx) =>
       tx
-        .select({ totalAmount: import('~~/server/utils/schema').order.totalAmount })
-        .from(import('~~/server/utils/schema').order)
-        .where(eq(import('~~/server/utils/schema').order.id, order.id))
+        .select({ totalAmount: orderSchema.totalAmount })
+        .from(orderSchema)
+        .where(eq(orderSchema.id, order.id))
         .limit(1),
     )
     expect(Number(updatedOrder?.totalAmount)).toBeCloseTo(41.9, 0)
@@ -322,9 +319,9 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     // Verificar que a order foi completada
     const [completedOrder] = await withTenant(created.id, mat.id, owner.id, async (tx) =>
       tx
-        .select({ status: import('~~/server/utils/schema').order.status })
-        .from(import('~~/server/utils/schema').order)
-        .where(eq(import('~~/server/utils/schema').order.id, order.id))
+        .select({ status: orderSchema.status })
+        .from(orderSchema)
+        .where(eq(orderSchema.id, order.id))
         .limit(1),
     )
     expect(completedOrder?.status).toBe('completed')
@@ -332,9 +329,9 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     // Verificar que current_order_id foi liberado
     const [updatedTable] = await withTenant(created.id, mat.id, owner.id, async (tx) =>
       tx
-        .select({ currentOrderId: import('~~/server/utils/schema').restaurantTable.currentOrderId })
-        .from(import('~~/server/utils/schema').restaurantTable)
-        .where(eq(import('~~/server/utils/schema').restaurantTable.id, table.id))
+        .select({ currentOrderId: restaurantTable.currentOrderId })
+        .from(restaurantTable)
+        .where(eq(restaurantTable.id, table.id))
         .limit(1),
     )
     expect(updatedTable?.currentOrderId).toBeNull()
@@ -342,9 +339,9 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     // Verificar que a mesa está disponível
     const [tableStatus] = await withTenant(created.id, mat.id, owner.id, async (tx) =>
       tx
-        .select({ status: import('~~/server/utils/schema').restaurantTable.status })
-        .from(import('~~/server/utils/schema').restaurantTable)
-        .where(eq(import('~~/server/utils/schema').restaurantTable.id, table.id))
+        .select({ status: restaurantTable.status })
+        .from(restaurantTable)
+        .where(eq(restaurantTable.id, table.id))
         .limit(1),
     )
     expect(tableStatus?.status).toBe('available')
@@ -407,12 +404,9 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     // Verificar que só uma order foi criada
     const orders = await withTenant(created.id, mat.id, owner.id, async (tx) =>
       tx
-        .select({ id: import('~~/server/utils/schema').order.id })
-        .from(import('~~/server/utils/schema').order)
-        .where(
-          eq(import('~~/server/utils/schema').order.companyId, created.id),
-          eq(import('~~/server/utils/schema').order.status, 'open'),
-        ),
+        .select({ id: orderSchema.id })
+        .from(orderSchema)
+        .where(and(eq(orderSchema.companyId, created.id), eq(orderSchema.status, 'open'))),
     )
     expect(orders).toHaveLength(1)
   })
@@ -566,9 +560,9 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     // Remover item
     const [item] = await withTenant(created.id, mat.id, owner.id, async (tx) =>
       tx
-        .select({ id: import('~~/server/utils/schema').orderItem.id })
-        .from(import('~~/server/utils/schema').orderItem)
-        .where(eq(import('~~/server/utils/schema').orderItem.orderId, order.id))
+        .select({ id: orderItem.id })
+        .from(orderItem)
+        .where(eq(orderItem.orderId, order.id))
         .limit(1),
     )
     expect(item).toBeDefined()
@@ -586,8 +580,8 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
     const [itemsCount] = await withTenant(created.id, mat.id, owner.id, async (tx) =>
       tx
         .select({ count: sql<number>`count(*)` })
-        .from(import('~~/server/utils/schema').orderItem)
-        .where(eq(import('~~/server/utils/schema').orderItem.orderId, order.id)),
+        .from(orderItem)
+        .where(eq(orderItem.orderId, order.id)),
     )
     expect(Number(itemsCount?.count)).toBe(0)
   })

@@ -1,23 +1,23 @@
 import { defineEventHandler, getQuery } from 'h3'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { requireUser } from '~~/server/utils/shared/auth-context'
 import { kitchenTicketRepository } from '~~/server/utils/auth/company/kitchen-ticket-repository'
 import { assertCompanyMember } from '~~/server/utils/auth/company/authorization'
 
 export default defineEventHandler(async (event) => {
   const { companyId } = event.context.params as { companyId: string }
-  const auth = await requireTenant(event)
-  const tenant = event.context.tenant!
+  const user = requireUser(event)
 
   // Any member can list tickets
-  await assertCompanyMember(companyId, auth.user.id)
+  await assertCompanyMember(companyId, user.id)
 
   const query = getQuery(event)
+  const locationId = query.locationId as string | undefined
   const stationId = query.stationId as string | undefined
 
   const tickets = await kitchenTicketRepository.listTickets(
     companyId,
-    auth.user.id,
-    tenant.locationId,
+    user.id,
+    locationId,
     stationId,
   )
 

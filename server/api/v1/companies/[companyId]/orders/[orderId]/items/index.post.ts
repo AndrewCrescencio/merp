@@ -1,6 +1,14 @@
-import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import {
+  createError,
+  defineEventHandler,
+  getRouterParam,
+  readBody,
+  setHeader,
+  setResponseStatus,
+} from 'h3'
 import { z } from 'zod'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { requireUser } from '~~/server/utils/shared/auth-context'
+import { requireLocationId } from '~~/server/utils/shared/location'
 import { tableOrderRepository } from '~~/server/utils/auth/company/table-order-repository'
 import { sendValidationError } from '~~/server/utils/shared'
 
@@ -14,9 +22,13 @@ const addItemSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { companyId, orderId } = event.context.params as { companyId: string; orderId: string }
-  const auth = await requireTenant(event)
-  const tenant = event.context.tenant!
+  const { companyId } = event.context.params as { companyId: string }
+  const orderId = getRouterParam(event, 'orderId')
+  if (!orderId) {
+    throw createError({ statusCode: 400, message: 'order_id_required' })
+  }
+  const user = requireUser(event)
+  const locationId = await requireLocationId(companyId, user.id)
 
   const body = await readBody(event)
   const validation = addItemSchema.safeParse(body)
@@ -33,20 +45,14 @@ export default defineEventHandler(async (event) => {
     sendValidationError('invalid_unit_price')
   }
 
-  const item = await tableOrderRepository.addItemToOrder(
-    companyId,
-    auth.user.id,
-    tenant.locationId,
-    orderId,
-    {
-      productId: input.productId || undefined,
-      productName: input.productName,
-      unitPrice: input.unitPrice,
-      quantity: input.quantity,
-      taxSnapshot: input.taxSnapshot,
-      bomSnapshot: input.bomSnapshot,
-    },
-  )
+  const item = await tableOrderRepository.addItemToOrder(companyId, user.id, locationId, orderId, {
+    productId: input.productId || undefined,
+    productName: input.productName,
+    unitPrice: input.unitPrice,
+    quantity: input.quantity,
+    taxSnapshot: input.taxSnapshot,
+    bomSnapshot: input.bomSnapshot,
+  })
 
   setResponseStatus(event, 201)
   setHeader(event, 'Location', `/api/v1/companies/${companyId}/orders/${orderId}/items/${item.id}`)

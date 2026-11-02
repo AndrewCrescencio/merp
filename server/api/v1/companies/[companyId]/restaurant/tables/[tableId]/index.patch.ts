@@ -1,6 +1,6 @@
-import { defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { requireUser } from '~~/server/utils/shared/auth-context'
 import { restaurantTableRepository } from '~~/server/utils/auth/company/restaurant-table-repository'
 import { assertCompanyRole } from '~~/server/utils/auth/company/authorization'
 import { sendValidationError } from '~~/server/utils/shared'
@@ -12,11 +12,15 @@ const updateTableSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { companyId, tableId } = event.context.params as { companyId: string; tableId: string }
-  const auth = await requireTenant(event)
+  const { companyId } = event.context.params as { companyId: string }
+  const tableId = getRouterParam(event, 'tableId')
+  if (!tableId) {
+    throw createError({ statusCode: 400, message: 'table_id_required' })
+  }
+  const user = requireUser(event)
 
   // Only owner/manager can update tables
-  await assertCompanyRole(companyId, auth.user.id, ['owner', 'manager'])
+  await assertCompanyRole(companyId, user.id, ['owner', 'manager'])
 
   const body = await readBody(event)
   const validation = updateTableSchema.safeParse(body)
@@ -25,7 +29,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('invalid_table_data')
   }
 
-  const table = await restaurantTableRepository.updateTable(companyId, auth.user.id, tableId, {
+  const table = await restaurantTableRepository.updateTable(companyId, user.id, tableId, {
     name: validation.data.name,
     capacity: validation.data.capacity,
     status: validation.data.status,

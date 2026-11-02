@@ -1,17 +1,20 @@
-import { defineEventHandler } from 'h3'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { createError, defineEventHandler, getRouterParam, setResponseStatus } from 'h3'
+import { requireUser } from '~~/server/utils/shared/auth-context'
 import { kitchenTicketRepository } from '~~/server/utils/auth/company/kitchen-ticket-repository'
 import { sendValidationError } from '~~/server/utils/shared'
 
 export default defineEventHandler(async (event) => {
-  const { ticketId } = event.context.params as { companyId: string; ticketId: string }
-  const auth = await requireTenant(event)
+  const ticketId = getRouterParam(event, 'ticketId')
+  if (!ticketId) {
+    throw createError({ statusCode: 400, message: 'ticket_id_required' })
+  }
+  const user = requireUser(event)
 
   try {
     await kitchenTicketRepository.updateStatus({
       ticketId,
       status: 'served',
-      userId: auth.user.id,
+      userId: user.id,
     })
 
     setResponseStatus(event, 204)

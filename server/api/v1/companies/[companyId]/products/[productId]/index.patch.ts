@@ -1,6 +1,6 @@
-import { defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
-import { requireTenant } from '~~/server/utils/shared/auth-context'
+import { requireUser } from '~~/server/utils/shared/auth-context'
 import { productRepository } from '~~/server/utils/auth/company/product-repository'
 import { assertCompanyRole } from '~~/server/utils/auth/company/authorization'
 import { sendValidationError } from '~~/server/utils/shared'
@@ -16,11 +16,15 @@ const updateProductSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { companyId, productId } = event.context.params as { companyId: string; productId: string }
-  const auth = await requireTenant(event)
+  const { companyId } = event.context.params as { companyId: string }
+  const productId = getRouterParam(event, 'productId')
+  if (!productId) {
+    throw createError({ statusCode: 400, message: 'product_id_required' })
+  }
+  const user = requireUser(event)
 
   // Only owner/manager can update products
-  await assertCompanyRole(companyId, auth.user.id, ['owner', 'manager'])
+  await assertCompanyRole(companyId, user.id, ['owner', 'manager'])
 
   const body = await readBody(event)
   const validation = updateProductSchema.safeParse(body)
@@ -39,7 +43,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const product = await productRepository.updateProduct(companyId, auth.user.id, productId, {
+  const product = await productRepository.updateProduct(companyId, user.id, productId, {
     name: input.name,
     sku: input.sku,
     unitPrice: input.unitPrice,
