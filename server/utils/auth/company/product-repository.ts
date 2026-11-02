@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { withTenant } from '../../db/tenant-context'
-import { sendNotFoundError, sendValidationError } from '../../shared'
+import { isPgConflict, sendNotFoundError, sendValidationError } from '../../shared'
 import { product } from '../../schema'
 
 export interface CreateProductInput {
@@ -83,8 +83,9 @@ export class ProductRepository {
           .returning()
         return created!
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error)
-        if (msg.includes('product_company_sku_idx') || msg.includes('duplicate')) {
+        // O drizzle embrulha a PostgresError em "Failed query: ..." com a causa
+        // em `cause` — a mensagem nunca casa. isPgConflict percorre a cadeia.
+        if (isPgConflict(error)) {
           // SKU duplicate in same company
           sendValidationError('duplicate_sku')
         }
@@ -160,8 +161,8 @@ export class ProductRepository {
         }
         return updated!
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error)
-        if (msg.includes('product_company_sku_idx') || msg.includes('duplicate')) {
+        // Ver createProduct: a PostgresError está em `cause`, não na mensagem.
+        if (isPgConflict(error)) {
           // SKU duplicate in same company
           sendValidationError('duplicate_sku')
         }

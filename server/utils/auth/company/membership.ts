@@ -1,5 +1,5 @@
 import { and, eq, like, or, sql } from 'drizzle-orm'
-import { company, companyMember, location } from '../../schema'
+import { company, companyMember, location, user } from '../../schema'
 import { sendNotFoundError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
 import { escapeLikePattern, type CompanyResult } from './repository'
@@ -133,6 +133,31 @@ export class MembershipRepository {
         .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
         .limit(1)
       return found || null
+    })
+  }
+
+  /**
+   * Lista os membros da empresa com nome, role e loja padrão — a query roda no
+   * tenant do chamador (`executedByUserId`), então a RLS de `company_member` é o
+   * backstop; o handler já restringe a owner/manager.
+   */
+  async listCompanyMembers(
+    companyId: string,
+    executedByUserId: string,
+  ): Promise<
+    Array<{ userId: string; name: string; role: string; defaultLocationId: string | null }>
+  > {
+    return await withTenant(companyId, null, executedByUserId, async (tx) => {
+      return await tx
+        .select({
+          userId: companyMember.userId,
+          name: user.name,
+          role: companyMember.role,
+          defaultLocationId: companyMember.defaultLocationId,
+        })
+        .from(companyMember)
+        .innerJoin(user, eq(companyMember.userId, user.id))
+        .where(eq(companyMember.companyId, companyId))
     })
   }
 

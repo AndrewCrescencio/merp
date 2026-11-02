@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam, readBody, setHeader, setResponseStatus } from 'h3'
 import { z } from 'zod'
-import { requireUser } from '~~/server/utils/shared/auth-context'
+import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
 import { requireLocationId } from '~~/server/utils/shared/location'
 import { tableOrderRepository } from '~~/server/utils/auth/company/table-order-repository'
 import { sendConflictError, sendNotFoundError, sendValidationError } from '~~/server/utils/shared'
@@ -10,18 +10,19 @@ const openTableSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const params = event.context.params as { companyId?: string; tableId?: string }
-  const { companyId } = params
+  const { companyId } = requireTenant(event)
   const tableId = getRouterParam(event, 'tableId')
-  if (!companyId || !tableId) {
+  if (!tableId) {
     throw { statusCode: 404, message: 'Not found' }
   }
 
   const user = requireUser(event)
   const locationId = await requireLocationId(companyId, user.id)
 
+  // POST sem corpo é legítimo (coverCount opcional): readBody devolve undefined
+  // quando não há content-length, e zod rejeita undefined como não-objeto.
   const body = await readBody(event)
-  const validation = openTableSchema.safeParse(body)
+  const validation = openTableSchema.safeParse(body ?? {})
 
   if (!validation.success) {
     sendValidationError('invalid_table_open_data')

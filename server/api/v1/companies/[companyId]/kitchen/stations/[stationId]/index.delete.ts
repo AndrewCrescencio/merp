@@ -1,10 +1,10 @@
 import { createError, defineEventHandler, getRouterParam, setResponseStatus } from 'h3'
-import { requireUser } from '~~/server/utils/shared/auth-context'
+import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
 import { kitchenStationRepository } from '~~/server/utils/auth/company/kitchen-station-repository'
 import { assertCompanyRole } from '~~/server/utils/auth/company/authorization'
 
 export default defineEventHandler(async (event) => {
-  const { companyId } = event.context.params as { companyId: string }
+  const { companyId } = requireTenant(event)
   const stationId = getRouterParam(event, 'stationId')
   if (!stationId) {
     throw createError({ statusCode: 400, message: 'station_id_required' })

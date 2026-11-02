@@ -214,6 +214,7 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
       path: `/api/v1/companies/${created.id}/orders/${order.id}/items`,
       user: { id: owner.id },
       method: 'POST',
+      params: { orderId: order.id },
       body: {
         productName: 'X-Bacon',
         unitPrice: '29.90',
@@ -230,6 +231,7 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
       path: `/api/v1/companies/${created.id}/orders/${order.id}/items`,
       user: { id: owner.id },
       method: 'POST',
+      params: { orderId: order.id },
       body: {
         productName: 'Coca-Cola',
         unitPrice: '6.00',
@@ -296,6 +298,7 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
       path: `/api/v1/companies/${created.id}/orders/${order.id}/items`,
       user: { id: owner.id },
       method: 'POST',
+      params: { orderId: order.id },
       body: {
         productName: 'X-Egg',
         unitPrice: '15.00',
@@ -390,16 +393,20 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
       params: { tableId: table.id },
     })
 
-    const [result1, result2] = await Promise.all([
+    // getStatus converte a rejeição em status: a 2ª chamada pode devolver
+    // 400 (table_already_open) ou 409 — o ponto é que só uma cria order.
+    const settled = await Promise.allSettled([
       runHandler(openTableHandler, openEvent1),
       runHandler(openTableHandler, openEvent2),
     ])
+    const statuses = settled.map((r) =>
+      r.status === 'fulfilled'
+        ? r.value.status
+        : ((r.reason as { statusCode?: number }).statusCode ?? 500),
+    )
 
-    // A primeira deve succeed (201), a segunda deve falhar (400 ou 409)
-    expect([result1.status, result2.status].sort()).toEqual([201, expect.any(Number)])
-    const statuses = [result1.status, result2.status]
     expect(statuses).toContain(201)
-    expect(statuses).toContain(expect.any((n: number) => n !== 201 && n !== 200))
+    expect(statuses.some((s) => s !== 201 && s !== 200)).toBe(true)
 
     // Verificar que só uma order foi criada
     const orders = await withTenant(created.id, mat.id, owner.id, async (tx) =>
@@ -489,6 +496,7 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
       path: `/api/v1/companies/${created.id}/orders/${order.id}/items`,
       user: { id: owner.id },
       method: 'POST',
+      params: { orderId: order.id },
       body: {
         productId: product.id,
         productName: 'Produto Filial',
@@ -546,6 +554,7 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
       path: `/api/v1/companies/${created.id}/orders/${order.id}/items`,
       user: { id: owner.id },
       method: 'POST',
+      params: { orderId: order.id },
       body: {
         productName: 'X-Bacon',
         unitPrice: '29.90',
@@ -571,7 +580,7 @@ describe.skipIf(!dbAvailable)('P0.5 Table Order (integration, RLS real)', () => 
       path: `/api/v1/companies/${created.id}/orders/${order.id}/items/${item!.id}`,
       user: { id: owner.id },
       method: 'DELETE',
-      params: { itemId: item!.id },
+      params: { orderId: order.id, itemId: item!.id },
     })
     const removeResult = await runHandler(removeItemHandler, removeEvent)
     expect(removeResult.status).toBe(204)

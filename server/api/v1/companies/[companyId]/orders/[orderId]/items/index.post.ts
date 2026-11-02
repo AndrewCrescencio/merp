@@ -7,7 +7,7 @@ import {
   setResponseStatus,
 } from 'h3'
 import { z } from 'zod'
-import { requireUser } from '~~/server/utils/shared/auth-context'
+import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
 import { requireLocationId } from '~~/server/utils/shared/location'
 import { tableOrderRepository } from '~~/server/utils/auth/company/table-order-repository'
 import { sendValidationError } from '~~/server/utils/shared'
@@ -22,7 +22,7 @@ const addItemSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { companyId } = event.context.params as { companyId: string }
+  const { companyId } = requireTenant(event)
   const orderId = getRouterParam(event, 'orderId')
   if (!orderId) {
     throw createError({ statusCode: 400, message: 'order_id_required' })

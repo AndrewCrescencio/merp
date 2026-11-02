@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { sendNotFoundError, sendValidationError } from '../../shared'
+import { isPgConflict, sendNotFoundError, sendValidationError } from '../../shared'
 import { withTenant } from '../../db/tenant-context'
 import { restaurantTable } from '../../schema'
 
@@ -99,11 +99,8 @@ export class RestaurantTableRepository {
           .returning()
         return created!
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error)
-        if (
-          msg.includes('restaurant_table_company_location_number_idx') ||
-          msg.includes('duplicate')
-        ) {
+        // Ver product-repository: a PostgresError está em `cause`, não na mensagem.
+        if (isPgConflict(error)) {
           sendValidationError('duplicate_table_number')
         }
         throw error

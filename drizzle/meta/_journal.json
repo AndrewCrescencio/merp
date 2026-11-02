@@ -29,6 +29,13 @@
       "when": 1793504089434,
       "tag": "0003_order_idempotency_fingerprint",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793598167189,
+      "tag": "0004_p03_p04_restaurant_kitchen",
+      "breakpoints": true
     }
   ]
 }

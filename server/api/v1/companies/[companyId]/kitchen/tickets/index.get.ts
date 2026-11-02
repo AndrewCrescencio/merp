@@ -1,10 +1,10 @@
 import { defineEventHandler, getQuery } from 'h3'
-import { requireUser } from '~~/server/utils/shared/auth-context'
+import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
 import { kitchenTicketRepository } from '~~/server/utils/auth/company/kitchen-ticket-repository'
 import { assertCompanyMember } from '~~/server/utils/auth/company/authorization'
 
 export default defineEventHandler(async (event) => {
-  const { companyId } = event.context.params as { companyId: string }
+  const { companyId } = requireTenant(event)
   const user = requireUser(event)
 
   // Any member can list tickets

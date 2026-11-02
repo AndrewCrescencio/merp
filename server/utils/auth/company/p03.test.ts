@@ -216,7 +216,11 @@ describe.skipIf(!dbAvailable)('P0.3 CRUD (integration, RLS real)', () => {
       { name: `Waiter Co ${Date.now()}` },
       owner.id,
     )
-    await membershipRepo.createCompanyMember(created.id, waiter.id, 'waiter')
+    // createCompanyMember só aceita 'member' (bootstrap); roles atribuem-se
+    // diretamente, como o teste 4 faz para 'kitchen'.
+    await withTenant(created.id, null, owner.id, async (tx) =>
+      tx.insert(companyMember).values({ companyId: created.id, userId: waiter.id, role: 'waiter' }),
+    )
     const mat = (await locationRepository.listLocations(created.id, owner.id))[0]!
 
     // Owner cria mesa
@@ -288,7 +292,11 @@ describe.skipIf(!dbAvailable)('P0.3 CRUD (integration, RLS real)', () => {
       { name: `Member Co ${Date.now()}` },
       owner.id,
     )
-    await membershipRepo.createCompanyMember(created.id, waiter.id, 'waiter')
+    // Ver comentário do teste 2: roles fora de 'member' não passam pelo
+    // createCompanyMember (guarda de bootstrap).
+    await withTenant(created.id, null, owner.id, async (tx) =>
+      tx.insert(companyMember).values({ companyId: created.id, userId: waiter.id, role: 'waiter' }),
+    )
 
     const mat = (await locationRepository.listLocations(created.id, owner.id))[0]!
     await membershipRepo.setMemberDefaultLocation(created.id, owner.id, waiter.id, mat.id)

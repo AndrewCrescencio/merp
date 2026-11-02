@@ -1,6 +1,6 @@
 import { defineEventHandler, getRouterParam, readBody, setResponseStatus } from 'h3'
 import { z } from 'zod'
-import { requireUser } from '~~/server/utils/shared/auth-context'
+import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
 import { requireLocationId } from '~~/server/utils/shared/location'
 import { tableOrderRepository } from '~~/server/utils/auth/company/table-order-repository'
 import { sendConflictError, sendNotFoundError, sendValidationError } from '~~/server/utils/shared'
@@ -10,18 +10,18 @@ const closeTableSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const params = event.context.params as { companyId?: string; tableId?: string }
-  const { companyId } = params
+  const { companyId } = requireTenant(event)
   const tableId = getRouterParam(event, 'tableId')
-  if (!companyId || !tableId) {
+  if (!tableId) {
     throw { statusCode: 404, message: 'Not found' }
   }
 
   const user = requireUser(event)
   const locationId = await requireLocationId(companyId, user.id)
 
+  // POST sem corpo é legítimo (cancelEmpty opcional) — ver open.post.ts.
   const body = await readBody(event)
-  const validation = closeTableSchema.safeParse(body)
+  const validation = closeTableSchema.safeParse(body ?? {})
 
   if (!validation.success) {
     sendValidationError('invalid_table_close_data')

@@ -277,10 +277,19 @@ describe.skipIf(!dbAvailable)('Location bootstrap + endpoints (integration, RLS 
     })
 
     const { status, body } = await runHandler(openTableHandler, event)
-    expect(status).toBe(200)
-    const tableOut = body as { id: string; status: string }
-    expect(tableOut.id).toBe(table!.id)
-    expect(tableOut.status).toBe('occupied')
+    // R8: open cria uma order → 201 + Location (contrato P0.5; antes devolvia a mesa com 200).
+    expect(status).toBe(201)
+    const order = body as { id: string }
+    expect(order.id).toBeTruthy()
+
+    // A escrita passou a RLS location-scoped: a mesa ficou ocupada.
+    const [row] = await withTenant(created.id, null, owner.id, async (tx) =>
+      tx
+        .select({ status: restaurantTable.status })
+        .from(restaurantTable)
+        .where(eq(restaurantTable.id, table!.id)),
+    )
+    expect(row?.status).toBe('occupied')
   })
 
   // ---------------------------------------------------------------------------
