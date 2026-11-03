@@ -54,7 +54,6 @@ drizzle/                     # migrations SQL (5 arquivos)
 ## Documentação
 
 - **Estado do produto:** [`docs/PROJETO.md`](docs/PROJETO.md) — matriz de funcionalidades, regras de negócio, roadmap realista
-- **Auditoria completa:** [`FEATURE_AUDIT_E_ROADMAP.md`](FEATURE_AUDIT_E_ROADMAP.md) — análise detalhada de 2026-10-27
 - **Decisões de arquitetura:** [`docs/decisions.md`](docs/decisions.md) — ADRs verificáveis no código
 - **Regras para agentes:** [`CLAUDE.md`](CLAUDE.md) — convenções e restrições do projeto
 

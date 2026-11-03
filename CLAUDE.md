@@ -251,7 +251,7 @@ Fonte: `server/middleware/01-csrf-token.ts`, `server/middleware/02-csrf-validate
 5. **Idempotência insegura** — `getById` sem passar `tx` dentro da transação, corrigir em P0.6
 6. **Cashier shift confia no cliente** — `expectedAmount`/`actualAmount` do body, não derivados de orders
 
-Fonte: `docs/PROJETO.md`, `FEATURE_AUDIT_E_ROADMAP.md`
+Fonte: `docs/PROJETO.md`
 
 ## Antes de Mudar Código
 

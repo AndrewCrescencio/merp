@@ -291,7 +291,7 @@ npm run db:migrate:full                # migrar do zero + verificar RLS
 
 2. **TODO desatualizado** — lista location e produtos como pendentes; ambos implementados. _Status:_ TODO atualizado em commit `13ca9c9`, mas ainda não reflete P0.2–P0.5.
 
-3. **Specs removidas do HEAD** — specs consolidadas (`000-foundation`, `006-core-order`, `007-restaurant`) foram removidas; decisões de produto precisam ser reconstruídas a partir de tags/commits. _Decisão:_ `FEATURE_AUDIT_E_ROADMAP.md` compila as decisões; manter specs em `.kiro/specs` para histórico.
+3. **Specs removidas do HEAD** — specs consolidadas (`000-foundation`, `006-core-order`, `007-restaurant`) foram removidas; decisões de produto estão compiladas neste arquivo (`PROJETO.md`); manter specs em `.kiro/specs` para histórico.
 
 4. **CLAUDE.md incompleto** — regra "Código > docs" presente, mas falta apontar para `PROJETO.md` e registrar convenções reais. _Decisão:_ expandir em FASE 5.
 
@@ -310,6 +310,4 @@ npm run db:migrate:full                # migrar do zero + verificar RLS
 ---
 
 _Última atualização: 2026-11-02 (branch `docs/reorganizacao`)_  
-_Auditoria completa com roadmap priorizado: [`FEATURE_AUDIT_E_ROADMAP.md`](../FEATURE_AUDIT_E_ROADMAP.md)_  
-_Backlog tático: [`TODO.md`](../TODO.md)_  
 _Decisões de arquitetura: [`decisions.md`](decisions.md)_
