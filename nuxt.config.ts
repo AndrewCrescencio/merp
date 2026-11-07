@@ -28,6 +28,18 @@ export default defineNuxtConfig({
         'Access-Control-Allow-Credentials': 'true',
       },
     },
+    // AUD-XSS: proteção em camadas no frontend — CSP restringe fontes de
+    // scripts/styles, nosniff impede MIME-sniffing e DENY bloqueia clickjacking.
+    // Aplica a todas as rotas da app (SSR + SPA). Valores fixos: sem dados de
+    // env para não quebrar builds sem .env.
+    '/**': {
+      headers: {
+        'Content-Security-Policy':
+          "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+      },
+    },
   },
 
   compatibilityDate: '2026-10-10',
