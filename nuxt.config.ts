@@ -6,6 +6,11 @@
 // exigir a env neles quebraria install/lint/test em checkouts sem .env.
 // O boot em produção sem CORS_ORIGIN continua recusado pelo
 // server/plugins/validate-env.ts + shared/auth.ts (fail-closed em runtime).
+// O Vite não carrega o postcss.config.js automaticamente neste build, então o
+// Tailwind é aplicado explicitamente via vite.css.postcss (abaixo).
+import tailwindcss from 'tailwindcss'
+import autoprefixer from 'autoprefixer'
+
 const invoking = `${process.env.npm_lifecycle_event ?? ''} ${process.argv.join(' ')}`
 const isBuild = /(^|\s)(build|generate)\b/.test(invoking)
 if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN && isBuild) {
@@ -15,6 +20,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN && isBuild
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint'],
   devtools: { enabled: true },
+  css: ['~/assets/css/main.css'],
 
   routeRules: {
     '/api/**': {
@@ -74,6 +80,16 @@ export default defineNuxtConfig({
         title: 'MERP API',
         description: 'API do MERP (Restaurant ERP) — gerada pelos route handlers Nitro.',
         version: '1.0.0',
+      },
+    },
+  },
+
+  // O Vite não carrega o postcss.config.js automaticamente neste build, então o
+  // Tailwind é aplicado explicitamente via vite.css.postcss (abaixo).
+  vite: {
+    css: {
+      postcss: {
+        plugins: [tailwindcss, autoprefixer],
       },
     },
   },
