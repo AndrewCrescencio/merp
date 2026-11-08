@@ -1,13 +1,41 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
+import type { PgDatabase } from 'drizzle-orm/pg-core'
 import * as schema from './schema'
 
-// AUD-05: em produção o tráfego de banco é fail-closed — sslmode=require
-// (postgres-js mapeia p/ a opção ssl). Se a URL já fixar um modo explícito
-// (require/verify-ca/verify-full), respeita; senão força require. Dev local
-// (postgres docker sem TLS) fica inalterado. Nota: sslmode=require criptografa
-// sem pinning de CA; para verificação de certificado, fixe sslmode=verify-full
-// na própria DATABASE_URL do deploy.
+/**
+ * Tipo comum aos dois drivers. Repositórios, withTenant e better-auth
+ * tipam contra isto — ninguém depende do driver concreto.
+ */
+// o HKT de resultado é driver-specific; este tipo o abstracta (postgres-js vs neon-serverless).
+export type Db = PgDatabase<any, typeof schema> // eslint-disable-line @typescript-eslint/no-explicit-any
+
+export type DbDriver = 'postgres-js' | 'neon-serverless'
+
+const SUPPORTED_DRIVERS: DbDriver[] = ['postgres-js', 'neon-serverless']
+const DEFAULT_DRIVER: DbDriver = 'postgres-js'
+
+// Neon via PgBouncer (modo transação) e serverless via WebSocket.
+const NEON_PACKAGE = '@neondatabase/serverless'
+const DRIZZLE_NEON_PACKAGE = 'drizzle-orm/neon-serverless'
+
+/**
+ * Único ponto de leitura de DB_DRIVER. Valor inválido lança erro claro no boot;
+ * default é postgres-js.
+ */
+export function parseDbDriver(value: string | undefined): DbDriver {
+  const driver = (value ?? DEFAULT_DRIVER) as DbDriver
+  if (!SUPPORTED_DRIVERS.includes(driver)) {
+    throw new Error(
+      `DB_DRIVER inválida "${driver}". Valores suportados: ${SUPPORTED_DRIVERS.join(', ')}.`,
+    )
+  }
+  return driver
+}
+
+// AUD-05: em produção sslmode=require, respeitando sslmode já fixo na URL.
+// Dev local (postgres docker sem TLS) fica inalterado.
+// (postgres-js mapeia sslmode p/ a opção ssl.)
 const SslUpgrade = new Set(['disable', 'no', 'allow', 'prefer'])
 
 export function withRequiredSsl(url: string): string {
@@ -20,9 +48,109 @@ export function withRequiredSsl(url: string): string {
   return parsed.toString()
 }
 
-// App role (non-owner, RLS enforced) — used by application code and tests
-const appConnectionString = process.env.APP_DATABASE_URL || process.env.DATABASE_URL!
-export const db = drizzle(postgres(withRequiredSsl(appConnectionString)), { schema })
+// Parâmetros que o Neon às vezes envia na URL e o postgres-js não entende.
+// Removidos silenciosamente: a URL nunca é logada nem passa por aqui crua.
+const UnsupportedUrlParams = new Set(['channel_binding'])
+
+function stripUnsupportedUrlParams(url: string): { url: string; stripped: string[] } {
+  const parsed = new URL(url)
+  const stripped: string[] = []
+  for (const param of UnsupportedUrlParams) {
+    if (parsed.searchParams.has(param)) {
+      parsed.searchParams.delete(param)
+      stripped.push(param)
+    }
+  }
+  return { url: parsed.toString(), stripped }
+}
+
+function isPooledUrl(url: string): boolean {
+  return new URL(url).hostname.includes('-pooler')
+}
+
+function sslActive(url: string): boolean {
+  return new URL(url).searchParams.get('sslmode') === 'require'
+}
+
+async function createPostgresJsDb(url: string): Promise<Db> {
+  const resolvedUrl = withRequiredSsl(url)
+  const { url: cleanUrl, stripped } = stripUnsupportedUrlParams(resolvedUrl)
+
+  const config: Parameters<typeof postgres>[1] = {}
+  if (isPooledUrl(cleanUrl)) {
+    // PgBouncer em modo transação: prepared statements não sobrevivem ao fim
+    // da transação — desligar prepare é obrigatório para conexões pooled.
+    config.prepare = false
+  }
+
+  const sql = postgres(cleanUrl, config)
+  const database = drizzle(sql, { schema })
+  console.info(
+    `[db] inicializado (postgres-js) ssl=${sslActive(cleanUrl)} pooled=${isPooledUrl(cleanUrl)}${
+      stripped.length > 0 ? ` parametrosIgnorados=${stripped.join(', ')}` : ''
+    }`,
+  )
+  return database as Db
+}
+
+async function createNeonServerlessDb(url: string): Promise<Db> {
+  const resolvedUrl = withRequiredSsl(url)
+  const { url: cleanUrl, stripped } = stripUnsupportedUrlParams(resolvedUrl)
+
+  // Dep opcional: só carregada quando DB_DRIVER=neon-serverless.
+  type NeonModule = {
+    Pool: new (config: { connectionString: string }) => { end: () => Promise<void> }
+  }
+  let neon: NeonModule
+  try {
+    neon = await import(NEON_PACKAGE)
+  } catch {
+    throw new Error(
+      `${NEON_PACKAGE} não instalado. Execute \`npm i @neondatabase/serverless ws\` para usar DB_DRIVER=neon-serverless.`,
+    )
+  }
+  const { Pool } = neon
+  const pool = new Pool({ connectionString: cleanUrl })
+
+  type NeonDrizzleModule = {
+    drizzle: (client: unknown, config: { schema: unknown }) => Db
+  }
+  const drizzleNeon: NeonDrizzleModule = await import(DRIZZLE_NEON_PACKAGE)
+  const database = drizzleNeon.drizzle(pool, { schema })
+  console.info(
+    `[db] inicializado (neon-serverless) ssl=${sslActive(cleanUrl)} pooled=${isPooledUrl(cleanUrl)}${
+      stripped.length > 0 ? ` parametrosIgnorados=${stripped.join(', ')}` : ''
+    }`,
+  )
+  return database as Db
+}
+
+/**
+ * Cria a instância Drizzle para o driver informado. A conexão é preguiçosa:
+ * nada é aberto até a primeira query, portanto a fábrica é testável sem banco real.
+ *
+ * Conecta SEMPRE via APP_DATABASE_URL (role merp_app, RLS ativa). DATABASE_URL
+ * (role owner) é só de migração/CI — nunca é lida aqui e nunca entra no
+ * container/função da app.
+ */
+export async function createDb(driver: string): Promise<Db> {
+  const d = parseDbDriver(driver)
+
+  const url = process.env.APP_DATABASE_URL
+  if (!url) {
+    throw new Error(
+      'APP_DATABASE_URL não definida — defina a URL da role merp_app antes de iniciar o app.',
+    )
+  }
+  // Sem fallback para DATABASE_URL: ela pertence à role owner (migrações).
+
+  return d === 'postgres-js' ? createPostgresJsDb(url) : createNeonServerlessDb(url)
+}
+
+// Driver lido em um único ponto (parseDbDriver); default postgres-js.
+const driver = parseDbDriver(process.env.DB_DRIVER)
+
+export const db = await createDb(driver)
 
 // Owner role (bypasses RLS) — ONLY for test setup / migrations / seeding
 // NEVER use this in application code paths
