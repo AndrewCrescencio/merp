@@ -43,6 +43,8 @@
     "isomorphic-dompurify": "^4.6.0",
     "nuxt": "^4.6.1",
     "postgres": "^3.4.9",
+    "@neondatabase/serverless": "^1.2.0",
+    "ws": "^8.18.0",
     "vue": "^3.5.44",
     "zod": "^4.6.7"
   },
