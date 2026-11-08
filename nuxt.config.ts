@@ -46,6 +46,12 @@ export default defineNuxtConfig({
 
   nitro: {
     errorHandler: '~~/server/error-handler',
+    // Top-level await em server/utils/db.ts (`export const db = await createDb(...)`).
+    // O alvo padrão do esbuild do Nitro (es2019) não aceita TLA; es2022 é seguro
+    // no Node >= 24 e não muda o preset node-server.
+    esbuild: {
+      options: { target: 'es2022' },
+    },
     imports: {
       dirs: [
         'server/utils/auth',
