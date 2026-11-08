@@ -14,5 +14,7 @@ coverage/
 _snapshot/
 *.tsbuildinfo
 .eslintcache
+# CSS do Tailwind v4 pré-generado antes do build
+app/assets/css/tailwind.css
 # artefacto do @nuxt/test-utils: escrito a cada run do projeto app (versão setups)
 .nuxtrc
