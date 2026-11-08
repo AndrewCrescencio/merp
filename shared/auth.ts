@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
-import { db } from '~~/server/utils/db'
+import { db, type Db } from '~~/server/utils/db'
 import * as schema from '~~/server/utils/schema'
 import { logger } from './logger'
 import { sendPasswordResetNotice, sendVerificationNotice } from '~~/server/utils/shared/email'
@@ -10,9 +10,9 @@ if (process.env.NODE_ENV === 'production' && corsOrigin === 'http://localhost:30
   throw new Error('CORS_ORIGIN é obrigatória em produção (sem fallback localhost).')
 }
 
-function createAuth() {
+export function createAuth(database: Db = db) {
   return betterAuth({
-    database: drizzleAdapter(db, {
+    database: drizzleAdapter(database, {
       provider: 'pg',
       schema: {
         user: schema.user,
