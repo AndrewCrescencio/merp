@@ -43,7 +43,7 @@ describe('tenant middleware', () => {
 
   it('resolves companyId from the path and sets tenant context for a member', async () => {
     const handler = await import('~~/server/middleware/tenant').then((m) => m.default)
-    const event = eventFor('/api/v1/companies/comp-123/orders')
+    const event = eventFor('/api/v1/companies/comp-123/resources')
 
     await handler(event)
 
@@ -63,7 +63,7 @@ describe('tenant middleware', () => {
   it('throws 404 for a non-member (does not leak existence)', async () => {
     mockGetCompanyMembershipRole.mockResolvedValue(null)
     const handler = await import('~~/server/middleware/tenant').then((m) => m.default)
-    const event = eventFor('/api/v1/companies/comp-404/orders')
+    const event = eventFor('/api/v1/companies/comp-404/resources')
 
     await expect(handler(event)).rejects.toMatchObject({ statusCode: 404 })
     expect(event.context.tenant).toBeUndefined()
@@ -71,7 +71,7 @@ describe('tenant middleware', () => {
 
   it('throws 401 when there is no session user (defensive)', async () => {
     const handler = await import('~~/server/middleware/tenant').then((m) => m.default)
-    const event = eventFor('/api/v1/companies/comp-1/orders', null)
+    const event = eventFor('/api/v1/companies/comp-1/resources', null)
 
     await expect(handler(event)).rejects.toMatchObject({ statusCode: 401 })
     expect(mockGetCompanyMembershipRole).not.toHaveBeenCalled()

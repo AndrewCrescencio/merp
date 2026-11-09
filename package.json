@@ -1,5 +1,5 @@
 {
-  "name": "merp",
+  "name": "nuxt-tenant-starter",
   "type": "module",
   "private": true,
   "engines": {

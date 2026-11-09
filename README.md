@@ -1,71 +1,71 @@
-# Merp
+# Nuxt Tenant Starter
 
-ERP multi-tenant para restaurantes (Nuxt 4, Better Auth, Drizzle, PostgreSQL+RLS).
+Base inicial para aplicações SaaS multi-tenant com Nuxt 4, Nitro, Better Auth,
+Drizzle e PostgreSQL com RLS.
 
-**Status:** MVP em desenvolvimento — auth consolidado, order/restaurant/print parciais.  
-Ver estado completo: [`docs/PROJETO.md`](docs/PROJETO.md)
+Esta base resolve a infraestrutura comum sem impor um domínio de negócio:
 
-## Início Rápido
+- autenticação por e-mail, sessão, verificação e recuperação de senha;
+- usuários, empresas, membros, convites e locais;
+- isolamento multi-tenant com PostgreSQL RLS;
+- proteção CSRF, headers de segurança, validação de ambiente e auditoria;
+- testes unitários/integração, lint, typecheck e convenções de rotas REST;
+- Docker Compose para desenvolvimento local.
+
+## Início rápido
 
 ```bash
 cp .env.example .env
-# edite .env: host "postgres" → "localhost" se Nuxt roda no host
+# ajuste DATABASE_URL e as demais variáveis
 docker compose up -d postgres
-npm run db:migrate:full      # aplica migrations 0000→0004 + verifica RLS
-npm run dev                  # → http://localhost:3000
+npm run db:migrate:full
+npm run dev
 ```
 
-## Testes
+Aplicação: <http://localhost:3000>
+
+## Comandos
 
 ```bash
-npm test                     # unit + integration (precisa PostgreSQL rodando)
+npm test
 npm run test:unit
 npm run test:integration
-npm run test:e2e
-npm run test:watch
-```
-
-## Qualidade
-
-```bash
-npm run check                # format:check + lint + typecheck + check:routes
 npm run lint
 npm run typecheck
-npm run format
+npm run check
+npm run build
 ```
 
 ## Estrutura
 
+```text
+app/                         # frontend Nuxt e telas de autenticação
+server/api/auth/             # endpoints públicos de autenticação
+server/api/v1/me/            # dados e ações do usuário autenticado
+server/api/v1/companies/     # empresas, membros, convites e locais
+server/middleware/           # auth, tenant, CSRF e auditoria
+server/utils/auth/           # identidade, empresa e convites
+server/utils/db/             # conexão, contexto tenant e RLS
+server/utils/schema/         # schema Drizzle da fundação
+server/utils/shared/        # erros, validação, segurança e e-mail
+drizzle/                     # histórico de migrations PostgreSQL
 ```
-server/
-├─ api/                      # 89 handlers HTTP
-├─ middleware/               # auth, tenant, csrf, pii-audit
-├─ utils/
-│  ├─ auth/                  # identity, company, invite
-│  ├─ order/                 # order repository
-│  ├─ restaurant/            # restaurant repository
-│  ├─ print/                 # print repository
-│  ├─ schema/                # Drizzle tables (19 arquivos)
-│  └─ shared/                # errors, security, email, csrf
-app/                         # frontend (apenas auth pages por enquanto)
-drizzle/                     # migrations SQL (5 arquivos)
-```
+
+## Criando uma feature de domínio
+
+1. Defina o caso de uso e as invariantes antes do endpoint.
+2. Crie o schema em `server/utils/schema/<feature>.ts` e registre-o no
+   `server/utils/schema/index.ts`.
+3. Use `withTenant` em toda consulta com dados da empresa.
+4. Adicione a rota em
+   `server/api/v1/companies/[companyId]/<feature>/`.
+5. Escreva testes de handler, autorização e isolamento entre tenants.
+6. Gere uma migration com `drizzle-kit` e execute `npm run check`.
+
+O domínio deve entrar como um módulo vertical e não alterar autenticação,
+middleware ou infraestrutura sem necessidade.
 
 ## Documentação
 
-- **Estado do produto:** [`docs/PROJETO.md`](docs/PROJETO.md) — matriz de funcionalidades, regras de negócio, roadmap realista
-- **Decisões de arquitetura:** [`docs/decisions.md`](docs/decisions.md) — ADRs verificáveis no código
-- **Regras para agentes:** [`CLAUDE.md`](CLAUDE.md) — convenções e restrições do projeto
-
-## Comandos Úteis
-
-```bash
-# Database
-npx drizzle-kit generate --name <nome>  # criar nova migração
-npx drizzle-kit studio                 # abrir Drizzle Studio
-npm run db:migrate:full                # migrar do zero + verificar RLS
-
-# Build
-npm run build                          # production build
-npm run preview                        # preview do build
-```
+- [`docs/PROJETO.md`](docs/PROJETO.md): escopo e decisões da base.
+- [`docs/decisions.md`](docs/decisions.md): decisões técnicas estáveis.

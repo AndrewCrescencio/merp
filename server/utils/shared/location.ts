@@ -7,9 +7,9 @@ import { sendValidationError } from './errors'
  * Fonte do `location_id` no escopo do membro — ADR-002 §Consequências
  * (`company_member.default_location_id`).
  *
- * Fecha o H07: antes os handlers de restaurant/print/order forjavam a fonte com
- * `''`, o que funcionava no GUC (vira NULL → escopo company) mas quebrava nos
- * `eq(col, locationId)` do repositório, que enxergavam um valor concreto.
+ * A localização é resolvida sempre a partir do membro autenticado, nunca de um
+ * valor enviado pelo cliente. Isso mantém a fonte do escopo consistente entre
+ * as features que forem adicionadas ao produto.
  *
  * `null` é resultado válido e significa "sem location no escopo": o chamador
  * opera em escopo company, que a RLS já permite pelo escape

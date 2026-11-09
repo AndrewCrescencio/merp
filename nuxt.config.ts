@@ -58,9 +58,6 @@ export default defineNuxtConfig({
     imports: {
       dirs: [
         'server/utils/auth',
-        'server/utils/print',
-        'server/utils/restaurant',
-        'server/utils/order',
         'server/utils/shared',
         'server/utils/db',
       ],
@@ -74,8 +71,8 @@ export default defineNuxtConfig({
     },
     openAPI: {
       meta: {
-        title: 'MERP API',
-        description: 'API do MERP (Restaurant ERP) — gerada pelos route handlers Nitro.',
+        title: 'Application API',
+        description: 'API da aplicação — gerada pelos route handlers Nitro.',
         version: '1.0.0',
       },
     },
