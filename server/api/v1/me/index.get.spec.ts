@@ -121,7 +121,12 @@ describe('GET /api/v1/me', () => {
       },
     } as any
 
-    const result = await handler(event)
+    const result = (await handler(event)) as {
+      id: string
+      email: string
+      name: string | null
+      companies: Array<{ id: string; name: string; role: string }>
+    }
 
     expect(result.companies).toEqual([
       { id: 'c1', name: 'Company 1', role: 'owner' },
@@ -139,7 +144,12 @@ describe('GET /api/v1/me', () => {
       },
     } as any
 
-    const result = await handler(event)
+    const result = (await handler(event)) as {
+      id: string
+      email: string
+      name: string | null
+      companies: Array<{ id: string; name: string; role: string }>
+    }
 
     expect(result.companies).toEqual([])
   })

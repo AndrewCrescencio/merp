@@ -1,20 +1,7 @@
-import { defineEventHandler } from 'h3'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
-import { sendUnauthorizedError } from '~~/server/utils/shared'
+import { defineAuthHandler } from '~~/server/utils/shared'
 
-export default defineEventHandler(async (event) => {
-  const user = event.context.user as
-    | {
-        id: string
-        email: string
-        name: string | null
-      }
-    | undefined
-
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
-
+export default defineAuthHandler(async (_event, user) => {
   const companies = await membershipRepository.findUserCompanies(user.id)
 
   return {

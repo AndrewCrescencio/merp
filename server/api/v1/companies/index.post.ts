@@ -1,26 +1,21 @@
-import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import { readBody, setHeader, setResponseStatus } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import {
   checkIpRateLimit,
+  defineAuthHandler,
   isValidCnpj,
-  sendUnauthorizedError,
   sendValidationError,
   validateCompanyCreateInput,
 } from '~~/server/utils/shared'
 
-export default defineEventHandler(async (event) => {
+export default defineAuthHandler(async (event, user) => {
   await checkIpRateLimit(event)
-
-  const user = event.context.user as { id: string } | undefined
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
 
   const body = await readBody<{ name?: string; cnpj?: string; razaoSocial?: string }>(event)
   const { name, cnpj, razaoSocial } = validateCompanyCreateInput(body)
 
   if (cnpj && !isValidCnpj(cnpj)) {
-    sendValidationError('cnpj is invalid')
+    return sendValidationError('cnpj is invalid')
   }
 
   const created = await companyRepository.createCompanyWithOwner(

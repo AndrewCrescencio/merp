@@ -27,6 +27,18 @@ vi.mock('~~/server/utils/shared', () => ({
   isValidCnpj: mockIsValidCnpj,
   sendUnauthorizedError: mockSendUnauthorizedError,
   sendValidationError: mockSendValidationError,
+  defineAuthHandler: (fn: any) => async (event: any) => {
+    const user = event.context.user as { id: string } | undefined
+    const session = event.context.session as { id: string } | undefined
+    if (!user || !session) {
+      const err = new Error(
+        JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
+      )
+      ;(err as any).status = 401
+      throw err
+    }
+    return fn(event, user)
+  },
   validateCompanyCreateInput: (body: any) => {
     if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
       throw new Error('Company name is required')
@@ -83,7 +95,7 @@ describe('POST /api/v1/companies', () => {
     mockCreateCompanyWithOwner.mockResolvedValue({ id: 'company-1', name: 'Test Company' })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     await handler(event)
 
@@ -97,7 +109,7 @@ describe('POST /api/v1/companies', () => {
     mockCheckIpRateLimit.mockRejectedValue(ipError)
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     await expect(handler(event)).rejects.toMatchObject({ statusCode: 429 })
     expect(mockReadBody).not.toHaveBeenCalled()
@@ -108,7 +120,7 @@ describe('POST /api/v1/companies', () => {
     mockReadBody.mockResolvedValue({})
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     await expect(handler(event)).rejects.toThrow('Company name is required')
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
@@ -118,7 +130,7 @@ describe('POST /api/v1/companies', () => {
     mockReadBody.mockResolvedValue({ name: 'x'.repeat(201) })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     await expect(handler(event)).rejects.toThrow('Company name must be at most 200 characters')
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
@@ -128,7 +140,7 @@ describe('POST /api/v1/companies', () => {
     mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: 12345678901234 })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     await expect(handler(event)).rejects.toThrow('cnpj must be a string')
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
@@ -138,7 +150,7 @@ describe('POST /api/v1/companies', () => {
     mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '1'.repeat(31) })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     await expect(handler(event)).rejects.toThrow('cnpj must be at most 30 characters')
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
@@ -149,7 +161,7 @@ describe('POST /api/v1/companies', () => {
     mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '12345678000190' })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     await expect(handler(event)).rejects.toThrow('cnpj is invalid')
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
@@ -160,7 +172,7 @@ describe('POST /api/v1/companies', () => {
     mockCreateCompanyWithOwner.mockResolvedValue({ id: 'company-1', name: 'Test Company' })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     const result = await handler(event)
 
@@ -183,7 +195,7 @@ describe('POST /api/v1/companies', () => {
     mockCreateCompanyWithOwner.mockResolvedValue({ id: 'company-1', name: 'My Company' })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' } } } as any
+    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
 
     await handler(event)
 
