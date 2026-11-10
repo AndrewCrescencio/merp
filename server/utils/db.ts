@@ -1,5 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
+import { Pool } from '@neondatabase/serverless'
+import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless'
 import type { PgDatabase } from 'drizzle-orm/pg-core'
 import * as schema from './schema'
 
@@ -16,8 +18,9 @@ const SUPPORTED_DRIVERS: DbDriver[] = ['postgres-js', 'neon-serverless']
 const DEFAULT_DRIVER: DbDriver = 'postgres-js'
 
 // Neon via PgBouncer (modo transação) e serverless via WebSocket.
-const NEON_PACKAGE = '@neondatabase/serverless'
-const DRIZZLE_NEON_PACKAGE = 'drizzle-orm/neon-serverless'
+// Ambos são dependências diretas (item de revisão #3): importados estaticamente
+// para que o Nitro os rastreie e os inclua no .output (um import() com
+// especificador em variável não era rastreado e ficava como external quebrado).
 
 /**
  * Único ponto de leitura de DB_DRIVER. Valor inválido lança erro claro no boot;
@@ -97,26 +100,10 @@ async function createNeonServerlessDb(url: string): Promise<Db> {
   const resolvedUrl = withRequiredSsl(url)
   const { url: cleanUrl, stripped } = stripUnsupportedUrlParams(resolvedUrl)
 
-  // Dep opcional: só carregada quando DB_DRIVER=neon-serverless.
-  type NeonModule = {
-    Pool: new (config: { connectionString: string }) => { end: () => Promise<void> }
-  }
-  let neon: NeonModule
-  try {
-    neon = await import(NEON_PACKAGE)
-  } catch {
-    throw new Error(
-      `${NEON_PACKAGE} não instalado. Execute \`npm i @neondatabase/serverless ws\` para usar DB_DRIVER=neon-serverless.`,
-    )
-  }
-  const { Pool } = neon
+  // Node 21+ tem WebSocket global, então não é preciso ligar `ws` via
+  // neonConfig.webSocketConstructor (ver item de revisão #3-a).
   const pool = new Pool({ connectionString: cleanUrl })
-
-  type NeonDrizzleModule = {
-    drizzle: (client: unknown, config: { schema: unknown }) => Db
-  }
-  const drizzleNeon: NeonDrizzleModule = await import(DRIZZLE_NEON_PACKAGE)
-  const database = drizzleNeon.drizzle(pool, { schema })
+  const database = drizzleNeon(pool, { schema })
   console.info(
     `[db] inicializado (neon-serverless) ssl=${sslActive(cleanUrl)} pooled=${isPooledUrl(cleanUrl)}${
       stripped.length > 0 ? ` parametrosIgnorados=${stripped.join(', ')}` : ''
