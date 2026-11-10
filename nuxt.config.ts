@@ -56,11 +56,7 @@ export default defineNuxtConfig({
       options: { target: 'es2022' },
     },
     imports: {
-      dirs: [
-        'server/utils/auth',
-        'server/utils/shared',
-        'server/utils/db',
-      ],
+      dirs: ['server/utils/auth', 'server/utils/shared', 'server/utils/db'],
     },
     experimental: {
       tasks: true,
