@@ -139,11 +139,5 @@ const driver = parseDbDriver(process.env.DB_DRIVER)
 
 export const db = await createDb(driver)
 
-// Owner role (bypasses RLS) — ONLY for test setup / migrations / seeding
-// NEVER use this in application code paths
-// PROIBIDO em asserções. Se um teste falha porque precisa disso, o teste
-// está medindo a coisa errada.
-export function createOwnerDbForSetupOnly() {
-  const ownerConnectionString = process.env.DATABASE_URL!
-  return drizzle(postgres(withRequiredSsl(ownerConnectionString)), { schema })
-}
+// createOwnerDbForSetupOnly agora vive em tests/support/owner-db.ts (só
+// testes/scripts). db.ts mantém apenas a instância `db` da role merp_app.

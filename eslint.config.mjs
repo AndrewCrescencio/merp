@@ -8,35 +8,82 @@ export default withNuxt(
     ignores: ['.nuxt/', '.output/'],
   },
   {
-    name: 'merp/no-owner-db-in-production',
+    // createOwnerDbForSetupOnly vive em tests/support/owner-db.ts e só pode ser
+    // importado de dentro de tests/ e scripts/ — nunca de código de produção
+    // nem de outros testes.
+    name: 'merp/no-owner-db-outside-tests',
+    files: ['**/*.{ts,mjs}'],
+    ignores: ['tests/**', 'scripts/**', '**/*.spec.ts', '**/*.test.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['#shared/utils/db', 'server/utils/db'],
+              group: ['tests/support/owner-db', '**/tests/support/owner-db'],
               importNames: ['createOwnerDbForSetupOnly'],
               message:
-                'createOwnerDbForSetupOnly is FORBIDDEN in production code and test assertions. Use `db` (app role) for all queries. Only allowed in test setup/fixtures (beforeAll, beforeEach, test-setup.ts).',
+                'createOwnerDbForSetupOnly é FORA DE ESCOPO fora de tests/ e scripts/. Use `db` (role merp_app). Apenas test-setup/fixtures usam o owner DB.',
             },
-            // Feature boundary: auth/identity must not import auth/company, auth/invite
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Fronteira: auth/identity não importa auth/company nem auth/invite.
+    name: 'merp/boundary-identity',
+    files: ['server/utils/auth/identity/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
             {
-              group: ['server/utils/auth/company/**', 'server/utils/auth/invite/**'],
+              group: ['**/company/**', '**/invite/**'],
               message:
-                'Feature boundary violation: identity feature must not import company or invite features. Use shared/ or cross-feature service.',
+                'Feature boundary violation: auth/identity não deve importar auth/company nem auth/invite. Use shared/ ou um serviço trans-feature.',
             },
-            // Feature boundary: auth/company must not import auth/identity, auth/invite
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Fronteira: auth/company não importa auth/identity nem auth/invite.
+    name: 'merp/boundary-company',
+    files: ['server/utils/auth/company/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
             {
-              group: ['server/utils/auth/identity/**', 'server/utils/auth/invite/**'],
+              group: ['**/identity/**', '**/invite/**'],
               message:
-                'Feature boundary violation: company feature must not import identity or invite features. Use shared/ or cross-feature service.',
+                'Feature boundary violation: auth/company não deve importar auth/identity nem auth/invite. Use shared/ ou um serviço trans-feature.',
             },
-            // Feature boundary: auth/invite must not import auth/identity, auth/company
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Fronteira: auth/invite não importa auth/identity nem auth/company.
+    name: 'merp/boundary-invite',
+    files: ['server/utils/auth/invite/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
             {
-              group: ['server/utils/auth/identity/**', 'server/utils/auth/company/**'],
+              group: ['**/identity/**', '**/company/**'],
               message:
-                'Feature boundary violation: invite feature must not import identity or company features. Use shared/ or cross-feature service.',
+                'Feature boundary violation: auth/invite não deve importar auth/identity nem auth/company. Use shared/ ou um serviço trans-feature.',
             },
           ],
         },
