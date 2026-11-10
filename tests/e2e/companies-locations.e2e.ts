@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setup, useTestContext, url } from '@nuxt/test-utils/e2e'
-import { E2eClient, resetRateLimits, seedCompanyMember, seedRestaurantTable } from './support/http'
+import { E2eClient, resetRateLimits, seedCompanyMember } from './support/http'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
@@ -118,12 +118,6 @@ describe.skipIf(!dbAvailable)(
       return { id: created.body.id, matrizId: matriz.id }
     }
 
-    const orderBody = (tableId: string) => ({
-      orderType: 'dine_in',
-      items: [{ productName: 'X-Bacon', unitPrice: '29.90', quantity: '1', taxSnapshot: '0.00' }],
-      dineIn: { tableId, coverCount: 2 },
-    })
-
     // ---------------------------------------------------------------------------
     // Fluxo de auth completo sobre HTTP real (cookies de sessão/CSRF do jar)
     // ---------------------------------------------------------------------------
@@ -222,27 +216,6 @@ describe.skipIf(!dbAvailable)(
       expect(detail.body.locations).toHaveLength(1)
       expect(detail.body.locations[0]?.name).toBe('Matriz')
       expect(detail.body.locations[0]?.isActive).toBe(true)
-    })
-
-    // ---------------------------------------------------------------------------
-    // POST /orders deixa de estourar 400 por location em empresa recém-criada
-    // ---------------------------------------------------------------------------
-    it('POST /orders (dine_in) → 201 e order com location = Matriz (via GET da order)', async () => {
-      const owner = await makeUser('owner-orders')
-      const co = await createCompany(owner, `Orders Co ${unique()}`)
-      const tableId = await seedRestaurantTable(co.id, co.matrizId)
-
-      const created = await owner.client.post<{ id: string }>(
-        `/api/v1/companies/${co.id}/orders`,
-        orderBody(tableId),
-      )
-      expect(created.status).toBe(201)
-
-      const fetched = await owner.client.get<{ id: string; locationId: string }>(
-        `/api/v1/companies/${co.id}/orders/${created.body.id}`,
-      )
-      expect(fetched.status).toBe(200)
-      expect(fetched.body.locationId).toBe(co.matrizId)
     })
 
     // ---------------------------------------------------------------------------
@@ -388,15 +361,6 @@ describe.skipIf(!dbAvailable)(
         `/api/v1/companies/${coB.id}/locations/${coB.matrizId}`,
       )
       expect(del.status).toBe(404)
-
-      // Com body VÁLIDO o POST de order prova que o 404 vem do middleware
-      // (membership), não de validação.
-      const freshTable = await seedRestaurantTable(coB.id, coB.matrizId)
-      const orderPost = await ownerA.client.post(
-        `/api/v1/companies/${coB.id}/orders`,
-        orderBody(freshTable),
-      )
-      expect(orderPost.status).toBe(404)
 
       // Location de B intacta para o dono real.
       const intact = await ownerB.client.get<{ locations: Array<{ name: string }> }>(

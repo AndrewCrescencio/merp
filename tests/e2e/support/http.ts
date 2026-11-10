@@ -202,19 +202,3 @@ export async function seedCompanyMember(
     await sql.end()
   }
 }
-
-/** Mesa para POST /orders dine_in (o handler exige restaurant_table existente). */
-export async function seedRestaurantTable(companyId: string, locationId: string): Promise<string> {
-  const sql = ownerSql()
-  try {
-    const [row] = await sql.unsafe(
-      `INSERT INTO restaurant_table (company_id, location_id, number, capacity, status)
-       VALUES ($1, $2, 101, 4, 'available')
-       RETURNING id::text AS id`,
-      [companyId, locationId],
-    )
-    return String(row?.id)
-  } finally {
-    await sql.end()
-  }
-}
