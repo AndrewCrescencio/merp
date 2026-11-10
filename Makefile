@@ -1,5 +1,8 @@
 COMPOSE      := docker compose
-COMPOSE_PROD := $(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
+# Stack de produção lê variáveis de `.env.production.example` (copiado para
+# `.env` e editado antes do deploy). Variáveis do ambiente de shell continuam
+# com precedência sobre o arquivo.
+COMPOSE_PROD := $(COMPOSE) --env-file .env.production.example -f docker-compose.yml -f docker-compose.prod.yml
 
 .PHONY: help init setup db migrate migrate-full migrate-prod dev dev-d dev-down prod prod-down prod-logs studio
 
@@ -12,8 +15,8 @@ help: ## Lista os alvos disponíveis
 init: ## Do zero ao banco migrado: .env, dependências, PostgreSQL e policies de RLS
 	@test -f .env || { \
 		cp .env.example .env; \
-		echo "✓ .env criado a partir de .env.example (localhost para Nuxt no host)"; \
-		echo "  edite CORS_ORIGIN/BETTER_AUTH_URL antes de qualquer coisa em produção"; \
+		echo "✓ .env criado a partir de .env.example (dev: localhost:3000, sem edição)"; \
+		echo "  Produção: copie .env.production.example para .env e troque os placeholders"; \
 	}
 	$(MAKE) setup
 	$(MAKE) db

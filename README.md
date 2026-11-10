@@ -15,14 +15,18 @@ Esta base resolve a infraestrutura comum sem impor um domínio de negócio:
 ## Início rápido
 
 ```bash
+# Desenvolvimento local — valores prontos, sem edição
 cp .env.example .env
-# ajuste DATABASE_URL e as demais variáveis
 docker compose up -d postgres
 npm run db:migrate:full
 npm run dev
 ```
 
 Aplicação: <http://localhost:3000>
+
+Produção: copie `.env.production.example` para `.env`, troque os placeholders
+(`seu-dominio.com`, `change-me`, etc.) e rode `make prod` (migra primeiro e
+depois sobe a stack com `docker-compose.prod.yml`).
 
 ## Requisitos
 
