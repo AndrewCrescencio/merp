@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import {
-  assertCompanyRole,
+  assertRole,
   createAuthEvent,
   getClientIp,
   isValidCnpj,
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     sendValidationError('cnpj is invalid')
   }
 
-  await assertCompanyRole(
+  await assertRole(
     role,
     'owner',
     'You are not a member of this company',

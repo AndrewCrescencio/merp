@@ -1,7 +1,7 @@
 import { defineEventHandler, getRouterParam, sendNoContent } from 'h3'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import {
-  assertCompanyRole,
+  assertRole,
   createAuthEvent,
   getClientIp,
   sendForbiddenError,
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
 
   // Auto-remoção (sair da empresa): qualquer membro, exceto o owner.
   if (userId === user.id) {
-    await assertCompanyRole(role, null, 'You are not a member of this company')
+    await assertRole(role, null, 'You are not a member of this company')
 
     if (role === 'owner') {
       sendForbiddenError('Cannot remove a company owner')
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Remover outro membro: exige owner.
-  await assertCompanyRole(
+  await assertRole(
     role,
     'owner',
     'You are not a member of this company',

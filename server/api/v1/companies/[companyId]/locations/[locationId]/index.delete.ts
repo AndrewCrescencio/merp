@@ -1,7 +1,7 @@
 import { defineEventHandler, getRouterParam, sendNoContent } from 'h3'
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
 import { requireTenant, sendUnauthorizedError } from '~~/server/utils/shared'
-import { assertCompanyRole, sendNotFoundError } from '~~/server/utils/shared/errors'
+import { assertRole, sendNotFoundError } from '~~/server/utils/shared/errors'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user as { id: string } | undefined
@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const { companyId, role } = requireTenant(event)
-  await assertCompanyRole(
+  await assertRole(
     role,
     'owner',
     'You are not a member of this company',

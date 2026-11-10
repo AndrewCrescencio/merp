@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
-  assertCompanyRole,
+  assertRole,
   checkIpRateLimit,
   createAuthEvent,
   getClientIp,
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const { companyId, role } = requireTenant(event)
   const { email } = validateInviteInput(await readBody(event))
 
-  await assertCompanyRole(
+  await assertRole(
     role,
     'owner',
     'You are not a member of this company',

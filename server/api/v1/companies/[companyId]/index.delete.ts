@@ -1,7 +1,7 @@
 import { defineEventHandler, sendNoContent } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import {
-  assertCompanyRole,
+  assertRole,
   createAuthEvent,
   getClientIp,
   sendUnauthorizedError,
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   // companyId vem do path (middleware tenant); DELETE não tem body (R3).
   const { companyId, role } = requireTenant(event)
 
-  await assertCompanyRole(
+  await assertRole(
     role,
     'owner',
     'You are not a member of this company',

@@ -2,7 +2,7 @@ import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
 import { z } from 'zod'
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
 import { requireTenant, sendUnauthorizedError } from '~~/server/utils/shared'
-import { assertCompanyRole, sendValidationError } from '~~/server/utils/shared/errors'
+import { assertRole, sendValidationError } from '~~/server/utils/shared/errors'
 
 const createLocationSchema = z.object({
   name: z.string().min(1).max(200),
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const { companyId, role } = requireTenant(event)
-  await assertCompanyRole(
+  await assertRole(
     role,
     'owner',
     'You are not a member of this company',

@@ -39,7 +39,7 @@ export function sendForbiddenError(message: string): never {
   sendAuthError(403, 'forbidden', message)
 }
 
-export async function assertCompanyRole(
+export async function assertRole(
   role: string | null | undefined,
   requiredRole: string | null,
   notMemberMessage: string,

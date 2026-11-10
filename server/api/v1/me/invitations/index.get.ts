@@ -3,7 +3,7 @@ import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
-  assertCompanyRole,
+  assertRole,
   sendNotFoundError,
   sendUnauthorizedError,
   sendValidationError,
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const role = await membershipRepository.getCompanyMembershipRole(user.id, query.companyId)
-  await assertCompanyRole(role, null, 'You are not a member of this company')
+  await assertRole(role, null, 'You are not a member of this company')
 
   const invites = await inviteRepository.listCompanyInvites(query.companyId)
 

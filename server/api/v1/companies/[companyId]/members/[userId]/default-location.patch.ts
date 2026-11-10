@@ -1,7 +1,7 @@
 import { defineEventHandler, getRouterParam, readBody } from 'h3'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import {
-  assertCompanyRole,
+  assertRole,
   createAuthEvent,
   getClientIp,
   requireTenant,
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     sendNotFoundError('Company member not found')
   }
 
-  await assertCompanyRole(
+  await assertRole(
     role,
     'owner',
     'You are not a member of this company',
