@@ -32,6 +32,15 @@
   em bancos já migrados — crie uma nova migration em vez de reescrever o
   histórico.
 
+## round_half_up (removida)
+
+- A função `round_half_up(numeric)` viveu apenas em `drizzle/0000_functions_and_roles.sql`
+  e não era usada por nenhuma tabela ou migration do journal atual (0000–0002).
+  Foi removida do 0000; o arquivo agora cria somente a role `merp_app`.
+- Bancos já migrados podem manter a função como está ou removi-la à mão com
+  `DROP FUNCTION round_half_up(numeric)`. Não há migration para isso porque
+  o journal já está aplicado e migrations são imutáveis depois de compartilhadas.
+
 ## Convenções de testes
 
 - **Vitest com três projetos:** `unit` (`*.spec.ts`, 100% mockado, sem
