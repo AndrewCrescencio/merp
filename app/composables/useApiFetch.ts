@@ -1,4 +1,4 @@
-const CSRF_COOKIE_NAME = 'merp-csrf_token'
+const CSRF_COOKIE_NAME = 'tenant-starter-csrf_token'
 const CSRF_HEADER_NAME = 'x-csrf-token'
 
 function getCsrfTokenFromCookie(): string | null {

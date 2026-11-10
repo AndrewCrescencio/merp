@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { getCookie, getRequestHeader, setCookie, type H3Event } from 'h3'
 
-const CSRF_COOKIE_NAME = 'merp-csrf_token'
+const CSRF_COOKIE_NAME = 'tenant-starter-csrf_token'
 const CSRF_HEADER_NAME = 'x-csrf-token'
 const CSRF_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 

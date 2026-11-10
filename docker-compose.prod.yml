@@ -43,7 +43,7 @@ services:
       # TRUSTED_PROXY_CIDRS = faixas de IP dos proxies em que confiamos, na
       # notação CIDR ("IP/bits": 172.28.0.0/16 = de 172.28.0.0 a
       # 172.28.255.255; /32 = um único IP). Aceita várias por vírgula.
-      # Aqui é a subnet da merp_network (pinada abaixo): quem está nela é o
+      # Aqui é a subnet da tenant-starter_network (pinada abaixo): quem está nela é o
       # container nginx, único par que pode falar com o app. Peer fora da
       # lista => header ignorado => IP do socket vale. AUD-05: sem a lista o
       # boot de produção é recusado.
@@ -58,7 +58,7 @@ services:
     # tmpfs:
     #   - /tmp
     networks:
-      - merp_network
+      - tenant-starter_network
     ports:
       - '127.0.0.1:3000:3000'
     restart: always
@@ -112,7 +112,7 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - merp_network
+      - tenant-starter_network
 
   nginx:
     # 1.27 é EOL (sem fix do CVE-2026-90439, buffer overflow no ngx_http_v3_module).
@@ -131,7 +131,7 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - merp_network
+      - tenant-starter_network
 
   certbot:
     # Pinado (não :latest) para reprodução; upgrade = bump manual + nova emissão testada.
@@ -147,7 +147,7 @@ services:
     #                + exec nginx nginx -s reload (o nginx só lê o cert novo em start/reload)
     #   cron do host: 15 3 * * * docker compose -f ... -f docker-compose.prod.yml run --rm certbot renew && docker compose -f ... -f docker-compose.prod.yml exec nginx nginx -s reload
     networks:
-      - merp_network
+      - tenant-starter_network
 
 volumes:
   certs:
@@ -157,7 +157,7 @@ networks:
   # Subnet pinada em CIDR ("IP/bits" — 172.28.0.0/16 cobre 172.28.0.0…255.255)
   # para que TRUSTED_PROXY_CIDRS (acima) seja determinístico: o peer imediato
   # do app é o container nginx, que é o único que entra nesta rede.
-  merp_network:
+  tenant-starter_network:
     ipam:
       config:
         - subnet: 172.28.0.0/16

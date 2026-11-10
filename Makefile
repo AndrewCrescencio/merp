@@ -4,7 +4,7 @@ COMPOSE_PROD := $(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
 .PHONY: help init setup db migrate migrate-full migrate-prod dev dev-d dev-down prod prod-down prod-logs studio
 
 help: ## Lista os alvos disponíveis
-	@echo "Merp — inicialização e operação"
+	@echo "Tenant starter — inicialização e operação"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-14s\033[0m %s\n", $$1, $$2}'

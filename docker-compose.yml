@@ -23,10 +23,10 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - merp_network
+      - tenant-starter_network
 
 volumes:
   pgdata:
 
 networks:
-  merp_network:
+  tenant-starter_network:
