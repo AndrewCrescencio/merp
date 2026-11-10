@@ -1,0 +1,1 @@
+ALTER TABLE "company_member" ADD CONSTRAINT "company_member_role_check" CHECK ("company_member"."role" IN ('owner', 'member'));

@@ -1,8 +1,8 @@
 import { defineEventHandler, getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
-import { requireTenant, sendUnauthorizedError } from '~~/server/utils/shared'
-import { assertRole, sendNotFoundError, sendValidationError } from '~~/server/utils/shared/errors'
+import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
+import { assertRole, ROLES, sendNotFoundError, sendValidationError } from '~~/server/utils/shared'
 
 const updateLocationSchema = z
   .object({
@@ -14,15 +14,12 @@ const updateLocationSchema = z
   })
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user as { id: string } | undefined
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
+  const user = requireUser(event)
 
   const { companyId, role } = requireTenant(event)
   await assertRole(
     role,
-    'owner',
+    ROLES.owner,
     'You are not a member of this company',
     'Only company owners can update locations',
   )
@@ -32,7 +29,7 @@ export default defineEventHandler(async (event) => {
     sendNotFoundError('Location not found')
   }
 
-  const body = await readBody<{ name?: string; isActive?: boolean }>(event)
+  const body = await readBody(event)
   const parsed = updateLocationSchema.safeParse(body)
   if (!parsed.success) {
     sendValidationError('name or isActive is required')

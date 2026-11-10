@@ -120,7 +120,7 @@ export class MembershipRepository {
 
   /**
    * Returns complete membership info including role and defaultLocationId.
-   * Accessible to owner/manager only.
+   * Accessible to owner only.
    */
   async getCompanyMembershipWithDetails(userId: string, companyId: string) {
     return await withTenant(companyId, null, userId, async (tx) => {
@@ -139,7 +139,7 @@ export class MembershipRepository {
   /**
    * Lista os membros da empresa com nome, role e loja padrão — a query roda no
    * tenant do chamador (`executedByUserId`), então a RLS de `company_member` é o
-   * backstop; o handler já restringe a owner/manager.
+   * backstop; o handler já restringe a owner.
    */
   async listCompanyMembers(
     companyId: string,

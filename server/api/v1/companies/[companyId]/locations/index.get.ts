@@ -1,13 +1,9 @@
 import { defineEventHandler } from 'h3'
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
-import { requireTenant, sendUnauthorizedError } from '~~/server/utils/shared'
+import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user as { id: string } | undefined
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
-
+  const user = requireUser(event)
   const { companyId } = requireTenant(event)
   const locations = await locationRepository.listLocations(companyId, user.id)
   return { locations }

@@ -1,4 +1,5 @@
 export * from './errors'
+export * from './roles'
 export * from './security'
 export * from './audit'
 export * from './background'

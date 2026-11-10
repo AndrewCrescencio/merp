@@ -5,6 +5,7 @@ import {
   createAuthEvent,
   getClientIp,
   requireTenant,
+  ROLES,
   sendNotFoundError,
   sendUnauthorizedError,
   validateDefaultLocationInput,
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
 
   await assertRole(
     role,
-    'owner',
+    ROLES.owner,
     'You are not a member of this company',
     'Only company owners can assign a default location',
   )

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { pgTable, text, timestamp, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, uniqueIndex, index, check } from 'drizzle-orm/pg-core'
 import { user } from './identity'
 import { location } from './location'
 
@@ -49,5 +49,9 @@ export const companyMember = pgTable(
     index('company_member_user_id_idx').on(table.userId),
     index('company_member_company_id_idx').on(table.companyId),
     index('company_member_default_location_id_idx').on(table.defaultLocationId),
+    // Papéis válidos: apenas `owner` e `member` (o papel `manager` nunca existiu
+    // no journal aplicado). Aplica no banco para que nenhum caminho de escrita
+    // possa criar um papel fora desse conjunto.
+    check('company_member_role_check', sql`${table.role} IN ('owner', 'member')`),
   ],
 )

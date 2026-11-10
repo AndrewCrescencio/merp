@@ -4,6 +4,7 @@ import {
   assertRole,
   createAuthEvent,
   getClientIp,
+  ROLES,
   sendForbiddenError,
   sendNotFoundError,
   sendUnauthorizedError,
@@ -37,7 +38,7 @@ export default defineEventHandler(async (event) => {
   if (userId === user.id) {
     await assertRole(role, null, 'You are not a member of this company')
 
-    if (role === 'owner') {
+    if (role === ROLES.owner) {
       sendForbiddenError('Cannot remove a company owner')
     }
 
@@ -51,7 +52,7 @@ export default defineEventHandler(async (event) => {
   // Remover outro membro: exige owner.
   await assertRole(
     role,
-    'owner',
+    ROLES.owner,
     'You are not a member of this company',
     'Only company owners can remove members',
   )
@@ -61,7 +62,7 @@ export default defineEventHandler(async (event) => {
     sendNotFoundError('Company member not found')
   }
 
-  if (targetRole === 'owner') {
+  if (targetRole === ROLES.owner) {
     sendForbiddenError('Cannot remove a company owner')
   }
 
