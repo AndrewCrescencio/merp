@@ -1,1 +1,0 @@
-ALTER TABLE "order" ADD COLUMN "idempotency_fingerprint" text;
