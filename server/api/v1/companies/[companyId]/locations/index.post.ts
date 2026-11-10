@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
   const location = await locationRepository.createLocation(companyId, user.id, parsed.data)
 
-  // R8: criação → 201 + Location do recurso criado.
+  // criação → 201 + Location do recurso criado.
   setResponseStatus(event, 201)
   setHeader(event, 'Location', `/api/v1/companies/${companyId}/locations/${location.id}`)
   return location

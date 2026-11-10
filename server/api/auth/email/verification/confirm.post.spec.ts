@@ -23,7 +23,7 @@ vi.mock('~~/server/utils/auth/identity/queries', () => ({
   verifyEmailBA: mockVerifyEmailBA,
 }))
 
-describe('POST /api/auth/email/verification/confirm (AUD-04)', () => {
+describe('POST /api/auth/email/verification/confirm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)

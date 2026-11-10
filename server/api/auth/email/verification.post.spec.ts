@@ -27,7 +27,7 @@ vi.mock('~~/server/utils/auth/identity/queries', () => ({
   sendVerificationEmailBA: mockSendVerificationEmail,
 }))
 
-describe('POST /api/auth/email/verification (AUD-04)', () => {
+describe('POST /api/auth/email/verification', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
@@ -61,7 +61,7 @@ describe('POST /api/auth/email/verification (AUD-04)', () => {
     expect(mockSendVerificationEmail).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized email before the rate-limit key', async () => {
+  it('rejects oversized email before the rate-limit key', async () => {
     mockReadBody.mockResolvedValue({ email: `${'a'.repeat(300)}@example.com` })
 
     const handler = await import('~~/server/api/auth/email/verification.post').then(

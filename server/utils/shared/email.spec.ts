@@ -56,7 +56,7 @@ describe('email transacional (Resend)', () => {
     expect(body.html).toContain('http://localhost:3000/reset/abc')
   })
 
-  it('nunca lança quando a rede falha (oráculo de enumeração AUD-04)', async () => {
+  it('nunca lança quando a rede falha (oráculo de enumeração)', async () => {
     const { sendVerificationNotice, sendDeactivationNotice } = await import('./email')
 
     fetchMock.mockRejectedValueOnce(new Error('ECONNRESET'))

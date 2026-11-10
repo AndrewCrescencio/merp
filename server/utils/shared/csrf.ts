@@ -10,7 +10,7 @@ function getCsrfSecret(): string {
   if (process.env.NODE_ENV === 'production') {
     // A mensagem já prometia >= 32 mas só a presença era checada: um segredo
     // curto era aceito em silêncio e passava a assinar tokens CSRF. Agora a
-    // regra é a mesma de BETTER_AUTH_SECRET (validate-env.ts, AUD-24).
+    // regra é a mesma de BETTER_AUTH_SECRET (validate-env.ts).
     if (!secret || secret.length < 32) {
       throw new Error('CSRF_SECRET é obrigatório em produção. Gere um valor de >= 32 caracteres.')
     }
@@ -71,7 +71,7 @@ const csrfExemptPaths = new Set([
   '/api/auth/email/verification/confirm',
   '/api/auth/password/reset',
   '/api/auth/password/forgot',
-  // FR-029: reenvio é público (sem sessão) — CSRF aqui não protege nada
+  // reenvio é público (sem sessão) — CSRF aqui não protege nada
   // (o atacante pode chamar direto); rate limit por IP/email é a defesa.
   '/api/auth/email/verification',
   '/api/health/live',

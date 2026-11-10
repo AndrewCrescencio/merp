@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  // FR-017: soft delete de verdade — sem este UPDATE o usuário continuava
+  // soft delete de verdade — sem este UPDATE o usuário continuava
   // ativo e voltava a logar com sessão nova.
   await deactivateUser(user.id)
 

@@ -1,5 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-// AUD-05: o header CORS é baked no build pelo Nitro — sem a env, produção
+// o header CORS é baked no build pelo Nitro — sem a env, produção
 // compilaria com fallback localhost silencioso. Falha explícita no build.
 // Escopo: SÓ no build (`nuxt build`/`generate`). `nuxt prepare` (roda no
 // postinstall), eslint e vitest importam este arquivo sem compilar nada —
@@ -31,7 +31,7 @@ export default defineNuxtConfig({
         'Access-Control-Allow-Credentials': 'true',
       },
     },
-    // AUD-XSS: proteção em camadas no frontend — CSP restringe fontes de
+    // proteção em camadas no frontend — CSP restringe fontes de
     // scripts/styles, nosniff impede MIME-sniffing e DENY bloqueia clickjacking.
     // Aplica a todas as rotas da app (SSR + SPA). Valores fixos: sem dados de
     // env para não quebrar builds sem .env.

@@ -48,7 +48,7 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   checkIpRateLimit: vi.fn(),
 }))
 
-// O middleware de tenant resolve { companyId, role } do path (R1/R5); o email
+// O middleware de tenant resolve { companyId, role } do path; o email
 // valida só o corpo — companyId nunca vem no body.
 const eventWithUser = (role = 'owner', overrides: Record<string, unknown> = {}) =>
   ({
@@ -80,7 +80,7 @@ describe('POST /api/v1/companies/{companyId}/invitations', () => {
     await expect(handler(eventWithUser())).rejects.toThrow('A valid email is required')
   })
 
-  it('AUD-14: rejects oversized invite email', async () => {
+  it('rejects oversized invite email', async () => {
     mockReadBody.mockResolvedValue({ email: `${'a'.repeat(300)}@example.com` })
 
     const handler = await loadHandler()
@@ -132,7 +132,7 @@ describe('POST /api/v1/companies/{companyId}/invitations', () => {
       token: 'tok-1',
     })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 201)
-    // R8: criação aponta o recurso criado no header Location.
+    // criação aponta o recurso criado no header Location.
     expect(mockSetHeader).toHaveBeenCalledWith(
       event,
       'Location',

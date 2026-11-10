@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  // FR-021: desativação imediata da conta + término de todas as sessões.
+  // desativação imediata da conta + término de todas as sessões.
   // updateUser/revokeSessions exigiam sessão e eram engolidos pelo catch,
   // deixando a conta ativa e logável após a retirada.
   const updated = await withdrawConsent(user.id)

@@ -70,7 +70,7 @@ function mockUserRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-describe('signInUser — AUD-07 timing pad', () => {
+describe('signInUser — timing pad', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAuthApi()
@@ -133,7 +133,7 @@ describe('signInUser — AUD-07 timing pad', () => {
     expect(mockSignInEmail.mock.calls[0]![0]!.body.email).toBe('missing@example.com')
   })
 
-  it('AUD-04: maps 403 email_not_verified from better-auth to the app JSON error shape', async () => {
+  it('maps 403 email_not_verified from better-auth to the app JSON error shape', async () => {
     mockLimit.mockResolvedValue([mockUserRow()])
     mockSignInEmail.mockRejectedValue(
       Object.assign(new Error('Email not verified'), { statusCode: 403 }),
@@ -150,7 +150,7 @@ describe('signInUser — AUD-07 timing pad', () => {
   })
 })
 
-describe('AUD-04 email verification & password reset flows', () => {
+describe('email verification & password reset flows', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAuthApi()

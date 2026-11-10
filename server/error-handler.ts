@@ -8,7 +8,7 @@ export interface NormalizedError {
   body: ApiError
 }
 
-// FR-026: decisão pura e testável — erros do contrato ({ error, message } em
+// decisão pura e testável — erros do contrato ({ error, message } em
 // JSON) com status < 500 são repassados intactos; qualquer outro erro (500 ou
 // inesperado) vira internal_error sem vazar detalhes internos.
 export function normalizeError(error: unknown): NormalizedError {
@@ -54,7 +54,7 @@ export default defineNitroErrorHandler((error, event) => {
   }
 
   setResponseStatus(event, normalized.status)
-  // AUD-14: resposta de erro sempre JSON do contrato — sem Content-Type,
+  // resposta de erro sempre JSON do contrato — sem Content-Type,
   // clientes/proxies podem tratar o corpo como texto (sniffing).
   setResponseHeaders(event, { 'content-type': 'application/json' })
   return send(event, JSON.stringify(normalized.body))

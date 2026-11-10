@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('No active session.')
   }
 
-  // FR-025: 503 auth_unavailable se o Better Auth não puder ser resolvido.
+  // 503 auth_unavailable se o Better Auth não puder ser resolvido.
   let authInstance: AuthInstance
   try {
     authInstance = await getAuth()
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
 
   const ip = getClientIp(event)
 
-  // FR-023: session_invalidated — sessão encerrada pelo logout.
+  // session_invalidated — sessão encerrada pelo logout.
   await createAuthEvent({
     userId: user?.id ?? null,
     email: user?.email ?? 'unknown',

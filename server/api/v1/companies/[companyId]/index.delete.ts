@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  // companyId vem do path (middleware tenant); DELETE não tem body (R3).
+  // companyId vem do path (middleware tenant); DELETE não tem body.
   const { companyId, role } = requireTenant(event)
 
   await assertRole(
@@ -35,6 +35,6 @@ export default defineEventHandler(async (event) => {
     metadata: { companyId },
   })
 
-  // R8: DELETE responde 204 sem corpo.
+  // DELETE responde 204 sem corpo.
   return sendNoContent(event)
 })

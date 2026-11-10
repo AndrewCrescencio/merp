@@ -5,23 +5,23 @@ services:
       context: .
       target: production
       args:
-        - CORS_ORIGIN=${CORS_ORIGIN:?CORS_ORIGIN obrigatória no build (baked no Nitro, AUD-05)}
-    # AUD-26: SEM env_file — o `.env` inteiro (incl. DATABASE_URL owner,
-    # DB_PASSWORD) vazava para o container por esse caminho, anulando o
-    # AUD-19. Só o que está declarado abaixo entra no container; tudo que é
-    # obrigatório usa `${VAR:?}` (fail-closed no compose, mesmo padrão do
-    # validate-env no boot).
+        - CORS_ORIGIN=${CORS_ORIGIN:?CORS_ORIGIN obrigatória no build}
+    # SEM env_file — o `.env` inteiro (incl. DATABASE_URL owner,
+    # DB_PASSWORD) vazava para o container por esse caminho. Só o que está
+    # declarado abaixo entra no container; tudo que é obrigatório usa
+    # `${VAR:?}` (fail-closed no compose, mesmo padrão do validate-env no
+    # boot).
     environment:
-      # AUD-19: DATABASE_URL (credencial de owner) NÃO entra no container —
-      # o app usa apenas APP_DATABASE_URL (role merp_app) em produção.
+      # DATABASE_URL (credencial de owner) NÃO entra no container — o app
+      # usa apenas APP_DATABASE_URL (role merp_app) em produção.
       - APP_DATABASE_URL=${APP_DATABASE_URL?Variable not set - role de app (nao-dona) obrigatoria para RLS vigorar}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET?Variable not set}
-      # AUD-26: sem fallback silencioso — localhost:3000 passaria no
-      # validate-env (presença ≠ valor) e geraria links de verificação/reset
-      # quebrados + redirect de reset para localhost.
+      # sem fallback silencioso — localhost:3000 passaria no validate-env
+      # (presença ≠ valor) e geraria links de verificação/reset quebrados +
+      # redirect de reset para localhost.
       - BETTER_AUTH_URL=${BETTER_AUTH_URL?Variable not set}
-      # AUD-26: também em runtime (trustedOrigins do better-auth em
-      # shared/auth.ts) — não só baked no build (nuxt.config.ts routeRules).
+      # também em runtime (trustedOrigins do better-auth em shared/auth.ts) —
+      # não só baked no build (nuxt.config.ts routeRules).
       - CORS_ORIGIN=${CORS_ORIGIN?Variable not set}
       # CSRF — obrigatório em produção (fail-closed)
       - CSRF_SECRET=${CSRF_SECRET?Variable not set}
@@ -45,8 +45,8 @@ services:
       # 172.28.255.255; /32 = um único IP). Aceita várias por vírgula.
       # Aqui é a subnet da tenant-starter_network (pinada abaixo): quem está nela é o
       # container nginx, único par que pode falar com o app. Peer fora da
-      # lista => header ignorado => IP do socket vale. AUD-05: sem a lista o
-      # boot de produção é recusado.
+      # lista => header ignorado => IP do socket vale. sem a lista o boot de
+      # produção é recusado.
       - TRUST_PROXY=true
       - TRUSTED_PROXY_CIDRS=172.28.0.0/16
     depends_on:
@@ -99,7 +99,7 @@ services:
       context: .
       target: build
       args:
-        - CORS_ORIGIN=${CORS_ORIGIN:?CORS_ORIGIN obrigatória no build (baked no Nitro, AUD-05)}
+        - CORS_ORIGIN=${CORS_ORIGIN:?CORS_ORIGIN obrigatória no build}
     command: npm run db:migrate:full
     environment:
       # Role owner (dona) — só migrações usam; nunca vai no container do app.

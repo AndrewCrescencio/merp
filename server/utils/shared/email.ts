@@ -13,7 +13,7 @@ export function appVerificationLink(url: string): string {
 
 const RESEND_API_URL = 'https://api.resend.com/emails'
 
-// AUD-04: o better-auth iguala o tempo de resposta com MINIMUM_MS=500 no fluxo
+// o better-auth iguala o tempo de resposta com MINIMUM_MS=500 no fluxo
 // de verificação e re-lança erro do callback depois do padding — um envio acima
 // de 500ms (timing) ou uma exceção (status) viraria oráculo de enumeração de
 // contas. 450ms deixa ~40ms de folga para o token e o lookup antes do piso.
@@ -58,7 +58,7 @@ function layout(title: string, bodyHtml: string): string {
 /**
  * Envia um email transacional via Resend. Nunca lança: os callbacks que a
  * chamam são awaitados pelo better-auth dentro de fluxos anti-enumeração
- * (AUD-04), onde uma exceção exporia a existência da conta pelo status.
+ * onde uma exceção exporia a existência da conta pelo status.
  * Sem RESEND_API_KEY/RESEND_FROM o envio é pulado com warning (login afetado
  * só na verificação de email — conta não-verificada fica bloqueada em 403).
  */

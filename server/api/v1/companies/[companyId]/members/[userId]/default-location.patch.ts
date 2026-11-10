@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  // companyId e userId vêm do path (R1/R5); o body só traz a location.
+  // companyId e userId vêm do path; o body só traz a location.
   const { companyId, role } = requireTenant(event)
   const userId = getRouterParam(event, 'userId')
   const { defaultLocationId } = validateDefaultLocationInput(await readBody(event))

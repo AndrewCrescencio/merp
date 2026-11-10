@@ -11,7 +11,7 @@ vi.mock('../db', () => ({
   },
 }))
 
-// RLS-006: createAuthEvent corre dentro de withTenant — é ele que seta
+// createAuthEvent corre dentro de withTenant — é ele que seta
 // app.user_id para a policy INSERT de auth_event. O mock espelha o contrato
 // (3 IDs + callback), não o SQL.
 const mockWithTenant = vi.fn(
@@ -31,7 +31,7 @@ vi.mock('#shared/logger', () => ({
   logger: { warn: mockLoggerWarn },
 }))
 
-describe('createAuthEvent (FR-023)', () => {
+describe('createAuthEvent', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -61,7 +61,7 @@ describe('createAuthEvent (FR-023)', () => {
     expect(mockLoggerWarn).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: never throws on audit failure — warns and resolves', async () => {
+  it('never throws on audit failure — warns and resolves', async () => {
     mockInsert.mockRejectedValue(new Error('permission denied'))
 
     const { createAuthEvent } = await import('./audit')

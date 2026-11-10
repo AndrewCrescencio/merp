@@ -6,7 +6,7 @@ vi.mock('nitropack/runtime', () => ({
   defineNitroPlugin: (fn: any) => fn,
 }))
 
-describe('missingProductionEnv (AUD-05 + AUD-24)', () => {
+describe('missingProductionEnv', () => {
   it('returns empty outside production (BETTER_AUTH_SECRET ausente = ok)', () => {
     expect(missingProductionEnv({ NODE_ENV: 'development' })).toEqual([])
   })
@@ -32,7 +32,7 @@ describe('missingProductionEnv (AUD-05 + AUD-24)', () => {
     ])
   })
 
-  it('AUD-24: flags BETTER_AUTH_SECRET with fewer than 32 characters in production', () => {
+  it('flags BETTER_AUTH_SECRET with fewer than 32 characters in production', () => {
     expect(
       missingProductionEnv({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'short-secret' }),
     ).toContain('BETTER_AUTH_SECRET (mínimo 32 caracteres)')
@@ -44,7 +44,7 @@ describe('missingProductionEnv (AUD-05 + AUD-24)', () => {
     ).toContain('BETTER_AUTH_SECRET (mínimo 32 caracteres)')
   })
 
-  it('AUD-24: accepts BETTER_AUTH_SECRET with length >= 32 in production', () => {
+  it('accepts BETTER_AUTH_SECRET with length >= 32 in production', () => {
     expect(
       missingProductionEnv({ NODE_ENV: 'production', BETTER_AUTH_SECRET: 'a'.repeat(32) }),
     ).not.toContain('BETTER_AUTH_SECRET (mínimo 32 caracteres)')

@@ -38,8 +38,8 @@ vi.mock('~~/server/utils/shared/errors', async (importOriginal) => {
   }
 })
 
-// O middleware de tenant resolve { companyId, role } do path (R1/R5); DELETE
-// não carrega companyId no body nem no handler (R3).
+// O middleware de tenant resolve { companyId, role } do path; DELETE não
+// carrega companyId no body nem no handler.
 const ev = (role = 'owner') =>
   ({
     context: {
@@ -89,7 +89,7 @@ describe('DELETE /api/v1/companies/{companyId}', () => {
     const event = ev()
     const result = await handler(event)
 
-    // R8: DELETE responde 204 sem corpo (sendNoContent).
+    // DELETE responde 204 sem corpo (sendNoContent).
     expect(mockSendNoContent).toHaveBeenCalledWith(event)
     expect(result).toBeUndefined()
     expect(mockSoftDeleteCompany).toHaveBeenCalledWith('company-1', 'user-1')

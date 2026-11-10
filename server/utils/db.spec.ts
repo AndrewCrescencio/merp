@@ -12,7 +12,7 @@ async function loadWithRequiredSsl(nodeEnv: string) {
   return (await import('./db')).withRequiredSsl
 }
 
-describe('withRequiredSsl (AUD-05)', () => {
+describe('withRequiredSsl', () => {
   it('forces sslmode=require in production when the URL has no sslmode', async () => {
     const withRequiredSsl = await loadWithRequiredSsl('production')
     expect(withRequiredSsl('postgres://merp:merp@postgres:5432/merp')).toBe(

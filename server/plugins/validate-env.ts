@@ -1,12 +1,12 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
 import { parseTrustedProxyCidrs } from '~~/server/utils/shared'
 
-// AUD-05 + AUD-11 + AUD-24: fail-fast no boot (NODE_ENV=production). Sem
+// fail-fast no boot (NODE_ENV=production). Sem
 // essas envs o app operaria com fallback localhost silencioso em CORS/baseURL,
 // com TRUST_PROXY=true sem proxy confiável, com secret de assinatura fraca
 // (tokens de verificação/reset forjáveis), ou — pior — como a role OWNER do
 // banco (APP_DATABASE_URL ausente bypassaria RLS nas tabelas sem FORCE e
-// contradiz a postura fail-closed do AUD-05). Recusa subir em vez disso.
+// contradiz a postura fail-closed). Recusa subir em vez disso.
 export function missingProductionEnv(env: NodeJS.ProcessEnv): string[] {
   if (env.NODE_ENV !== 'production') return []
 

@@ -90,7 +90,7 @@ describe('POST /api/v1/companies', () => {
     await expect(handler(event)).rejects.toThrow('Authentication required.')
   })
 
-  it('AUD-14: checks IP rate limit before reading the body', async () => {
+  it('checks IP rate limit before reading the body', async () => {
     mockReadBody.mockResolvedValue({ name: 'Test Company' })
     mockCreateCompanyWithOwner.mockResolvedValue({ id: 'company-1', name: 'Test Company' })
 
@@ -126,7 +126,7 @@ describe('POST /api/v1/companies', () => {
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
   })
 
-  it('AUD-21: rejects company name over 200 chars', async () => {
+  it('rejects company name over 200 chars', async () => {
     mockReadBody.mockResolvedValue({ name: 'x'.repeat(201) })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
@@ -136,7 +136,7 @@ describe('POST /api/v1/companies', () => {
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
   })
 
-  it('AUD-21/23: rejects non-string cnpj instead of throwing TypeError', async () => {
+  it('rejects non-string cnpj instead of throwing TypeError', async () => {
     mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: 12345678901234 })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
@@ -146,7 +146,7 @@ describe('POST /api/v1/companies', () => {
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
   })
 
-  it('AUD-21: rejects cnpj over 30 chars', async () => {
+  it('rejects cnpj over 30 chars', async () => {
     mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '1'.repeat(31) })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
@@ -186,7 +186,7 @@ describe('POST /api/v1/companies', () => {
     )
     expect(result).toEqual({ id: 'company-1', name: 'Test Company' })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 201)
-    // R8: criação aponta o recurso criado no header Location.
+    // criação aponta o recurso criado no header Location.
     expect(mockSetHeader).toHaveBeenCalledWith(event, 'Location', '/api/v1/companies/company-1')
   })
 

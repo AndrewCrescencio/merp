@@ -23,9 +23,9 @@ import { getRequestIP, type H3Event } from 'h3'
 // TRUSTED_PROXY_CIDRS aceita VÁRIAS entradas separadas por vírgula (daí o
 // plural): TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
 //
-// AUD-05: sem a lista, ou com o peer fora dela, o header é ignorado e o
+// sem a lista, ou com o peer fora dela, o header é ignorado e o
 // endereço do socket prevalece — impossibilita IP spoofing de auditoria e de
-// rate limit por IP (AUD-02). Descobrir o CIDR certo: runbook de deploy.
+// rate limit por IP. Descobrir o CIDR certo: runbook de deploy.
 const TRUST_PROXY = process.env.TRUST_PROXY === 'true'
 
 /**
@@ -82,7 +82,7 @@ export function isTrustedPeer(peer: string | undefined): boolean {
 }
 
 export function getClientIp(event: H3Event): string | null | undefined {
-  // AUD-14: fail-closed — evento sem node (ex.: eventos de teste/web) não
+  // fail-closed — evento sem node (ex.: eventos de teste/web) não
   // pode derrubar handlers com TypeError de `event.node.req` (o getRequestIP
   // do h3 não usa optional chaining). Retorna undefined: rate limit por IP e
   // auditoria apenas ficam sem IP, nunca 500.

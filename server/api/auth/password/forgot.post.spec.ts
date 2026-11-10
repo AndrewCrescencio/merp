@@ -29,7 +29,7 @@ vi.mock('~~/server/utils/auth/identity/queries', () => ({
   requestPasswordResetBA: mockRequestPasswordReset,
 }))
 
-describe('POST /api/auth/password/forgot (AUD-04)', () => {
+describe('POST /api/auth/password/forgot', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
@@ -60,7 +60,7 @@ describe('POST /api/auth/password/forgot (AUD-04)', () => {
     expect(mockRequestPasswordReset).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized email before the rate-limit key', async () => {
+  it('rejects oversized email before the rate-limit key', async () => {
     mockReadBody.mockResolvedValue({ email: `${'a'.repeat(300)}@example.com` })
 
     const handler = await import('~~/server/api/auth/password/forgot.post').then((m) => m.default)
@@ -109,7 +109,7 @@ describe('POST /api/auth/password/forgot (AUD-04)', () => {
     expect(mockEnforceMinimumTime).not.toHaveBeenCalled()
   })
 
-  it('AUD-04: enforces a minimum response time before answering', async () => {
+  it('enforces a minimum response time before answering', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com' })
 
     const handler = await import('~~/server/api/auth/password/forgot.post').then((m) => m.default)

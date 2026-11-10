@@ -46,7 +46,7 @@ describe('GET /api/v1/companies', () => {
     expect(mockSearchCompanies).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized search queries', async () => {
+  it('rejects oversized search queries', async () => {
     mockGetQuery.mockReturnValue({ q: 'x'.repeat(200) })
 
     const handler = await import('~~/server/api/v1/companies/index.get').then((m) => m.default)

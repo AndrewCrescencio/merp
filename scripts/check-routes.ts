@@ -1,15 +1,15 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 
-// Guarda de convenção das rotas REST (R1/R2/R5) — falha o CI se uma rota nova
-// quebrar o padrão. Checa só a ÁRVORE de arquivos (forma), não o comportamento:
-// R3/R4/R8 (sem efeito colateral em GET, transição=POST verb, status codes) são
-// de runtime e vivem nos specs de handler.
+// Guarda de convenção das rotas REST — falha o CI se uma rota nova quebrar o
+// padrão. Checa só a ÁRVORE de arquivos (forma), não o comportamento: regras
+// de runtime (somente GET sem efeito colateral, verbos de transição, códigos
+// de status) vivem nos specs de handler.
 const API_ROOT = join(process.cwd(), 'server', 'api')
 
 // Segmento kebab-case: minúsculas + dígitos + hífen. Proíbe snake_case e camelCase.
 const KEBAB = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/
-// Param de rota nomeado: [recursoId] — R2 proíbe o genérico [id].
+// Param de rota nomeado: [recursoId] — proíbe o genérico [id].
 const PARAM = /^\[[a-z][a-zA-Z0-9]*Id\]$/
 const METHODS = ['get', 'post', 'patch', 'delete', 'head', 'options']
 // Nome de arquivo: <index|ação-kebab>.<método>.ts (ex.: index.get.ts, close.post.ts).
@@ -35,19 +35,20 @@ for (const file of walk(API_ROOT)) {
   if (!FILENAME.test(filename)) {
     violations.push({
       file: segments.concat(filename).join('/'),
-      rule: 'R2 arquivo',
+      rule: 'arquivo',
       detail: `nome inválido: ${filename} (esperado <index|ação>.<método>.ts)`,
     })
   }
 
-  // R1: prefixo /api/v1 obrigatório para rota nova; auth/ e health/ são as
-  // duas exceções (contrato próprio, §9). Sem este check o R5 abaixo é vazio —
-  // ele só roda dentro de v1/, então server/api/products/ passaria inteiro.
+  // prefixo /api/v1 obrigatório para rota nova; auth/ e health/ são as duas
+  // exceções (contrato próprio, §9). Sem este check a regra de tenant abaixo
+  // fica vazia — ela só roda dentro de v1/, então server/api/products/
+  // passaria inteiro.
   if (!['v1', 'auth', 'health'].includes(segments[0] ?? '')) {
     const relPath = segments.concat(filename).join('/')
     violations.push({
       file: relPath,
-      rule: 'R1 prefixo',
+      rule: 'prefixo',
       detail: `rota fora de /api/v1 (permitidos: v1, auth, health): ${relPath}`,
     })
   }
@@ -57,20 +58,20 @@ for (const file of walk(API_ROOT)) {
       if (!PARAM.test(seg)) {
         violations.push({
           file: relative(API_ROOT, file),
-          rule: 'R2 param',
+          rule: 'param',
           detail: `param genérico: ${seg} (use [recursoId], ex.: [orderId])`,
         })
       }
     } else if (!KEBAB.test(seg)) {
       violations.push({
         file: relative(API_ROOT, file),
-        rule: 'R1 kebab-case',
+        rule: 'kebab-case',
         detail: `segmento não-kebab: ${seg}`,
       })
     }
   }
 
-  // R2: a chave de getRouterParam(event,'X') precisa casar com o dir [X] da rota.
+  // a chave de getRouterParam(event,'X') precisa casar com o dir [X] da rota.
   // Renomear o dir sem atualizar a chave devolve undefined e falha só em runtime
   // (não quebra import nem typecheck) — guarda estática contra esse bug exato.
   const src = readFileSync(file, 'utf8')
@@ -78,29 +79,29 @@ for (const file of walk(API_ROOT)) {
     if (!segments.includes(`[${key}]`)) {
       violations.push({
         file: relative(API_ROOT, file),
-        rule: 'R2 param-key',
+        rule: 'param-key',
         detail: `getRouterParam('${key}') não corresponde a nenhum dir [${key}] da rota`,
       })
     }
   }
 
-  // R5: todo dir de param precisa ser LIDO pelo handler. [companyId] é resolvido
-  // pelo middleware tenant (requireTenant); os demais têm de passar por
-  // getRouterParam. Sem isso o param fica decorativo e o handler lê o id do
-  // body — viola R1/R5 e só quebra em runtime.
+  // toda pasta de parâmetro precisa ser lida pelo handler. [companyId] é
+  // resolvido pelo middleware tenant (requireTenant); os demais têm de passar
+  // por getRouterParam. Sem isso o parâmetro fica decorativo e o handler lê o
+  // id do body — só quebra em runtime.
   for (const seg of segments) {
     if (!seg.startsWith('[') || seg === '[companyId]') continue
     const key = seg.slice(1, -1)
     if (!new RegExp(`getRouterParam\\(\\s*event\\s*,\\s*['"]${key}['"]`).test(src)) {
       violations.push({
         file: relative(API_ROOT, file),
-        rule: 'R5 param lido',
+        rule: 'param lido',
         detail: `dir [${key}] existe mas o handler nunca chama getRouterParam(event, '${key}')`,
       })
     }
   }
 
-  // R5: tudo em /v1 precisa de escopo de tenant no path — companies/{companyId}/…
+  // tudo em /v1 precisa de escopo de tenant no path — companies/{companyId}/…
   // ou o escopo-próprio me/… . Exceção: a raiz da coleção companies (listar as
   // empresas do usuário / criar empresa) é pré-tenant por natureza. auth/ e
   // health/ ficam fora do v1 (CLAUDE.md).
@@ -113,7 +114,7 @@ for (const file of walk(API_ROOT)) {
     if (!scoped) {
       violations.push({
         file: relative(API_ROOT, file),
-        rule: 'R5 tenant',
+        rule: 'tenant',
         detail: `rota /v1 sem tenant: ${segments.join('/')}`,
       })
     }
@@ -126,4 +127,4 @@ if (violations.length > 0) {
   process.exit(1)
 }
 
-console.log(`check-routes: OK — ${walk(API_ROOT).length} rotas seguem R1/R2/R5.`)
+console.log(`check-routes: OK — ${walk(API_ROOT).length} rotas seguem as convenções de REST.`)

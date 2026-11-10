@@ -41,7 +41,7 @@ vi.mock('~~/server/utils/shared/errors', async (importOriginal) => {
 })
 
 // O middleware de tenant resolve { companyId, role } do path. Os specs simulam
-// aquele contexto aqui — o handler nunca lê companyId do body (R1/R5).
+// aquele contexto aqui — o handler nunca lê companyId do body.
 const ev = (role = 'owner') =>
   ({
     context: {
@@ -86,7 +86,7 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
     expect(mockUpdateCompany).not.toHaveBeenCalled()
   })
 
-  it('AUD-21: rejects company name over 200 chars', async () => {
+  it('rejects company name over 200 chars', async () => {
     mockReadBody.mockResolvedValue({ name: 'x'.repeat(201) })
 
     const handler = await loadHandler()

@@ -10,7 +10,7 @@ export interface CreateAuthEventInput {
   metadata?: Record<string, unknown> | null
 }
 
-// FR-023: a auditoria NUNCA falha nem bloqueia a requisição (raiz do padrão
+// a auditoria NUNCA falha nem bloqueia a requisição (raiz do padrão
 // fire-and-forget espalhado pelos handlers) — falha de insert vira warn, e
 // mutações já cometidas (register, logout, deactivate, invite, etc.) não
 // devolvem 503 espúrio com efeito persistido. Callers que usam `.catch()`
@@ -18,7 +18,7 @@ export interface CreateAuthEventInput {
 export async function createAuthEvent(input: CreateAuthEventInput): Promise<void> {
   try {
     // withTenant seta app.user_id para a policy INSERT de auth_event
-    // (user_id = get_user_id() OR user_id IS NULL) — RLS-006. userId nulo
+    // (user_id = get_user_id() OR user_id IS NULL). userId nulo
     // (login falhado) insere com app.user_id vazio → ramo user_id IS NULL.
     await withTenant(null, null, input.userId || null, (tx) =>
       tx.insert(authEvent).values({

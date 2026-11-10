@@ -94,7 +94,7 @@ describe('withTimeout', () => {
     vi.useRealTimers()
   })
 
-  it('resolves when the promise resolves before the deadline (FR-024)', async () => {
+  it('resolves when the promise resolves before the deadline', async () => {
     vi.useFakeTimers()
 
     await expect(withTimeout(Promise.resolve('ok'), 5_000)).resolves.toBe('ok')

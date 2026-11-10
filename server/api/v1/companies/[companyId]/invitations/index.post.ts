@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  // companyId vem do path (middleware tenant), nunca do body (R1/R5).
+  // companyId vem do path (middleware tenant), nunca do body.
   const { companyId, role } = requireTenant(event)
   const { email } = validateInviteInput(await readBody(event))
 

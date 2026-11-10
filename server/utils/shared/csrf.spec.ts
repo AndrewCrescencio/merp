@@ -8,7 +8,7 @@ vi.mock('h3', () => ({
 
 // getCsrfSecret() lê process.env na hora da chamada — o stub tem que valer no
 // momento do setCsrfCookie, não no import do módulo.
-describe('CSRF secret (AUD-24 — >= 32 em produção)', () => {
+describe('CSRF secret (>= 32 em produção)', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
   })

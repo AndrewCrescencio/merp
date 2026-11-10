@@ -143,7 +143,7 @@ export class CompanyRepository {
    * Finds a non-deleted company with its active locations.
    *
    * company: tenant NULL → company_select_policy usa o ramo membership
-   * (EXISTS) — outsider NÃO vê (AUD-20). locations: consulta SEPARADA com
+   * (EXISTS) — outsider NÃO vê. locations: consulta SEPARADA com
    * tenant = companyId na GUC, porque location_select_policy exige
    * company_id = get_tenant_id(); com tenant NULL sairia vazia.
    * A locations só é consultada após o gate de membership da company.

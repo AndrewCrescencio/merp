@@ -46,7 +46,7 @@ vi.mock('~~/server/utils/shared/errors', async (importOriginal) => {
   }
 })
 
-// companyId vem do path (middleware tenant, R1/R5); o alvo (userId) também vem
+// companyId vem do path (middleware tenant); o alvo (userId) também vem
 // do path via getRouterParam — nenhum id no body.
 const ev = (role = 'owner') =>
   ({
@@ -111,7 +111,7 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
       const event = ev('member')
       const result = await handler(event)
 
-      // R8: DELETE responde 204 sem corpo (sendNoContent).
+      // DELETE responde 204 sem corpo (sendNoContent).
       expect(mockSendNoContent).toHaveBeenCalledWith(event)
       expect(result).toBeUndefined()
       expect(mockRemoveCompanyMember).toHaveBeenCalledWith('company-1', 'user-1', 'user-1')
@@ -165,7 +165,7 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
       const event = ev('owner')
       const result = await handler(event)
 
-      // R8: DELETE responde 204 sem corpo (sendNoContent).
+      // DELETE responde 204 sem corpo (sendNoContent).
       expect(mockSendNoContent).toHaveBeenCalledWith(event)
       expect(result).toBeUndefined()
       expect(mockRemoveCompanyMember).toHaveBeenCalledWith('company-1', 'user-1', 'target-2')

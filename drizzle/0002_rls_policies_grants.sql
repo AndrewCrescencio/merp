@@ -3,8 +3,7 @@
 -- Estado FINAL de RLS/policies/grants consolidado das migrações antigas
 -- 0005–0027 (o histórico inteiro está no git: ver main). NÃO é o histórico
 -- reaplicado: é o resultado de 0024–0027 (que prevalecem sobre as antigas).
--- Fonte: /tmp/schema-atual.sql e /tmp/schema-privs.txt (pg_dump de um banco
--- construído com db:migrate:full).
+-- Fonte: pg_dump de um banco construído com db:migrate:full.
 --
 -- Ordem: funções (policies dependem delas) → ENABLE+FORCE por tabela →
 -- policies por tabela → GRANTs/DEFAULT PRIVILEGES por último (ALL TABLES
@@ -54,7 +53,7 @@ $$;
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.auth_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ONLY public.auth_event FORCE ROW LEVEL SECURITY;
--- auth_event_insert_policy (INSERT): append-only: grava quem tiver user_id próprio OU NULL — UMA condição, senão os eventos pós-logout sem sessão seriam bloqueados (RLS-006, corrigido na 0027).
+-- auth_event_insert_policy (INSERT): append-only: grava quem tiver user_id próprio OU NULL — UMA condição, senão os eventos pós-logout sem sessão seriam bloqueados.
 CREATE POLICY auth_event_insert_policy ON public.auth_event FOR INSERT WITH CHECK (((user_id = public.get_user_id()) OR (user_id IS NULL)));
 -- auth_event_select_policy (SELECT): o utilizador lê apenas os próprios eventos de segurança (0005).
 CREATE POLICY auth_event_select_policy ON public.auth_event FOR SELECT USING ((user_id = public.get_user_id()));
@@ -66,11 +65,11 @@ ALTER TABLE public.company ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ONLY public.company FORCE ROW LEVEL SECURITY;
 -- company_delete_policy (DELETE): apenas owner (backstop 0009, owner reavaliado na execução).
 CREATE POLICY company_delete_policy ON public.company FOR DELETE USING (((id = public.get_tenant_id()) AND public.is_company_owner(id)));
--- company_insert_policy (INSERT): exige contexto de utilizador (user_id não nulo) — senão qualquer sessão conseguiria criar companies via RLS (RLS-005, corrigido na 0026).
+-- company_insert_policy (INSERT): exige contexto de utilizador (user_id não nulo) — senão qualquer sessão conseguiria criar companies via RLS.
 CREATE POLICY company_insert_policy ON public.company FOR INSERT WITH CHECK ((public.get_user_id() IS NOT NULL));
 -- company_modify_policy (UPDATE): update condicionado a is_company_owner + TOCTOU fechado no backstop 0009: o owner é reavaliado na própria execução (owner atual, não o do tempo do SELECT).
 CREATE POLICY company_modify_policy ON public.company FOR UPDATE USING (((id = public.get_tenant_id()) AND public.is_company_owner(id)));
--- company_select_policy (SELECT): lê a própria company: exige MEMBRO no momento da consulta (membership é o gate, AUD-20).
+-- company_select_policy (SELECT): lê a própria company: exige MEMBRO no momento da consulta (membership é o gate).
 CREATE POLICY company_select_policy ON public.company FOR SELECT USING (((id = public.get_tenant_id()) OR (EXISTS ( SELECT 1
    FROM public.company_member cm
   WHERE ((cm.company_id = company.id) AND (cm.user_id = public.get_user_id()))))));
@@ -118,20 +117,20 @@ CREATE POLICY invite_update_policy ON public.invite FOR UPDATE USING (((company_
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.location ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ONLY public.location FORCE ROW LEVEL SECURITY;
--- location_delete_policy (DELETE): padrão da própria tabela: a linha da location é o escopo (id = get_location_id()), porque location.location_id não existe — mesma semântica de ADR-002.
+-- location_delete_policy (DELETE): padrão da própria tabela: a linha da location é o escopo (id = get_location_id()), porque location.location_id não existe — mesma semântica.
 CREATE POLICY location_delete_policy ON public.location FOR DELETE USING (((company_id = public.get_tenant_id()) AND ((id = public.get_location_id()) OR (public.get_location_id() IS NULL))));
--- location_insert_policy (INSERT): padrão da própria tabela: a linha da location é o escopo (id = get_location_id()), porque location.location_id não existe — mesma semântica de ADR-002.
+-- location_insert_policy (INSERT): padrão da própria tabela: a linha da location é o escopo (id = get_location_id()), porque location.location_id não existe — mesma semântica.
 CREATE POLICY location_insert_policy ON public.location FOR INSERT WITH CHECK (((company_id = public.get_tenant_id()) AND ((id = public.get_location_id()) OR (public.get_location_id() IS NULL))));
--- location_select_policy (SELECT): padrão da própria tabela: a linha da location é o escopo (id = get_location_id()), porque location.location_id não existe — mesma semântica de ADR-002.
+-- location_select_policy (SELECT): padrão da própria tabela: a linha da location é o escopo (id = get_location_id()), porque location.location_id não existe — mesma semântica.
 CREATE POLICY location_select_policy ON public.location FOR SELECT USING (((company_id = public.get_tenant_id()) AND ((id = public.get_location_id()) OR (public.get_location_id() IS NULL))));
--- location_update_policy (UPDATE): padrão da própria tabela: a linha da location é o escopo (id = get_location_id()), porque location.location_id não existe — mesma semântica de ADR-002.
+-- location_update_policy (UPDATE): padrão da própria tabela: a linha da location é o escopo (id = get_location_id()), porque location.location_id não existe — mesma semântica.
 CREATE POLICY location_update_policy ON public.location FOR UPDATE USING (((company_id = public.get_tenant_id()) AND ((id = public.get_location_id()) OR (public.get_location_id() IS NULL))));
 
 -- ===========================================================================
--- Grants da aplicação (merp_app) — estado final de 0017 + 0020
+-- Grants da aplicação (merp_app) — estado final
 -- ===========================================================================
 -- Toda sessão da app entra como merp_app (nunca como owner) — é o que torna
--- RLS efetivo em vez de teórico (AUD-19).
+-- RLS efetivo em vez de teórico.
 GRANT USAGE ON SCHEMA public TO merp_app;
 -- Mesmos bits do estado final (SELECT,INSERT,UPDATE,DELETE = arwd): ALL
 -- PRIVILEGES daria TRUNCATE/REFERENCES/TRIGGER a mais, que não existiam.

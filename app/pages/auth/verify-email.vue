@@ -7,7 +7,7 @@ const success = ref(false)
 async function verify() {
   loading.value = true
   try {
-    // R6: token só no body — o link do email abre esta página, que faz POST.
+    // token só no body — o link do email abre esta página, que faz POST.
     await $fetch('/api/auth/email/verification/confirm', {
       method: 'POST',
       body: { token: route.query.token },

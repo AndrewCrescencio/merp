@@ -33,7 +33,7 @@ export interface CreatedInviteResult extends InviteResult {
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
-// AUD-01: token de aceite com 256 bits de entropia; no banco só o hash
+// token de aceite com 256 bits de entropia; no banco só o hash
 // SHA-256 (dump da base não vaza tokens utilizáveis).
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -118,7 +118,7 @@ export class InviteRepository {
     }
   }
 
-  // AUD-01: aceite por token de uso único. O lookup e o claim rodam com o GUC
+  // aceite por token de uso único. O lookup e o claim rodam com o GUC
   // app.invite_token_hash setado na transação — o SELECT passa pela policy de
   // token e o INSERT de member pelo backstop cm_insert_policy (que valida o
   // hash + email da sessão no banco). Token reutilizado ou expirado → 404

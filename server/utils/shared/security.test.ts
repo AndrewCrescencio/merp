@@ -29,7 +29,7 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
       },
     }) as unknown as H3Event
 
-  it('allows 5 requests per email, then blocks the 6th with 429 (FR-010)', async () => {
+  it('allows 5 requests per email, then blocks the 6th with 429', async () => {
     const email = `rate-${Date.now()}@example.com`
     const event = mockEvent()
 
@@ -96,7 +96,7 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     }
   })
 
-  it('AUD-16: blocks the 61st request from the same user with key rate:user:<id>', async () => {
+  it('blocks the 61st request from the same user with key rate:user:<id>', async () => {
     const userId = `user-${Date.now()}`
     const event = mockEvent()
 
@@ -117,7 +117,7 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     expect(row.window.length).toBe(60)
   })
 
-  it('AUD-16: reopens the per-user window once 60s elapse (sliding window)', async () => {
+  it('reopens the per-user window once 60s elapse (sliding window)', async () => {
     const userId = `user-reset-${Date.now()}`
     const event = mockEvent()
 
@@ -157,11 +157,11 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
       message: expect.stringContaining('account_locked'),
     })
 
-    // AUD-02: o lockout por (email+IP) não bloqueia a vítima em outro IP.
+    // o lockout por (email+IP) não bloqueia a vítima em outro IP.
     await expect(helpers.checkAccountLockout(email, victimIp)).resolves.toBeUndefined()
   })
 
-  it('locks the account for all IPs after 50 failures from rotating IPs (global tier, AUD-02)', async () => {
+  it('locks the account for all IPs after 50 failures from rotating IPs (global tier)', async () => {
     const email = `lock-global-${Date.now()}@example.com`
 
     for (let i = 0; i < 50; i++) {

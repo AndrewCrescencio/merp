@@ -9,7 +9,7 @@ import {
   validateRegisterInput,
 } from '~~/server/utils/shared'
 
-// AUD-03: duplicata devolve um perfil forjado (201), então o corpo da resposta
+// duplicata devolve um perfil forjado (201), então o corpo da resposta
 // não vaza nada. Mas o caminho livre faz hash de senha, grava token e ENVIA o
 // email de verificação, enquanto o de duplicata só faz um lookup e retorna em
 // registerUser antes do signUpEmail — sem o piso o relógio denuncia qual dos
@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
   await enforceMinimumTime(start, MINIMUM_MS)
 
   setResponseStatus(event, 201)
-  // R8: o usuário criado é o recurso /api/v1/me do próprio requestante.
+  // o usuário criado é o recurso /api/v1/me do próprio requestante.
   setHeader(event, 'Location', '/api/v1/me')
   return {
     id: user?.id ?? generateUserId(),

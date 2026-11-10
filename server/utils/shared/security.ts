@@ -12,7 +12,7 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
-// AUD-14: tetos de tamanho de input — sem eles, emails gigantes viram chaves
+// tetos de tamanho de input — sem eles, emails gigantes viram chaves
 // `rate:`/`lockout:` no auth_security_state (PK text; índice btree quebra em
 // ~2704 bytes → 54000 → 503) e name/consent/password viram colunas de PII
 // gigantes ou custo de scrypt desproporcional. Valores do RFC 5321 (email) e
@@ -22,13 +22,13 @@ export const MAX_PASSWORD_LENGTH = 128
 export const MAX_NAME_LENGTH = 120
 export const MAX_CONSENT_VERSION_LENGTH = 50
 export const MAX_SEARCH_QUERY_LENGTH = 100
-// AUD-21: tetos de empresa — PII corporativa não vira coluna desproporcional
+// tetos de empresa — PII corporativa não vira coluna desproporcional
 // (CNPJ é identificador fixo de 14 dígitos; teto 30 cobre formatos com máscara).
 export const MAX_COMPANY_NAME_LENGTH = 200
 export const MAX_CNPJ_LENGTH = 30
 export const MAX_RAZAO_SOCIAL_LENGTH = 200
 
-// AUD-22: validação mínima de formato — o antigo email.includes('@') aceitava
+// validação mínima de formato — o antigo email.includes('@') aceitava
 // 'a@b' e 'a@' como válidos. Este regex não é RFC 5321 completo (de propósito);
 // é a linha de frente barata antes do costoso check do better-auth.
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -82,13 +82,13 @@ export function isWeakPassword(password: string): boolean {
 const RATE_WINDOW_MS = 60_000
 const MAX_REQUESTS_PER_EMAIL = 5
 const MAX_REQUESTS_PER_IP = 20
-// AUD-16: teto por usuário nas rotas autenticadas — o nginx limita por IP
+// teto por usuário nas rotas autenticadas — o nginx limita por IP
 // (camada grossa), mas é contornável com IPs rotativos; esta camada trava
 // o martelar de endpoints protegidos mesmo com N contas/IPs.
 export const MAX_REQUESTS_PER_USER = 60
-// AUD-02: lockout em duas camadas — por (email+IP) no limiar da FR-016 (10) e
+// lockout em duas camadas — por (email+IP) no limiar de 10 e
 // global por email em 50: brute-force distribuído (rotação de IPs) continua
-// travado, e o DoS custa 50 tentativas (≥10min a 5 req/min da FR-010) por lock.
+// travado, e o DoS custa 50 tentativas (≥10min a 5 req/min) por lock.
 const MAX_FAILED_ATTEMPTS = 10
 const MAX_GLOBAL_FAILED_ATTEMPTS = 50
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000
@@ -103,7 +103,7 @@ export interface RateLimitDecision {
   nextWindow: string[]
 }
 
-// FR-010: janela deslizante — contam apenas requests dentro de
+// janela deslizante — contam apenas requests dentro de
 // RATE_WINDOW_MS; sem o salto de janela do fixed-window (burst no fim +
 // início de janelas adjacentes).
 export function evaluateRateLimit(
@@ -205,7 +205,7 @@ async function checkRateLimitKey(event: H3Event, key: string, maxRequests: numbe
   })
 }
 
-// FR-010 + hardening: sliding window per IP (20/min). Roda ANTES do
+// sliding window per IP (20/min). Roda ANTES do
 // readBody nas rotas públicas: bloqueia corpos grandes sem parseá-los.
 /** Sliding-window rate limit per IP (20/min). No-op without a socket IP. Throws 429 with `Retry-After` headers. */
 export async function checkIpRateLimit(event: H3Event): Promise<void> {
@@ -222,14 +222,14 @@ export async function checkIpRateLimit(event: H3Event): Promise<void> {
   }
 }
 
-// FR-010: sliding window per email (5/min), so brute force rotating emails
+// sliding window per email (5/min), so brute force rotating emails
 // from one IP is also throttled (em conjunto com checkIpRateLimit).
-/** Sliding-window rate limit per email (5/min). Throws 429. Call after size caps (AUD-14). */
+/** Sliding-window rate limit per email (5/min). Throws 429. Call after size caps. */
 export async function checkEmailRateLimit(event: H3Event, email: string): Promise<void> {
   await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
 }
 
-// AUD-03/04: piso de tempo de resposta. Um endpoint que responde igual para
+// piso de tempo de resposta. Um endpoint que responde igual para
 // "existe" e "não existe", mas faz trabalho diferente no meio (hash de senha,
 // insert, chamada de API externa), vaza a existência da conta pelo relógio — o
 // corpo da resposta não, o tempo sim. O melhor auth já aplica isso internamente
@@ -240,14 +240,14 @@ export async function enforceMinimumTime(start: number, minimumMs: number): Prom
   if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
 }
 
-// AUD-16: sliding window per user (60/min) nas rotas autenticadas — cobre o
+// sliding window per user (60/min) nas rotas autenticadas — cobre o
 // que o rate limit por IP do nginx/app não vê (IPs rotativos, NAT).
 /** Sliding-window rate limit per authenticated user (60/min). Throws 429. */
 export async function checkUserRateLimit(event: H3Event, userId: string): Promise<void> {
   await checkRateLimitKey(event, `rate:user:${userId}`, MAX_REQUESTS_PER_USER)
 }
 
-// AUD-02: chave por (email + IP) — 10 falhas de um IP não bloqueiam a vítima
+// chave por (email + IP) — 10 falhas de um IP não bloqueiam a vítima
 // (IP diferente) — e chave global por email com limiar maior (50) para
 // brute-force distribuído com rotação de IPs.
 function pairLockoutKey(email: string, ip?: string | null): string | null {

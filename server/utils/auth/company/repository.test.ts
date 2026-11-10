@@ -93,7 +93,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       })
     })
 
-    it('AUD-20: an outsider cannot read a company by id (0 rows → null)', async () => {
+    it('an outsider cannot read a company by id (0 rows → null)', async () => {
       const emailA = `iso-find-a-${Date.now()}@example.com`
       const emailB = `iso-find-b-${Date.now()}@example.com`
 
@@ -108,7 +108,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       })
     })
 
-    it('AUD-10: search is scoped to the user membership', async () => {
+    it('search is scoped to the user membership', async () => {
       const member = await registerUser(`scope-member-${Date.now()}@example.com`, 'Scope Member')
       const outsider = await registerUser(`scope-outsider-${Date.now()}@example.com`, 'Scope Out')
 
@@ -151,7 +151,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       expect(results.some((c: { name: string }) => c.name === name)).toBe(false)
     })
 
-    it('RLS-005: low-level createCompany without user context is denied (fail-closed)', async () => {
+    it('low-level createCompany without user context is denied (fail-closed)', async () => {
       // company_insert_policy exige get_user_id() IS NOT NULL; createCompany usa
       // withTenant(..., null, null) → app.user_id vazio → 42501 (sem GUC de utilizador).
       let code: string | undefined
@@ -210,7 +210,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       ).rejects.toSatisfy((error: unknown) => getPostgresErrorCode(error) === '42501')
     })
 
-    it('AUD-11: createCompanyMember cannot bootstrap an owner (app guard)', async () => {
+    it('createCompanyMember cannot bootstrap an owner (app guard)', async () => {
       const user = await registerUser(`aud11-guard-${Date.now()}@example.com`, 'Aud11 Guard')
       const company = await repo.createCompanyWithOwner({ name: 'Aud11 Guard Company' }, user.id)
 
@@ -220,7 +220,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       expect(await membershipRepo.getCompanyMembershipRole(user.id, company.id)).toBe('owner')
     })
 
-    it('AUD-11: DB backstop — member bootstrap flag never grants role=owner', async () => {
+    it('DB backstop — member bootstrap flag never grants role=owner', async () => {
       const owner = await registerUser(`aud11-owner-${Date.now()}@example.com`, 'Aud11 Owner')
       const attacker = await registerUser(`aud11-db-${Date.now()}@example.com`, 'Aud11 Db')
       const company = await repo.createCompanyWithOwner({ name: 'Aud11 Db Company' }, owner.id)

@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Authentication required.')
   }
 
-  // companyId e userId vêm do path (R1); nenhum id no body.
+  // companyId e userId vêm do path; nenhum id no body.
   const { companyId, role } = requireTenant(event)
   const userId = getRouterParam(event, 'userId')
 
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
     await membershipRepository.removeCompanyMember(companyId, user.id, user.id)
     await emitRemoval(user.id)
 
-    // R8: DELETE responde 204 sem corpo.
+    // DELETE responde 204 sem corpo.
     return sendNoContent(event)
   }
 
@@ -69,6 +69,6 @@ export default defineEventHandler(async (event) => {
   await membershipRepository.removeCompanyMember(companyId, user.id, userId)
   await emitRemoval(userId)
 
-  // R8: DELETE responde 204 sem corpo.
+  // DELETE responde 204 sem corpo.
   return sendNoContent(event)
 })

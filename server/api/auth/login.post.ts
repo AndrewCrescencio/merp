@@ -49,13 +49,13 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event)
 
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
-  // AUD-23: typeof password entra na validação — senha numérica passava por
+  // typeof password entra na validação — senha numérica passava por
   // !body?.password e derrubava no `.length`/scrypt com TypeError → 500.
   if (!email || typeof body?.password !== 'string' || !body.password) {
     sendValidationError('Email and password are required')
   }
 
-  // AUD-14: tetos de tamanho ANTES do checkEmailRateLimit — email gigante não
+  // tetos de tamanho ANTES do checkEmailRateLimit — email gigante não
   // pode virar chave `rate:`/`lockout:` (PK text; índice btree quebra → 503)
   // nem pagar scrypt em senha de megabytes. Resposta 401 genérico idêntica a
   // credenciais inválidas: nenhuma conta legítima passa dos tetos (register
@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
     sendUnauthorizedError('Invalid email or password')
   }
 
-  // AUD-02: IP resolvido uma vez no início — o lockout é chaveado por
+  // IP resolvido uma vez no início — o lockout é chaveado por
   // (email + IP) para que 10 falhas de um IP não bloqueiem a vítima.
   let ip: string | null = null
   try {
@@ -83,7 +83,7 @@ export default defineEventHandler(async (event) => {
     // A conta está bloqueada, mas o cliente recebe o mesmo 401 genérico de
     // credenciais inválidas (anti-enumeração). O motivo fica na auditoria.
     if (getLoginErrorReason(error) === 'invalid_credentials') {
-      // AUD-11: getClientIp fora do try/catch mascararia o erro de lockout com
+      // getClientIp fora do try/catch mascararia o erro de lockout com
       // um 500 espúrio (sem socket, ex.: eventos de teste) — auditoria sem IP.
       let auditIp: string | null = null
       try {
@@ -117,7 +117,7 @@ export default defineEventHandler(async (event) => {
 
     const user = result.response.user
 
-    // AUD-14: reset de lockout não pode derrubar um login de sucesso — se a
+    // reset de lockout não pode derrubar um login de sucesso — se a
     // limpeza falhar (DB hiccup), a sessão já foi criada pelo better-auth;
     // virar 503 aqui devolveria erro com sessão órfã + auditoria failed_login
     // reason 'unknown' enganosa. Loga e entrega o login; contadores stale
@@ -135,7 +135,7 @@ export default defineEventHandler(async (event) => {
       appendResponseHeaders(event, { 'set-cookie': result.setCookie })
     }
 
-    // AUD-13: fire-and-forget (padrão FR-023) — o Set-Cookie de sessão já foi
+    // fire-and-forget — o Set-Cookie de sessão já foi
     // anexado; se a auditoria falhasse com await, o cliente receberia 503 com
     // sessão válida criada (estado inconsistente + sessões órfãs em retries).
     background(
@@ -173,7 +173,7 @@ export default defineEventHandler(async (event) => {
 
     if (reason === 'account_deactivated') {
       // Fire-and-forget: não aguardamos o envio para preservar o timing
-      // equalizado do AUD-07 (um await no Resend adicionaria ~100-500ms ao
+      // equalizado (um await no Resend adicionaria ~100-500ms ao
       // caminho desativado, reintroduzindo o oráculo de timing). Premissa: o
       // processo Node persiste vivo o suficiente para concluir o fetch
       // pendente após a resposta ser enviada — NÃO é seguro em presets
@@ -183,7 +183,7 @@ export default defineEventHandler(async (event) => {
     }
 
     if (reason === 'email_not_verified') {
-      // AUD-04: 403 explícito — exceção deliberada ao 401 genérico. Só é
+      // 403 explícito — exceção deliberada ao 401 genérico. Só é
       // alcançado com a senha CORRETA (o better-auth verifica o scrypt antes
       // do check de email_verified), então não vaza existência de conta para
       // quem não tem as credenciais. O link de verificação é enviado no

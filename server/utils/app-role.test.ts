@@ -6,7 +6,7 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 // A role da aplicação nasce DENTRO da migração (drizzle/0000_functions_and_roles)
 // — não de um passo manual que pode faltar. Os atributos têm de ficar RLS-safe
-// (ADR-010/AUD-19): LOGIN para as sessões da app, nunca BYPASSRLS (senão a app
+// LOGIN para as sessões da app, nunca BYPASSRLS (senão a app
 // leria toda a base de dados ignorando as policies) e nunca SUPERUSER.
 // A senha não é verificada aqui de propósito: a migração não pode fixar senha
 // (segredo de operação) e o setup de testes define-a por fora com ALTER ROLE.

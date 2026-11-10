@@ -69,7 +69,7 @@ export function useAuthFetch() {
       api('/api/v1/companies', { method: 'POST', body: { name, cnpj, razaoSocial } }),
     getCompanies: (q?: string) =>
       api('/api/v1/companies', { method: 'GET', query: q ? { q } : undefined }),
-    // R1: companyId vive no path, nunca no body.
+    // companyId vive no path, nunca no body.
     updateCompany: (
       companyId: string,
       data: { name?: string; cnpj?: string; razaoSocial?: string },

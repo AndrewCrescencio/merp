@@ -36,7 +36,7 @@ export const companyMember = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: text('role').notNull().default('member'),
-    // ADR-002 §Consequências — fonte do location no escopo do membro. NULL é um
+    // fonte do location no escopo do membro. NULL é um
     // estado legítimo: significa "sem location definido" e o chamador cai no
     // escopo company, que a RLS já permite via `OR get_location_id() IS NULL`.
     defaultLocationId: text('default_location_id').references(() => location.id, {

@@ -36,7 +36,7 @@ export function parseDbDriver(value: string | undefined): DbDriver {
   return driver
 }
 
-// AUD-05: em produção sslmode=require, respeitando sslmode já fixo na URL.
+// em produção sslmode=require, respeitando sslmode já fixo na URL.
 // Dev local (postgres docker sem TLS) fica inalterado.
 // (postgres-js mapeia sslmode p/ a opção ssl.)
 const SslUpgrade = new Set(['disable', 'no', 'allow', 'prefer'])

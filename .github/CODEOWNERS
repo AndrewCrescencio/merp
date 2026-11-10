@@ -7,7 +7,7 @@
 # Padrão: tudo pertence ao dono
 * @AndrewCrescencio
 
-# Dados e schema — o que não se mexe sem ADR (CLAUDE.md, §Arquivos Protegidos)
+# Dados e schema — o que não se mexe
 /drizzle/ @AndrewCrescencio
 /server/utils/schema/ @AndrewCrescencio
 /server/middleware/ @AndrewCrescencio
@@ -20,4 +20,3 @@
 
 # Governança — instruções que orientam agentes
 /CLAUDE.md @AndrewCrescencio
-/AGENTS.md @AndrewCrescencio

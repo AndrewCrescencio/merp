@@ -16,7 +16,7 @@ export const invite = pgTable(
     invitedBy: text('invited_by')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    // AUD-01: hash SHA-256 do token secreto de aceite (nunca o valor em claro).
+    // hash SHA-256 do token secreto de aceite (nunca o valor em claro).
     // O token é devolvido UMA única vez no POST /invite. Nulo = convite legado
     // (pré-token), invalidado pela migration; aceite exige token válido.
     tokenHash: text('token_hash'),

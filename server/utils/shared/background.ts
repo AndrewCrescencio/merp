@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import { logger } from '#shared/logger'
 
 /**
- * Fire-and-forget a promise without delaying the response (FR-023 pattern).
+ * Fire-and-forget a promise without delaying the response.
  * Uses `event.waitUntil` when the runtime provides it (workers/edge — keeps
  * the isolate alive until the promise settles); otherwise falls back to a
  * detached `void` promise (safe on long-lived Node processes only).

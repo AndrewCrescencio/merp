@@ -7,7 +7,7 @@ import {
   validateForgetPasswordInput,
 } from '~~/server/utils/shared'
 
-// AUD-04: piso de tempo. O corpo da resposta é idêntico para email existente e
+// piso de tempo. O corpo da resposta é idêntico para email existente e
 // inexistente, mas o caminho com envio chama a API do Resend (limitado a 450ms
 // em sendResendEmail) e grava o token no banco — sem o piso, o relógio denuncia
 // a existência da conta (IP 20/min cai com IPs distribuídos; o limite por email

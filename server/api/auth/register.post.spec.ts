@@ -111,7 +111,7 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized email', async () => {
+  it('rejects oversized email', async () => {
     mockReadBody.mockResolvedValue({
       email: `${'a'.repeat(300)}@example.com`,
       password: 'Str0ngP@ssw0rd!2026',
@@ -125,7 +125,7 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized password', async () => {
+  it('rejects oversized password', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'x'.repeat(1000),
@@ -141,7 +141,7 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized name', async () => {
+  it('rejects oversized name', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'Str0ngP@ssw0rd!2026',
@@ -155,7 +155,7 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized consentTermsVersion', async () => {
+  it('rejects oversized consentTermsVersion', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'Str0ngP@ssw0rd!2026',
@@ -193,7 +193,7 @@ describe('POST /api/auth/register', () => {
     expect(mockRegister).not.toHaveBeenCalled()
   })
 
-  it('AUD-13: rejects registration without consentTermsVersion', async () => {
+  it('rejects registration without consentTermsVersion', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'Str0ngP@ssw0rd!2026',
@@ -313,12 +313,12 @@ describe('POST /api/auth/register', () => {
       createdAt,
     })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(expect.anything(), 201)
-    // R8: o usuário criado é apontado pelo header Location (/api/v1/me).
+    // o usuário criado é apontado pelo header Location (/api/v1/me).
     expect(mockSetHeader).toHaveBeenCalledWith(expect.anything(), 'Location', '/api/v1/me')
     expect(mockCreateAuthEvent).toHaveBeenCalled()
   })
 
-  it('AUD-03: returns identical 201 response when email already registered', async () => {
+  it('returns identical 201 response when email already registered', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'Str0ngP@ssw0rd!2026',
@@ -337,12 +337,12 @@ describe('POST /api/auth/register', () => {
       createdAt: expect.any(Date),
     })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(expect.anything(), 201)
-    // R8: o usuário criado é apontado pelo header Location (/api/v1/me).
+    // o usuário criado é apontado pelo header Location (/api/v1/me).
     expect(mockSetHeader).toHaveBeenCalledWith(expect.anything(), 'Location', '/api/v1/me')
     expect(mockCreateAuthEvent).not.toHaveBeenCalled()
   })
 
-  it('AUD-03: enforces a minimum response time so the clock cannot leak the duplicate', async () => {
+  it('enforces a minimum response time so the clock cannot leak the duplicate', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'Str0ngP@ssw0rd!2026',

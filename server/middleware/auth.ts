@@ -17,9 +17,9 @@ const publicRoutes = [
   '/api/auth/login',
   '/api/auth/email/verification/confirm',
   '/api/auth/password/reset',
-  // AUD-04: inicia o fluxo de recuperação — sempre deslogado por definição.
+  // inicia o fluxo de recuperação — sempre deslogado por definição.
   '/api/auth/password/forgot',
-  // FR-029: reenvio do link de verificação — conta não-verificada não tem
+  // reenvio do link de verificação — conta não-verificada não tem
   // sessão (login devolve 403); exigir sessão criaria deadlock no onboarding.
   '/api/auth/email/verification',
   // Health: liveness (sempre 200) e readiness (503 se o banco cair) — públicos
@@ -44,7 +44,7 @@ const publicRoutes = [
   '/auth/reset-password',
 ]
 
-// FR-023: eventos de ciclo de vida da sessão. O registro do evento é
+// eventos de ciclo de vida da sessão. O registro do evento é
 // fire-and-forget — falha na auditoria não pode bloquear nem falhar a
 // requisição (nem adicionar latência a cada request validado).
 function emitSessionEvent(
@@ -78,7 +78,7 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // FR-025: se a instância do Better Auth não puder ser resolvida (falha de
+  // se a instância do Better Auth não puder ser resolvida (falha de
   // inicialização), responda 503 auth_unavailable em vez de 401 espúrio.
   let authInstance: AuthInstance
   try {
@@ -113,7 +113,7 @@ export default defineEventHandler(async (event) => {
         timestamp: new Date().toISOString(),
       })
 
-      // FR-023: session_expired. O cookie de sessão expirado não permite
+      // session_expired. O cookie de sessão expirado não permite
       // resolver userId/sessionId (o getSession já retornou null) — email
       // 'unknown' documenta a limitação da coluna NOT NULL.
       emitSessionEvent(event, {
@@ -129,7 +129,7 @@ export default defineEventHandler(async (event) => {
     sendAuthError(401, 'unauthorized', 'Authentication required.')
   }
 
-  // AUD-16: teto por usuário (60/min) nas rotas autenticadas — ANTES do
+  // teto por usuário (60/min) nas rotas autenticadas — ANTES do
   // emitSessionEvent: requests 429 não geram session_validated (menos lixo
   // em auth_event) e não avançam o contexto.
   await checkUserRateLimit(event, session.user.id)

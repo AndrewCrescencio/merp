@@ -150,7 +150,7 @@ export async function setup(): Promise<void> {
   run('npm run db:migrate:full', { DATABASE_URL: TEST_OWNER_URL })
 
   console.log('[test-setup] A definir senha de teste da role merp_app...')
-  // AUD-19: a migração 0000 cria a role merp_app SEM senha (credencial é
+  // a migração 0000 cria a role merp_app SEM senha (credencial é
   // segredo de operação e não pode estar em migração); este passo define a
   // SENHA de teste. A role já existe — a migração acabou de correr.
   await admin(`ALTER ROLE merp_app WITH PASSWORD 'merp_app'`)

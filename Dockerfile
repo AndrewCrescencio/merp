@@ -34,7 +34,7 @@ COPY --from=build --chown=appuser:appgroup /app/.output /app/.output
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# AUD-11 (hardening): nunca root — uid/gid fixos (1001, appuser) e .output de
+# (hardening): nunca root — uid/gid fixos (1001, appuser) e .output de
 # propriedade do próprio usuário; o conteúdo é só lido, nada é escrito em /app.
 # UID/GID numéricos: o kernel não depende de /etc/passwd na hora de validar.
 USER 1001:1001

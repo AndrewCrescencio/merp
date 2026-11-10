@@ -34,7 +34,7 @@ export function createAuth(database: Db = db) {
     emailAndPassword: {
       enabled: true,
       autoSignIn: false,
-      // AUD-04: login exige email verificado (OWASP Authentication Cheat
+      // login exige email verificado (OWASP Authentication Cheat
       // Sheet). O link de verificação é enviado no sign-up (sendOnSignUp) e
       // reenviado automaticamente a cada tentativa de login com senha
       // CORRETA de conta não-verificada (sendOnSignIn — o envio só ocorre
@@ -45,14 +45,14 @@ export function createAuth(database: Db = db) {
       resetPasswordTokenExpiresIn: 3600,
       // OWASP: trocar a senha invalida todas as sessões existentes.
       revokeSessionsOnPasswordReset: true,
-      // AUD-04: envio real via Resend. O callback é awaitado pelo better-auth
+      // envio real via Resend. O callback é awaitado pelo better-auth
       // (runInBackgroundOrAwait) e nunca lança — ver sendResendEmail.
       sendResetPassword: async ({ user, url }) => {
         await sendPasswordResetNotice(user.email, url)
       },
     },
     emailVerification: {
-      // AUD-04: awaitado pelo better-auth após MINIMUM_MS=500; nunca lança.
+      // awaitado pelo better-auth após MINIMUM_MS=500; nunca lança.
       sendVerificationEmail: async ({ user, url }) => {
         await sendVerificationNotice(user.email, url)
       },
@@ -60,7 +60,7 @@ export function createAuth(database: Db = db) {
       sendOnSignIn: true,
       expiresIn: 3600,
     },
-    // FR-009: TTL fixo — rememberMe=7d (expiresIn), sem rememberMe=24h
+    // TTL fixo — rememberMe=7d (expiresIn), sem rememberMe=24h
     // (better-auth usa 24h quando dontRememberMe). disableSessionRefresh
     // evita que o refresh promova sessões de 24h para 7d no primeiro request.
     session: {

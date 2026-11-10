@@ -4,7 +4,7 @@ import { companyMember } from '../schema'
 import { sendValidationError } from './errors'
 
 /**
- * Fonte do `location_id` no escopo do membro — ADR-002 §Consequências
+ * Fonte do `location_id` no escopo do membro.
  * (`company_member.default_location_id`).
  *
  * A localização é resolvida sempre a partir do membro autenticado, nunca de um
@@ -13,7 +13,7 @@ import { sendValidationError } from './errors'
  *
  * `null` é resultado válido e significa "sem location no escopo": o chamador
  * opera em escopo company, que a RLS já permite pelo escape
- * `OR get_location_id() IS NULL` de ADR-002 — o tenant continua exigido, não é
+ * `OR get_location_id() IS NULL` — o tenant continua exigido, não é
  * fail-open. Para writes use {@link requireLocationId}, porque `location_id` é
  * NOT NULL + FK e não há como gravar sem um location real.
  */

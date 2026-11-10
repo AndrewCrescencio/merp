@@ -21,7 +21,7 @@ vi.mock('#shared/logger', () => ({
   logger: { error: mockLoggerError },
 }))
 
-describe('error-handler (FR-026)', () => {
+describe('error-handler', () => {
   // NitroErrorHandler recebe um 3º argumento (config com defaultHandler) que o
   // handler real ignora; stub falha se algum dia passar a usá-lo.
   const nitroErrorHandlerConfig = {
@@ -54,7 +54,7 @@ describe('error-handler (FR-026)', () => {
     expect(mockLoggerError).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: always sets JSON content-type on error responses', async () => {
+  it('always sets JSON content-type on error responses', async () => {
     const error = {
       statusCode: 403,
       message: JSON.stringify({ error: 'forbidden', message: 'nope' }),

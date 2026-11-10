@@ -45,7 +45,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     })
     expect(created).toMatchObject({ companyId: createdCompany.id, email: inviteeEmail })
     expect(created.token).toBeTruthy()
-    // AUD-01: hash nunca sai do repositório — o que segue para a API é só o token
+    // hash nunca sai do repositório — o que segue para a API é só o token
     expect(created).not.toHaveProperty('tokenHash')
     expect(created.expiresAt.getTime()).toBeGreaterThan(Date.now())
 
@@ -104,7 +104,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
         .where(eq(invite.id, created.id))
     })
 
-    // AUD-01: token expirado também não aceita
+    // token expirado também não aceita
     await expect(repo.acceptInvite(created.token, created.email, owner.id)).rejects.toMatchObject({
       statusCode: 404,
     })
@@ -176,7 +176,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
   })
 
   it('RLS backstop: direct member self-insert without token or bootstrap flag is denied', async () => {
-    // AUD-01: mesmo que o check de app fosse removido, a policy cm_insert_policy
+    // mesmo que o check de app fosse removido, a policy cm_insert_policy
     // nega o self-insert sem token_hash válido (não setamos o flag de bootstrap).
     const ownerEmail = `rlsowner-${Date.now()}@example.com`
     const attackerEmail = `rlsattacker-${Date.now()}@example.com`
@@ -201,7 +201,7 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
   })
 
   it('RLS backstop: member (non-owner) cannot UPDATE invites in the company', async () => {
-    // AUD-01 residual: a policy antiga (invite_update_policy sem check de role)
+    // residual: a policy antiga (invite_update_policy sem check de role)
     // deixava qualquer member alterar invites pendentes. Agora o UPDATE exige
     // owner OU o claim por token — member sem token é negado no banco.
     const ownerEmail = `updowner-${Date.now()}@example.com`

@@ -71,7 +71,7 @@ describe('evaluateRateLimit', () => {
     expect(result.nextWindow).toEqual([...entry.window, now.toISOString()])
   })
 
-  it('blocks the 6th request within 60s with retryAfter (FR-010)', () => {
+  it('blocks the 6th request within 60s with retryAfter', () => {
     const entry = { window: [t(-50), t(-40), t(-30), t(-20), t(-10)] }
 
     const result = evaluateRateLimit(entry, now)
@@ -112,7 +112,7 @@ describe('evaluateRateLimit', () => {
     expect(blocked.allowed).toBe(false)
   })
 
-  it('AUD-16: applies the per-user cap (MAX_REQUESTS_PER_USER = 60)', () => {
+  it('applies the per-user cap (MAX_REQUESTS_PER_USER = 60)', () => {
     // 59 hits na janela: abaixo do teto de 60.
     const hits = Array.from({ length: 59 }, (_, i) => t(-59 + i))
 
@@ -125,7 +125,7 @@ describe('evaluateRateLimit', () => {
     expect(blocked.retryAfter).toBe(1)
   })
 
-  it('AUD-16: drops hits older than 60s before counting the per-user window', () => {
+  it('drops hits older than 60s before counting the per-user window', () => {
     // 60 hits, mas o mais antigo (-61s) já saiu da janela — só 59 contam.
     const hits = [t(-61), ...Array.from({ length: 59 }, (_, i) => t(-59 + i))]
 
@@ -170,7 +170,7 @@ describe('evaluateLockout', () => {
     expect(result.nextLockedUntil).toBeNull()
   })
 
-  it('locks at the 50th failure when maxAttempts is raised (global tier, AUD-02)', () => {
+  it('locks at the 50th failure when maxAttempts is raised (global tier)', () => {
     const result = evaluateLockout(49, null, now, 50)
 
     expect(result.locked).toBe(false)
@@ -179,7 +179,7 @@ describe('evaluateLockout', () => {
   })
 })
 
-describe('enforceMinimumTime (AUD-03/04 anti-enumeration)', () => {
+describe('enforceMinimumTime (anti-enumeration)', () => {
   it('delays until the floor is reached', async () => {
     const start = Date.now()
 

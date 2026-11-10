@@ -11,7 +11,7 @@ import { sendNotFoundError } from '~~/server/utils/shared'
  * PATH por regex (middleware global não tem `getRouterParam`), valida
  * membership naquela empresa e grava `event.context.tenant = { companyId, role }`.
  *
- * R8: membro sem papel → 403; não-membro OU empresa inexistente → 404 (não
+ * membro sem papel → 403; não-membro OU empresa inexistente → 404 (não
  * vaza existência entre tenants). A "empresa ativa" não participa da
  * resolução de tenant — ele vive só no path.
  */
@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
 
   if (!role) {
     // Não-membro ou empresa inexistente: mesmo 404 para não enumerar tenants.
-    // Contrato { error, message } via helper — createError cru viraria 500 no error-handler (FR-026).
+    // Contrato { error, message } via helper — createError cru viraria 500 no error-handler.
     sendNotFoundError('Company not found')
   }
 

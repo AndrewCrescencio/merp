@@ -14,7 +14,7 @@ export interface RegisterInput {
   email: string
   password: string
   name: string
-  // Obrigatório: validateRegisterInput recusa registro sem aceite (FR-021), e
+  // Obrigatório: validateRegisterInput recusa registro sem aceite, e
   // o campo não pode ficar opcional sob risco de um chamador pular o validador.
   consentTermsVersion: string
 }
@@ -187,7 +187,7 @@ export function validateResetPasswordInput(rawBody: unknown): ResetPasswordInput
     sendValidationError('Password is too common. Choose a stronger password.')
   }
 
-  // R6: token só no body — nunca em path/query da API.
+  // token só no body — nunca em path/query da API.
   const token = typeof body?.token === 'string' && body.token ? body.token : ''
   if (!token) {
     sendValidationError('Invalid or expired reset link')
@@ -196,7 +196,7 @@ export function validateResetPasswordInput(rawBody: unknown): ResetPasswordInput
   return { token, newPassword: body.newPassword }
 }
 
-// R6: token só no body — a página Nuxt lê o token da URL e faz POST com ele no body.
+// token só no body — a página Nuxt lê o token da URL e faz POST com ele no body.
 export function validateVerifyEmailInput(rawBody: unknown): VerifyEmailInput {
   const body = rawBody as Record<string, unknown>
   const token = body?.token

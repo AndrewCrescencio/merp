@@ -17,7 +17,7 @@ describe('No-store middleware', () => {
     vi.clearAllMocks()
   })
 
-  it('AUD-17: sets no-store on /api/ paths', async () => {
+  it('sets no-store on /api/ paths', async () => {
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/v1/me'))
 
     const handler = await import('~~/server/middleware/00-no-store').then((m) => m.default)
@@ -28,7 +28,7 @@ describe('No-store middleware', () => {
     expect(event.resHeaders['cache-control']).toBe(NO_STORE)
   })
 
-  it('AUD-17: does not set no-store on non-/api/ paths', async () => {
+  it('does not set no-store on non-/api/ paths', async () => {
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/'))
 
     const handler = await import('~~/server/middleware/00-no-store').then((m) => m.default)
@@ -39,7 +39,7 @@ describe('No-store middleware', () => {
     expect(event.resHeaders['cache-control']).toBeUndefined()
   })
 
-  it('AUD-17: headers stay on the event when the handler throws', async () => {
+  it('headers stay on the event when the handler throws', async () => {
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/v1/me'))
 
     const handler = await import('~~/server/middleware/00-no-store').then((m) => m.default)

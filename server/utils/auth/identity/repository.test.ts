@@ -20,7 +20,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     queries = await import('~~/server/utils/auth/identity/queries')
   })
 
-  it('registers a new user (AUD-04 sendOnSignUp)', async () => {
+  it('registers a new user (sendOnSignUp)', async () => {
     const result = await queries.registerUser({
       email: testEmail,
       password: testPassword,
@@ -37,7 +37,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     expect(result!.createdAt).toBeInstanceOf(Date)
   })
 
-  it('AUD-03: duplicate email registration resolves without 409 and without creating a second account', async () => {
+  it('duplicate email registration resolves without 409 and without creating a second account', async () => {
     const email = `dup-${Date.now()}@example.com`
     const first = await queries.registerUser({
       email,
@@ -98,7 +98,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     )
   })
 
-  it('AUD-07: sign-in attempt on a deactivated account creates no session', async () => {
+  it('sign-in attempt on a deactivated account creates no session', async () => {
     const email = `aud07-${Date.now()}@example.com`
     const userRecord = await queries.registerUser({
       email,
@@ -135,7 +135,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     })
   })
 
-  describe('consent withdrawal (FR-021)', () => {
+  describe('consent withdrawal', () => {
     it('deactivates the user, stamps consentWithdrawnAt and ends all sessions', async () => {
       const email = `consent-${Date.now()}@example.com`
       const userRecord = await queries.registerUser({
@@ -165,7 +165,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
       expect(found?.isActive).toBe(false)
       expect(found?.consentWithdrawnAt).toBeInstanceOf(Date)
 
-      // FR-021: término de sessão — nem por usuário, nem pelo token criado.
+      // término de sessão — nem por usuário, nem pelo token criado.
       expect(
         await db.select().from(session).where(eq(session.userId, userRecord!.id)),
       ).toHaveLength(0)
@@ -215,7 +215,7 @@ describe.skipIf(!dbAvailable)('Identity queries (integration)', () => {
     })
   })
 
-  describe('FR-020: LGPD export event listing', () => {
+  describe('LGPD export event listing', () => {
     it("lists only the user's own events (excludes other users and user-less rows)", async () => {
       const stamp = Date.now()
       const emailA = `export-a-${stamp}@example.com`

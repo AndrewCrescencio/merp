@@ -27,7 +27,7 @@ describe('POST /api/v1/me/deactivate', () => {
     mockSendUnauthorizedError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })
-    // FR-017: o soft delete precisa acontecer de fato — antes só se revogava
+    // o soft delete precisa acontecer de fato — antes só se revogava
     // sessão e a conta continuava logável.
     mockDeactivateUser.mockResolvedValue({ id: 'user-1', isActive: false })
   })

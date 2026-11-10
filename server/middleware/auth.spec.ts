@@ -127,7 +127,7 @@ describe('auth middleware', () => {
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 
-  it('FR-029: skips auth for send-verification-email (unverified account has no session)', async () => {
+  it('skips auth for send-verification-email (unverified account has no session)', async () => {
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/email/verification'))
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
@@ -149,7 +149,7 @@ describe('auth middleware', () => {
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 
-  it('AUD-09: skips auth for verify-email route (email link, no session)', async () => {
+  it('skips auth for verify-email route (email link, no session)', async () => {
     mockGetRequestURL.mockReturnValue(
       new URL('http://localhost:3000/api/auth/email/verification/confirm'),
     )
@@ -164,7 +164,7 @@ describe('auth middleware', () => {
     expect(mockGetSession).not.toHaveBeenCalled()
   })
 
-  it('AUD-09: skips auth for reset-password route (email link POST, no session)', async () => {
+  it('skips auth for reset-password route (email link POST, no session)', async () => {
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
 
     mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/password/reset'))
@@ -228,7 +228,7 @@ describe('auth middleware', () => {
     })
   })
 
-  it('AUD-16: checks user rate limit on valid session (limit not reached)', async () => {
+  it('checks user rate limit on valid session (limit not reached)', async () => {
     const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
     const session = { id: 'session-1', userId: 'user-1', activeCompanyId: 'company-1' }
     mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
@@ -245,7 +245,7 @@ describe('auth middleware', () => {
     expect(mockCreateAuthEvent).toHaveBeenCalled()
   })
 
-  it('AUD-16: blocks with 429 when user rate limit exceeded, no session_validated event', async () => {
+  it('blocks with 429 when user rate limit exceeded, no session_validated event', async () => {
     const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
     const session = { id: 'session-1', userId: 'user-1' }
     mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })

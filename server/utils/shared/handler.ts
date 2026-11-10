@@ -8,7 +8,7 @@ import type { AuthContextUser } from './auth-context'
  * 2 tokens por request e dobraria o teto documentado (60/min → 30/min).
  *
  * Não resolve tenant: handler que precise de companyId no path usa
- * `requireTenant(event)` (R5), do `~~/server/utils/shared/auth-context`.
+ * `requireTenant(event)`, do `~~/server/utils/shared/auth-context`.
  */
 export function defineAuthHandler<T extends AuthContextUser = AuthContextUser>(
   handler: (event: H3Event, user: T) => Promise<unknown>,

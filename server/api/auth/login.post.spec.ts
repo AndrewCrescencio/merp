@@ -86,7 +86,7 @@ describe('POST /api/auth/login', () => {
     expect(mockSignIn).not.toHaveBeenCalled()
   })
 
-  it('AUD-23: rejects non-string password with 400 instead of TypeError → 500', async () => {
+  it('rejects non-string password with 400 instead of TypeError → 500', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 12345678 })
 
     const handler = await import('~~/server/api/auth/login.post').then((m) => m.default)
@@ -95,7 +95,7 @@ describe('POST /api/auth/login', () => {
     expect(mockSignIn).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized email with generic 401 before any rate-limit key', async () => {
+  it('rejects oversized email with generic 401 before any rate-limit key', async () => {
     mockReadBody.mockResolvedValue({
       email: `${'a'.repeat(300)}@example.com`,
       password: 'password123',
@@ -109,7 +109,7 @@ describe('POST /api/auth/login', () => {
     expect(mockSignIn).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized password with generic 401', async () => {
+  it('rejects oversized password with generic 401', async () => {
     mockReadBody.mockResolvedValue({
       email: 'user@example.com',
       password: 'x'.repeat(1000),
@@ -122,7 +122,7 @@ describe('POST /api/auth/login', () => {
     expect(mockSignIn).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: resetFailedAttempts failure does not fail a successful login', async () => {
+  it('resetFailedAttempts failure does not fail a successful login', async () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com', password: 'password123' })
     mockSignIn.mockResolvedValue({
       response: {
@@ -474,7 +474,7 @@ describe('POST /api/auth/login', () => {
     expect(mockRecordFailedAttempt).not.toHaveBeenCalled()
   })
 
-  it('AUD-04: returns explicit 403 email_not_verified and records it as the reason', async () => {
+  it('returns explicit 403 email_not_verified and records it as the reason', async () => {
     mockReadBody.mockResolvedValue({ email: 'unverified@example.com', password: 'password123' })
     const notVerifiedError = createAuthError(403, 'email_not_verified', 'Email not verified')
     mockSignIn.mockRejectedValue(notVerifiedError)
@@ -496,7 +496,7 @@ describe('POST /api/auth/login', () => {
     )
   })
 
-  it('AUD-04: does not record a failed attempt or send a notice for email_not_verified', async () => {
+  it('does not record a failed attempt or send a notice for email_not_verified', async () => {
     mockReadBody.mockResolvedValue({ email: 'unverified@example.com', password: 'password123' })
     const notVerifiedError = createAuthError(403, 'email_not_verified', 'Email not verified')
     mockSignIn.mockRejectedValue(notVerifiedError)

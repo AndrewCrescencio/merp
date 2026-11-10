@@ -21,6 +21,6 @@ export default defineEventHandler(async (event) => {
 
   await locationRepository.softDeleteLocation(companyId, user.id, locationId!)
 
-  // R8: DELETE responde 204 sem corpo.
+  // DELETE responde 204 sem corpo.
   return sendNoContent(event)
 })

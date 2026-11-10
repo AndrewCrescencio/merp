@@ -25,7 +25,7 @@ vi.mock('~~/server/utils/auth/identity/queries', () => ({
   resetPasswordBA: mockResetPassword,
 }))
 
-describe('POST /api/auth/password/reset (AUD-04)', () => {
+describe('POST /api/auth/password/reset', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
@@ -54,7 +54,7 @@ describe('POST /api/auth/password/reset (AUD-04)', () => {
     expect(mockResetPassword).not.toHaveBeenCalled()
   })
 
-  it('AUD-14: rejects oversized passwords before delegating', async () => {
+  it('rejects oversized passwords before delegating', async () => {
     mockReadBody.mockResolvedValue({ token: 'reset-token', newPassword: 'x'.repeat(1000) })
 
     const handler = await import('~~/server/api/auth/password/reset.post').then((m) => m.default)

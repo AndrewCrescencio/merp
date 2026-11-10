@@ -62,7 +62,7 @@ export interface SignInInput {
   rememberMe?: boolean
 }
 
-// AUD-07: lookup único por email (unique index) usado pelo gate de conta
+// lookup único por email (unique index) usado pelo gate de conta
 // desativada no signInUser.
 export async function findUserByEmail(email: string) {
   const [row] = await db.select().from(user).where(eq(user.email, email)).limit(1)
@@ -74,12 +74,12 @@ async function findSessionByToken(token: string) {
   return row
 }
 
-// FR-020 (LGPD): exportação lista só os eventos do próprio usuário.
+// exportação lista só os eventos do próprio usuário.
 export async function listUserAuthEvents(
   userId: string,
 ): Promise<(typeof authEvent.$inferSelect)[]> {
   // withTenant seta app.user_id para a policy SELECT de auth_event (user_id =
-  // get_user_id()) — RLS-006; sem GUC a policy devolveria 0 linhas.
+  // get_user_id()) — sem GUC a policy devolveria 0 linhas.
   return await withTenant(null, null, userId, (tx) =>
     tx.select().from(authEvent).where(eq(authEvent.userId, userId)).orderBy(authEvent.createdAt),
   )
@@ -114,7 +114,7 @@ async function runTimingPad(email: string, headers?: Headers): Promise<void> {
     { timeout: 5_000 },
   )
     .then(async (result: { response?: { token?: string }; headers?: Headers }) => {
-      logger.warn('AUD-07: timing pad resolved unexpectedly, revoking session', { email })
+      logger.warn('timing pad resolved unexpectedly, revoking session', { email })
       const leakedToken = result?.response?.token
       if (leakedToken) {
         // Remove a linha direto (índice unique em token) — o mesmo efeito do
@@ -139,7 +139,7 @@ export async function handleDeactivatedAccount(email: string, headers?: Headers)
 
 export async function registerUser(input: RegisterInput): Promise<UserResult | null> {
   try {
-    // AUD-03: duplicata responde null (sem 409, sem segunda conta) — melhor
+    // duplicata responde null (sem 409, sem segunda conta) — melhor
     // auth ecoa um perfil que não é persistido, o que devolveria um id falso.
     if (await findUserByEmail(input.email)) return null
 
@@ -155,7 +155,7 @@ export async function registerUser(input: RegisterInput): Promise<UserResult | n
       { timeout: 5_000 },
     )
 
-    // FR-021: carimbo de aceite via SQL direto — consentTermsAcceptedAt não é
+    // carimbo de aceite via SQL direto — consentTermsAcceptedAt não é
     // additionalField do melhor auth e updateUser exige sessão (401 aqui).
     await db
       .update(user)
@@ -188,7 +188,7 @@ export async function registerUser(input: RegisterInput): Promise<UserResult | n
 }
 
 export async function signInUser(input: SignInInput, headers?: Headers): Promise<SignInResult> {
-  // AUD-07: conta desativada ou com consentimento retirado não pode logar.
+  // conta desativada ou com consentimento retirado não pode logar.
   // Fora do try de propósito: o catch abaixo re-mapeia todo 401 para
   // invalid_credentials, o que apagaria account_deactivated E faria a
   // tentativa contar para o lockout (que isenta account_deactivated).
@@ -215,7 +215,7 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
 
     const { user, token } = result.response
 
-    // FR-023: signInEmail não devolve a sessão — session_id/tenant_id vêm da
+    // signInEmail não devolve a sessão — session_id/tenant_id vêm da
     // linha de sessão (índice unique por token): um lookup, não um round-trip.
     // createAuthEvent engole falha internamente, então o void não vira
     // unhandled rejection.
@@ -232,7 +232,7 @@ export async function signInUser(input: SignInInput, headers?: Headers): Promise
     })
 
     return {
-      // `existing` veio do gate AUD-07 acima: o melhor auth não devolve
+      // `existing` veio do gate acima: o melhor auth não devolve
       // isActive (não é additionalField), mas o UserResult exige.
       response: {
         user: { ...user, isActive: existing?.isActive ?? true },
@@ -332,10 +332,10 @@ export async function resetPasswordBA(token: string, newPassword: string): Promi
   }
 }
 
-// FR-017: soft delete — o usuário fica inativo (dados preservados) e perde as
+// soft delete — o usuário fica inativo (dados preservados) e perde as
 // sessões. SQL direto: user/session não têm RLS (tabelas do melhor auth) e
 // updateUser/revokeSessions exigem sessão ativa, que estes fluxos não têm.
-// FR-021: a retirada de consentimento reusa este caminho — desativação
+// a retirada de consentimento reusa este caminho — desativação
 // imediata + término de sessão. A deleção/anonimização de PII é deferida; o
 // registro é o evento consent_withdrawal emitido pelo handler.
 async function deactivateWith(

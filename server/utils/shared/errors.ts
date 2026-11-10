@@ -26,7 +26,7 @@ export function sendUnauthorizedError(message: string): never {
   sendAuthError(401, 'unauthorized', message)
 }
 
-// FR-025: falha de inicialização do Better Auth → 503 auth_unavailable.
+// falha de inicialização do Better Auth → 503 auth_unavailable.
 export function sendAuthUnavailableError(): never {
   sendAuthError(503, 'auth_unavailable', 'Authentication service is starting. Please try again.')
 }
