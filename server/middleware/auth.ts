@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
+import { SESSION_COOKIE_NAME } from '#shared/app'
 import {
   background,
   checkUserRateLimit,
@@ -103,7 +104,7 @@ export default defineEventHandler(async (event) => {
   const session = sessionResult.response
 
   if (!session) {
-    const sessionToken = getCookie(event, 'merp-session_token')
+    const sessionToken = getCookie(event, SESSION_COOKIE_NAME)
 
     if (sessionToken) {
       logger.warn('session_expired', {

@@ -3,6 +3,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { db, type Db } from '~~/server/utils/db'
 import * as schema from '~~/server/utils/schema'
 import { logger } from './logger'
+import { APP_NAME, COOKIE_PREFIX, SESSION_COOKIE_NAME } from '#shared/app'
 import { sendPasswordResetNotice, sendVerificationNotice } from '~~/server/utils/shared/email'
 
 const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000'
@@ -67,10 +68,10 @@ export function createAuth(database: Db = db) {
       disableSessionRefresh: true,
     },
     advanced: {
-      cookiePrefix: 'merp',
+      cookiePrefix: COOKIE_PREFIX,
       cookies: {
         session_token: {
-          name: 'merp-session_token',
+          name: SESSION_COOKIE_NAME,
           attributes: {
             sameSite: 'lax',
             secure: process.env.NODE_ENV === 'production',
@@ -81,7 +82,7 @@ export function createAuth(database: Db = db) {
     },
     baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
     trustedOrigins: [corsOrigin],
-    appName: 'merp',
+    appName: APP_NAME,
     plugins: [],
   })
 }

@@ -1,3 +1,5 @@
+import { APP_NAME } from '#shared/app'
+
 const HIBP_API_URL = 'https://api.pwnedpasswords.com/range/'
 
 export async function checkPasswordBreach(password: string): Promise<{
@@ -34,7 +36,7 @@ export async function checkPasswordBreach(password: string): Promise<{
     const response = await fetch(`${HIBP_API_URL}${prefix}`, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'merp-auth-check',
+        'User-Agent': `${APP_NAME}-auth-check`,
         'Add-Padding': 'true',
       },
     })

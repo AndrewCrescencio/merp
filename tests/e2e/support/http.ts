@@ -52,7 +52,7 @@ export async function mintEmailVerificationToken(email: string): Promise<string>
 /**
  * Um "browser" headless: cada instância tem seu jar de cookies (sessão +
  * CSRF). Requisições mutantes carregam automaticamente o header
- * `x-csrf-token` com a parte crua do cookie `tenant-starter-csrf_token` — o mesmo
+ * `x-csrf-token` com a parte crua do cookie `merp-csrf_token` — o mesmo
  * contrato do frontend. Não há fabricação de sessão: todo usuário passa pelo
  * fluxo real (register → confirm → login).
  */
@@ -89,7 +89,7 @@ export class E2eClient {
         continue
       }
       this.cookies.set(name, value)
-      if (name === 'tenant-starter-csrf_token') this.csrfToken = value.split('.')[0]
+      if (name === 'merp-csrf_token') this.csrfToken = value.split('.')[0]
     }
   }
 

@@ -1,4 +1,5 @@
 import { logger } from '#shared/logger'
+import { APP_NAME } from '#shared/app'
 
 export function appVerificationLink(url: string): string {
   try {
@@ -114,7 +115,7 @@ async function sendResendEmail(input: {
 export async function sendVerificationNotice(email: string, url: string): Promise<void> {
   await sendResendEmail({
     to: email,
-    subject: 'Confirme seu email — Merp',
+    subject: `Confirme seu email — ${APP_NAME}`,
     html: layout(
       'Confirme seu email',
       paragraph(
@@ -130,7 +131,7 @@ export async function sendVerificationNotice(email: string, url: string): Promis
 export async function sendPasswordResetNotice(email: string, url: string): Promise<void> {
   await sendResendEmail({
     to: email,
-    subject: 'Redefinir sua senha — Merp',
+    subject: `Redefinir sua senha — ${APP_NAME}`,
     html: layout(
       'Redefinir sua senha',
       paragraph(
@@ -143,7 +144,7 @@ export async function sendPasswordResetNotice(email: string, url: string): Promi
 export async function sendDeactivationNotice(email: string): Promise<void> {
   await sendResendEmail({
     to: email,
-    subject: 'Sua conta foi desativada — Merp',
+    subject: `Sua conta foi desativada — ${APP_NAME}`,
     html: layout(
       'Sua conta foi desativada',
       paragraph(

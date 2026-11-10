@@ -1,4 +1,5 @@
-const CSRF_COOKIE_NAME = 'tenant-starter-csrf_token'
+import { CSRF_COOKIE_NAME } from '#shared/app'
+
 const CSRF_HEADER_NAME = 'x-csrf-token'
 
 function getCsrfTokenFromCookie(): string | null {

@@ -78,3 +78,23 @@ middleware ou infraestrutura sem necessidade.
 
 - [`docs/PROJETO.md`](docs/PROJETO.md): escopo e decisões da base.
 - [`docs/decisions.md`](docs/decisions.md): decisões técnicas estáveis.
+
+## Renomeando o projeto
+
+Este starter usa a identidade "merp" em pontos fixos da infraestrutura. Para
+derivar um novo produto, mude os valores em [`shared/app.ts`](shared/app.ts)
+(`APP_NAME`, `COOKIE_PREFIX`, `SESSION_COOKIE_NAME`, `CSRF_COOKIE_NAME`) e
+verifique os lugares que os consomem:
+
+- `shared/auth.ts`: `cookiePrefix`, nome do cookie de sessão e `appName`
+  do better-auth (cookies `merp-session_token`, etc.).
+- `server/middleware/auth.ts`: leitura do cookie de sessão expirado.
+- `server/utils/shared/csrf.ts` e `app/composables/useApiFetch.ts`: nome do
+  cookie CSRF (`merp-csrf_token`).
+- `server/utils/shared/email.ts`: assunto dos e-mails transacionais.
+- `server/utils/shared/hibp.ts`: `User-Agent` da consulta ao Have I Been Pwned.
+
+O que NÃO muda ao renomear: o nome do pacote npm, os papéis
+(`owner`, `member`) e os nomes de banco de dados/roles (`merp`, `merp_app`,
+`merp_test`) — estes estão fixos em migrations, docker-compose, CI e testes,
+e exigiriam um plano de migração separado.

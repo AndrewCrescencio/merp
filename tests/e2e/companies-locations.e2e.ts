@@ -147,7 +147,7 @@ describe.skipIf(!dbAvailable)(
       const me = await client.get<{ id: string; email: string }>('/api/v1/me')
       expect(me.status).toBe(200)
       expect(me.body.id).toBe(String(registered.body.id))
-      expect(client.cookies.has('tenant-starter-csrf_token')).toBe(true)
+      expect(client.cookies.has('merp-csrf_token')).toBe(true)
     })
 
     it('login antes de verificar email → 403 email_not_verified', async () => {
