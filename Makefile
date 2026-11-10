@@ -11,8 +11,8 @@ help: ## Lista os alvos disponíveis
 
 init: ## Do zero ao banco migrado: .env, dependências, PostgreSQL e policies de RLS
 	@test -f .env || { \
-		cp .env.example.dev .env; \
-		echo "✓ .env criado a partir de .env.example.dev (localhost para Nuxt no host)"; \
+		cp .env.example .env; \
+		echo "✓ .env criado a partir de .env.example (localhost para Nuxt no host)"; \
 		echo "  edite CORS_ORIGIN/BETTER_AUTH_URL antes de qualquer coisa em produção"; \
 	}
 	$(MAKE) setup
