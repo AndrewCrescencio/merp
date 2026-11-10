@@ -143,6 +143,4 @@ export default defineEventHandler(async (event) => {
 
   event.context.user = session.user
   event.context.session = session.session
-  event.context.userId = session.user.id
-  event.context.auth = { user: session.user, session: session.session }
 })

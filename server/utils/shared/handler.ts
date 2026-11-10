@@ -1,4 +1,5 @@
-import { defineEventHandler, type H3Event, createError } from 'h3'
+import { defineEventHandler, type H3Event } from 'h3'
+import { sendUnauthorizedError } from './errors'
 import type { AuthContextUser } from './auth-context'
 
 /**
@@ -10,25 +11,12 @@ import type { AuthContextUser } from './auth-context'
  * Não resolve tenant: handler que precise de companyId no path usa
  * `requireTenant(event)`, do `~~/server/utils/shared/auth-context`.
  */
-export function defineAuthHandler<T extends AuthContextUser = AuthContextUser>(
-  handler: (event: H3Event, user: T) => Promise<unknown>,
+export function defineAuthHandler<R>(
+  handler: (event: H3Event, user: AuthContextUser) => Promise<R> | R,
 ) {
   return defineEventHandler(async (event) => {
-    const user = event.context.user as T | undefined
-    const session = event.context.session as { id: string } | undefined
-
-    if (!user || !session) {
-      throw createError({
-        status: 401,
-        statusText: '401',
-        message: JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
-      })
-    }
-
-    event.context.user = user
-    event.context.session = session
-    event.context.userId = user.id
-
+    const { user, session } = event.context
+    if (!user || !session) sendUnauthorizedError('Authentication required.')
     return handler(event, user)
   })
 }
