@@ -22,3 +22,23 @@
 - Cada mudança de schema acompanha migration e testes.
 - O schema da fundação é pequeno; features não devem ser incluídas antes de
   existir um caso de uso real.
+
+## Migrations
+
+- **Squash de migrations:** as migrations 0003 e 0004 (tabelas de domínio
+  retiradas do schema TS) foram descartadas; o journal vigente cobre
+  0000–0002 (funções e roles, schema base, policies e grants de RLS).
+  Novas migrations somam a partir de 0002. Não reaplique arquivos deletados
+  em bancos já migrados — crie uma nova migration em vez de reescrever o
+  histórico.
+
+## Convenções de testes
+
+- **Vitest com três projetos:** `unit` (`*.spec.ts`, 100% mockado, sem
+  banco, paralelo), `integration` (`*.test.ts`, PostgreSQL real, sequencial,
+  o `globalSetup` roda `db:migrate:full` — o mesmo comando da produção/CI)
+  e `e2e` (`tests/e2e/**/*.e2e.ts`, Nitro real sobre HTTP).
+- Comandos: `npm test` (todos), `npm run test:unit`,
+  `npm run test:integration`, `npm run test:e2e`.
+- Todo endpoint de domínio precisa de testes de comportamento, autorização
+  e isolamento entre tenants.

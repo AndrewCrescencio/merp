@@ -18,6 +18,18 @@ adicione funcionalidades de um domínio específico aqui.
 - Migrations são imutáveis depois de compartilhadas.
 - Mudanças em auth, tenant, RLS ou segurança exigem testes de regressão.
 
+## Convenção de nomes de teste (vitest.config.ts)
+
+| Sufixo | Projeto | Onde roda | Requisito |
+|--------|---------|-----------|-----------|
+| `*.spec.ts` | `unit` | `vitest run --project unit` | 100% mockado, sem banco, paralelo, sem `globalSetup` |
+| `*.test.ts` | `integration` | `vitest run --project integration` | PostgreSQL real (`DB_AVAILABLE=true`), sequencial, `globalSetup` aplica `db:migrate:full` |
+| `*.e2e.ts` | `e2e` | `vitest run --project e2e` | servidor Nitro real sobre HTTP (`tests/e2e/`) |
+
+Componentes/páginas Vue usam `vitest.app.config.ts` (projeto separado, não entra em `npm test`).
+
+Não mescle `*.spec.ts` com `*.test.ts` de um mesmo módulo: se o teste toca banco, é `.test.ts`; se é puro/mockado, é `.spec.ts`. Renomeie apenas o que destoar e verifique que os testes continuam rodando.
+
 ## Antes de concluir
 
 ```bash

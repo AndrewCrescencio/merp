@@ -24,6 +24,11 @@ npm run dev
 
 Aplicação: <http://localhost:3000>
 
+## Requisitos
+
+- Node >= 24 (`engines` no package.json)
+- Docker Compose
+
 ## Comandos
 
 ```bash
