@@ -20,11 +20,11 @@ adicione funcionalidades de um domínio específico aqui.
 
 ## Convenção de nomes de teste (vitest.config.ts)
 
-| Sufixo | Projeto | Onde roda | Requisito |
-|--------|---------|-----------|-----------|
-| `*.spec.ts` | `unit` | `vitest run --project unit` | 100% mockado, sem banco, paralelo, sem `globalSetup` |
+| Sufixo      | Projeto       | Onde roda                          | Requisito                                                                                 |
+| ----------- | ------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `*.spec.ts` | `unit`        | `vitest run --project unit`        | 100% mockado, sem banco, paralelo, sem `globalSetup`                                      |
 | `*.test.ts` | `integration` | `vitest run --project integration` | PostgreSQL real (`DB_AVAILABLE=true`), sequencial, `globalSetup` aplica `db:migrate:full` |
-| `*.e2e.ts` | `e2e` | `vitest run --project e2e` | servidor Nitro real sobre HTTP (`tests/e2e/`) |
+| `*.e2e.ts`  | `e2e`         | `vitest run --project e2e`         | servidor Nitro real sobre HTTP (`tests/e2e/`)                                             |
 
 Componentes/páginas Vue usam `vitest.app.config.ts` (projeto separado, não entra em `npm test`).
 
@@ -39,3 +39,6 @@ npm run typecheck
 npm run check:routes
 npm test
 ```
+
+A suíte completa (unit, integracao e e2e) roda no CI; localmente o minimo e
+`npm run test:unit` (integracao precisa de PostgreSQL).

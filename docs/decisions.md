@@ -51,3 +51,14 @@
   `npm run test:integration`, `npm run test:e2e`.
 - Todo endpoint de domínio precisa de testes de comportamento, autorização
   e isolamento entre tenants.
+- A suíte completa (unit, integracao e e2e) roda no CI (`.github/workflows/ci.yml`).
+
+## Repositorios
+
+- O acesso a dados e feito por classes concretas singleton
+  (`companyRepository`, `membershipRepository`, `locationRepository`, etc.),
+  instanciadas uma vez e importadas diretamente pelos handlers.
+- Nao existem interfaces `IXxxRepository` nem outras abstracoes sobre os
+  repositorios.
+- Os testes de unidade mockam o modulo do repositorio; os testes de
+  integracao usam a instancia real contra o banco de dados.

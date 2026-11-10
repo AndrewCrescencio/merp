@@ -1,7 +1,8 @@
-echo "🧪 Running tests..."
-npm test
+echo "🧪 Running unit tests..."
+npm run test:unit
 if [ $? -ne 0 ]; then
   echo "❌ Tests failed. Fix all failing tests before pushing."
   exit 1
 fi
 echo "✅ Tests passed."
+echo "💡 A suíte completa (unit, integracao e e2e) roda no CI."
