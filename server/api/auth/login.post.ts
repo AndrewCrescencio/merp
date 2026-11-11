@@ -121,7 +121,7 @@ export default defineEventHandler(async (event) => {
     // limpeza falhar (DB hiccup), a sessão já foi criada pelo better-auth;
     // virar 503 aqui devolveria erro com sessão órfã + auditoria failed_login
     // reason 'unknown' enganosa. Loga e entrega o login; contadores stale
-    // expiram em 30min/24h (purge-security-state).
+    // expiram pelo purge task de auth_security_state (server/tasks/).
     try {
       await resetFailedAttempts(email, ip)
     } catch (error) {

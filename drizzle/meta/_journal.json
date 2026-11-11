@@ -36,6 +36,20 @@
       "when": 1794313788194,
       "tag": "0004_lying_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794355512370,
+      "tag": "0005_lethal_eternals",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794355512371,
+      "tag": "0006_purge_auth_events",
+      "breakpoints": true
     }
   ]
 }

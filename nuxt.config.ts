@@ -65,6 +65,13 @@ export default defineNuxtConfig({
       // continua false) — em produção o JSON não é servido sem decisão explícita.
       openAPI: true,
     },
+    scheduledTasks: {
+      // Purge de retenção — roda de hora em hora no runtime node-server.
+      'purge-session': '0 * * * *',
+      'purge-verification': '0 * * * *',
+      'purge-auth-security-state': '0 * * * *',
+      'purge-auth-event': '0 * * * *',
+    },
     openAPI: {
       meta: {
         title: 'Application API',
