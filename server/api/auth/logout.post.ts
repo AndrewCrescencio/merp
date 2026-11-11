@@ -9,6 +9,9 @@ import {
   sendUnauthorizedError,
 } from '~~/server/utils/shared'
 
+// Ficou de fora da padronizacao em defineAuthHandler (item 1): valida so a
+// sessao e trata user como opcional (logout pode ser chamado com sessao mas
+// sem user resolvido, e o signOut do Better Auth eh o que invalida).
 export default defineEventHandler(async (event) => {
   const session = event.context.session as { id: string } | undefined
   const user = event.context.user as { id: string; email: string } | undefined

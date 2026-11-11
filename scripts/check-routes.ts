@@ -118,6 +118,18 @@ for (const file of walk(API_ROOT)) {
         detail: `rota /v1 sem tenant: ${segments.join('/')}`,
       })
     }
+
+    // todo handler de producao sob /api/v1 deve usar defineAuthHandler e
+    // nunca fazer cast manual de event.context.user.
+    const usesDefineAuthHandler = src.includes('defineAuthHandler(')
+    const usesManualUserCast = src.includes('event.context.user as')
+    if (!usesDefineAuthHandler || usesManualUserCast) {
+      violations.push({
+        file: relative(API_ROOT, file),
+        rule: 'auth-handler',
+        detail: `handler /v1 deve usar defineAuthHandler( e nao conter 'event.context.user as': ${filename}`,
+      })
+    }
   }
 }
 
