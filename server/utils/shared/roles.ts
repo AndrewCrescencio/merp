@@ -6,7 +6,7 @@
  *
  * `manager` não existe: era um papel fantasma de uma versão anterior do
  * domínio. Apenas `owner` e `member` são válidos, e o banco o garante via
- * `CHECK (role IN ('owner', 'member'))` na migration 0003.
+ * `CHECK (role IN ('owner', 'member'))` na migration 0004.
  */
 export const ROLES = {
   owner: 'owner',

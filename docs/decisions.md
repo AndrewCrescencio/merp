@@ -25,12 +25,16 @@
 
 ## Migrations
 
-- **Squash de migrations:** as migrations 0003 e 0004 (tabelas de domínio
-  retiradas do schema TS) foram descartadas; o journal vigente cobre
-  0000–0002 (funções e roles, schema base, policies e grants de RLS).
-  Novas migrations somam a partir de 0002. Não reaplique arquivos deletados
-  em bancos já migrados — crie uma nova migration em vez de reescrever o
-  histórico.
+- **Journal vigente:** 0000–0006. `0000` cria a role `merp_app`, `0001` é o
+  schema base, `0002` policies e grants de RLS, `0004` o CHECK de papel em
+  `company_member`, `0005` a remocao destrutiva de `cnpj`/`razao_social` e
+  `0006` a funcao `purge_auth_events`. Nao ha arquivo `0003` (a entrada do
+  journal e um residuo de versao anterior; nenhuma migration do banco depende
+  dela).
+- Novas migrations somam a partir de 0006 via `drizzle-kit generate`. Nunca
+  edite migrations ja compartilhadas (sao imutáveis) e nao reaplique arquivos
+  deletados em bancos ja migrados — crie uma nova migration em vez de
+  reescrever o historico.
 
 ## round_half_up (removida)
 
