@@ -1,5 +1,5 @@
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
-import { assertRole, defineAuthHandler, requireTenant } from '~~/server/utils/shared'
+import { assertRole, defineAuthHandler, requireTenant, ROLES } from '~~/server/utils/shared'
 
 export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
@@ -7,7 +7,7 @@ export default defineAuthHandler(async (event, user) => {
   // Apenas o owner pode listar membros (o papel `manager` não existe).
   await assertRole(
     role,
-    'owner',
+    ROLES.owner,
     'You are not a member of this company',
     'Only company owners can list members',
   )
