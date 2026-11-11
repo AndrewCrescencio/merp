@@ -17,6 +17,14 @@ export function missingProductionEnv(env: NodeJS.ProcessEnv): string[] {
   if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32) {
     missing.push('BETTER_AUTH_SECRET (mínimo 32 caracteres)')
   }
+  // CSRF secret: obrigatório em produção com no mínimo 32 caracteres (mesma regra
+  // de BETTER_AUTH_SECRET). Ausência ou curta em produção seria aceita em
+  // silêncio anteriormente, permitindo tokens CSRF de baixa entropia.
+  if (process.env.NODE_ENV === 'production') {
+    if (!env.CSRF_SECRET || env.CSRF_SECRET.length < 32) {
+      missing.push('CSRF_SECRET (obrigatório em produção, mínimo 32 caracteres)')
+    }
+  }
   // TRUSTED_PROXY_CIDRS = lista de faixas de IP (CIDR) dos proxies em que
   // confiamos para dizer quem é o cliente real. Ex.: '127.0.0.1/32,::1/128'
   // (ver server/utils/shared/ip.ts para a notação). Exigida porque confiar em
