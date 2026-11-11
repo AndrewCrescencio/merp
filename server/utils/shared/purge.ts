@@ -13,7 +13,7 @@ export interface PurgeTaskOptions {
 }
 
 /**
- * Shared body for retention purge tasks (FR data-retention policy).
+ * Shared body for retention purge tasks.
  * Log messages and event names are caller-provided so existing log-based
  * monitoring keeps matching — unifying the tasks must not rename events.
  */
