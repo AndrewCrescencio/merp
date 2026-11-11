@@ -66,8 +66,29 @@ drizzle/                     # histórico de migrations PostgreSQL
 2. Crie o schema em `server/utils/schema/<feature>.ts` e registre-o no
    `server/utils/schema/index.ts`.
 3. Use `withTenant` em toda consulta com dados da empresa.
-4. Adicione a rota em
-   `server/api/v1/companies/[companyId]/<feature>/`.
+4. Adicione a rota em `server/api/v1/companies/[companyId]/<feature>/` usando
+   o padrão de autenticação da base:
+
+   ```ts
+   import { defineAuthHandler, requireTenant, assertRole, ROLES } from '~~/server/utils/shared'
+
+   export default defineAuthHandler(async (event, user) => {
+     const { companyId, role } = requireTenant(event)
+     // ex.: apenas owners
+     await assertRole(
+       role,
+       ROLES.owner,
+       'Não é membro desta empresa',
+       'Apenas owners podem fazer isso',
+     )
+     return { companyId, userId: user.id }
+   })
+   ```
+
+   `defineAuthHandler` garante sessão (401 caso contrário); o tenant vem do
+   path via `requireTenant` (nunca do body); papéis validos são apenas
+   `owner` e `member` (`ROLES`, aplicado no banco via CHECK).
+
 5. Escreva testes de handler, autorização e isolamento entre tenants.
 6. Gere uma migration com `drizzle-kit` e execute `npm run check`.
 

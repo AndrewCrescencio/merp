@@ -15,6 +15,12 @@ adicione funcionalidades de um domínio específico aqui.
 - Valide entrada e autorização no servidor.
 - Não confie em IDs enviados no body quando eles podem ser derivados do path
   ou da sessão.
+- Handlers de produção sob `server/api/v1/` usam
+  `defineAuthHandler(async (event, user) => ...)` (sessão obrigatória, 401
+  caso contrário); o tenant vem de `requireTenant(event)` (path, nunca o
+  body) e papéis de `assertRole(role, ROLES.owner, ...)` — só `owner` e
+  `member` existem. `server/api/auth/logout.post.ts` fica de fora por
+  proposta (user opcional).
 - Migrations são imutáveis depois de compartilhadas.
 - Mudanças em auth, tenant, RLS ou segurança exigem testes de regressão.
 
