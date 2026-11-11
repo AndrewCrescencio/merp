@@ -49,7 +49,10 @@ describe('POST /api/v1/me/consents/withdraw', () => {
     )
 
     const event = {
-      context: { user: { id: 'user-1', email: 'user@example.com' } },
+      context: {
+        user: { id: 'user-1', email: 'user@example.com', name: null },
+        session: { id: 'session-1' },
+      },
       headers: new Headers(),
     } as any
 
@@ -76,7 +79,10 @@ describe('POST /api/v1/me/consents/withdraw', () => {
     )
 
     const event = {
-      context: { user: { id: 'user-1', email: 'user@example.com' } },
+      context: {
+        user: { id: 'user-1', email: 'user@example.com', name: null },
+        session: { id: 'session-1' },
+      },
       headers: new Headers(),
     } as any
 

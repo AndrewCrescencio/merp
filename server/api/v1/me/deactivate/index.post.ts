@@ -1,14 +1,7 @@
-import { defineEventHandler } from 'h3'
-import { createAuthEvent, getClientIp, sendUnauthorizedError } from '~~/server/utils/shared'
+import { createAuthEvent, getClientIp, defineAuthHandler } from '~~/server/utils/shared'
 import { deactivateUser } from '~~/server/utils/auth/identity/queries'
 
-export default defineEventHandler(async (event) => {
-  const user = event.context.user as { id: string; email: string } | undefined
-
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
-
+export default defineAuthHandler(async (event, user) => {
   // soft delete de verdade — sem este UPDATE o usuário continuava
   // ativo e voltava a logar com sessão nova.
   await deactivateUser(user.id)

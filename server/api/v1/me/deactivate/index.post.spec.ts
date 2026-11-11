@@ -27,8 +27,6 @@ describe('POST /api/v1/me/deactivate', () => {
     mockSendUnauthorizedError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })
-    // o soft delete precisa acontecer de fato — antes só se revogava
-    // sessão e a conta continuava logável.
     mockDeactivateUser.mockResolvedValue({ id: 'user-1', isActive: false })
   })
 
@@ -36,7 +34,10 @@ describe('POST /api/v1/me/deactivate', () => {
     const handler = await import('~~/server/api/v1/me/deactivate/index.post').then((m) => m.default)
 
     const event = {
-      context: { user: { id: 'user-1', email: 'test@example.com' } },
+      context: {
+        user: { id: 'user-1', email: 'test@example.com', name: null },
+        session: { id: 'session-1' },
+      },
       headers: new Headers(),
     } as any
 
@@ -58,7 +59,7 @@ describe('POST /api/v1/me/deactivate', () => {
 
     const event = {
       context: {
-        user: { id: 'user-1', email: 'test@example.com' },
+        user: { id: 'user-1', email: 'test@example.com', name: null },
         session: { id: 'session-1', activeCompanyId: 'company-1' },
       },
       headers: new Headers(),

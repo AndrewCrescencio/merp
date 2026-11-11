@@ -1,20 +1,15 @@
-import { defineEventHandler, getQuery } from 'h3'
+import { getQuery } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
   assertRole,
+  defineAuthHandler,
   sendNotFoundError,
-  sendUnauthorizedError,
   sendValidationError,
 } from '~~/server/utils/shared'
 
-export default defineEventHandler(async (event) => {
-  const user = event.context.user as { id: string } | undefined
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
-
+export default defineAuthHandler(async (event, user) => {
   const query = getQuery<{ companyId?: string }>(event)
 
   if (!query?.companyId || typeof query.companyId !== 'string') {

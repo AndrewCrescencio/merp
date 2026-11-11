@@ -4,8 +4,6 @@ const mockAcceptInvite = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockReadBody = vi.fn()
 const mockGetClientIp = vi.fn()
-const mockSendUnauthorizedError = vi.fn()
-const mockSendValidationError = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
 
 vi.mock('h3', () => ({
@@ -18,19 +16,12 @@ vi.mock('h3', () => ({
     throw err
   },
 }))
-
-vi.mock('~~/server/utils/shared', () => ({
-  createAuthEvent: mockCreateAuthEvent,
+vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
-  sendUnauthorizedError: mockSendUnauthorizedError,
-  sendValidationError: mockSendValidationError,
-  checkIpRateLimit: mockCheckIpRateLimit,
-  validateInviteAcceptInput: (body: any) => {
-    if (!body?.token || typeof body.token !== 'string' || body.token.length === 0) {
-      throw new Error('token is required')
-    }
-    return { token: body.token }
-  },
+}))
+
+vi.mock('~~/server/utils/shared/audit', () => ({
+  createAuthEvent: mockCreateAuthEvent,
 }))
 
 vi.mock('~~/server/utils/auth/invite/repository', () => ({
@@ -39,20 +30,24 @@ vi.mock('~~/server/utils/auth/invite/repository', () => ({
   },
 }))
 
+vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
+  ...(await importOriginal()),
+  checkIpRateLimit: mockCheckIpRateLimit,
+}))
+
 const eventWithUser = (user: Record<string, unknown> = {}) =>
-  ({ context: { user: { id: 'user-1', email: 'invitee@example.com', ...user } } }) as any
+  ({
+    context: {
+      user: { id: 'user-1', email: 'invitee@example.com', name: null, ...user },
+      session: { id: 'session-1' },
+    },
+  }) as any
 
 describe('POST /api/v1/me/invitations/accept', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetClientIp.mockReturnValue('127.0.0.1')
     mockCheckIpRateLimit.mockResolvedValue(undefined)
-    mockSendUnauthorizedError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
-    mockSendValidationError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
   })
 
   it('requires authentication', async () => {
@@ -102,7 +97,9 @@ describe('POST /api/v1/me/invitations/accept', () => {
 
   it('propagates rejection for invalid, expired or already-used tokens', async () => {
     mockReadBody.mockResolvedValue({ token: 'bad-token' })
-    mockAcceptInvite.mockRejectedValue(new Error('Invite not found or expired'))
+    mockAcceptInvite.mockImplementation(() => {
+      throw new Error('Invite not found or expired')
+    })
 
     const handler = await import('~~/server/api/v1/me/invitations/accept/index.post').then(
       (m) => m.default,

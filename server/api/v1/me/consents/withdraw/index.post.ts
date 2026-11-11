@@ -1,19 +1,14 @@
-import { defineEventHandler, readBody } from 'h3'
+import { readBody } from 'h3'
 import {
   createAuthEvent,
   getClientIp,
-  sendUnauthorizedError,
+  defineAuthHandler,
   validateConsentWithdrawInput,
 } from '~~/server/utils/shared'
 import { withdrawConsent } from '~~/server/utils/auth/identity/queries'
 
-export default defineEventHandler(async (event) => {
+export default defineAuthHandler(async (event, user) => {
   validateConsentWithdrawInput(await readBody(event))
-  const user = event.context.user as { id: string; email: string; name?: string | null } | undefined
-
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
 
   // desativação imediata da conta + término de todas as sessões.
   // updateUser/revokeSessions exigiam sessão e eram engolidos pelo catch,

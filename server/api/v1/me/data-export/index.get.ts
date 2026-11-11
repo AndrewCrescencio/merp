@@ -1,10 +1,9 @@
-import { defineEventHandler } from 'h3'
 import { withTenant } from '~~/server/utils/db/tenant-context'
 import { authEvent } from '~~/server/utils/schema'
 import { eq } from 'drizzle-orm'
 import { callBetterAuth } from '~~/server/utils/auth/identity/client'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
-import { sendUnauthorizedError } from '~~/server/utils/shared'
+import { defineAuthHandler } from '~~/server/utils/shared'
 
 interface BetterAuthSession {
   session: {
@@ -33,30 +32,14 @@ interface BetterAuthGetSessionResponse {
   user: BetterAuthSession['user'] | null
 }
 
-export default defineEventHandler(async (event) => {
-  const user = event.context.user as
-    | {
-        id: string
-        email: string
-        name: string | null
-      }
-    | undefined
-
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
-
+export default defineAuthHandler(async (event, user) => {
   const [sessionResult, companies, authEvents] = await Promise.all([
     callBetterAuth(async (auth) => auth.api.getSession({ headers: event.headers }), {
       timeout: 5_000,
     }),
-    membershipRepository.findUserCompanies(user!.id),
-    withTenant(null, null, user!.id, (tx) =>
-      tx
-        .select()
-        .from(authEvent)
-        .where(eq(authEvent.userId, user!.id))
-        .orderBy(authEvent.createdAt),
+    membershipRepository.findUserCompanies(user.id),
+    withTenant(null, null, user.id, (tx) =>
+      tx.select().from(authEvent).where(eq(authEvent.userId, user.id)).orderBy(authEvent.createdAt),
     ),
   ])
 
@@ -64,13 +47,13 @@ export default defineEventHandler(async (event) => {
     ?.response
   const sessionUser = sessionData?.user
   const fullUser: { id: string; email: string; name: string | null; createdAt?: Date } =
-    sessionUser || { id: user!.id, email: user!.email, name: user!.name }
+    sessionUser || { id: user.id, email: user.email, name: user.name }
 
   return {
     profile: {
-      id: fullUser.id || user!.id,
-      email: user!.email,
-      name: fullUser.name || user!.name,
+      id: fullUser.id || user.id,
+      email: user.email,
+      name: fullUser.name || user.name,
       createdAt: fullUser.createdAt,
     },
     companies: companies.map((c) => ({
