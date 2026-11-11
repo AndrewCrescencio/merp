@@ -41,8 +41,8 @@ describe.skipIf(!dbAvailable)('LocationRepository (integration)', () => {
       })
 
       const list = await locationRepo.listLocations(company.id, owner.id)
-      // A criacao de company bootstraps a location 'Matriz'.
-      expect(list.map((l) => l.name).sort()).toEqual(['Filial', 'Matriz', 'Sede'])
+      // A criacao de company bootstraps a location 'Principal'.
+      expect(list.map((l) => l.name).sort()).toEqual(['Filial', 'Principal', 'Sede'])
       expect(loc1.isActive).toBe(true)
       expect(loc2.isActive).toBe(true)
     })
@@ -98,9 +98,9 @@ describe.skipIf(!dbAvailable)('LocationRepository (integration)', () => {
       )
 
       expect(updated).toHaveLength(0)
-      // A location 'Matriz' eh bootstrapped na criacao da company B.
+      // A location 'Principal' eh bootstrapped na criacao da company B.
       const intact = await locationRepo.listLocations(companyB.id, userB.id)
-      expect(intact.map((l) => l.name).sort()).toEqual(['Loc B', 'Matriz'])
+      expect(intact.map((l) => l.name).sort()).toEqual(['Loc B', 'Principal'])
     })
 
     it('repository: edicao de location de outro tenant com tenant A retorna 404', async () => {
@@ -130,7 +130,7 @@ describe.skipIf(!dbAvailable)('LocationRepository (integration)', () => {
       ).rejects.toMatchObject({ statusCode: 404 })
 
       const intact = await locationRepo.listLocations(companyB.id, userB.id)
-      expect(intact.map((l) => l.name).sort()).toEqual(['Loc B', 'Matriz'])
+      expect(intact.map((l) => l.name).sort()).toEqual(['Loc B', 'Principal'])
     })
   })
 })

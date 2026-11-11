@@ -110,9 +110,9 @@ describe.skipIf(!dbAvailable)(
       if (locations.status !== 200) {
         throw new Error(`GET /locations: HTTP ${locations.status}`)
       }
-      const matriz = locations.body.locations.find((l) => l.name === 'Matriz')
+      const matriz = locations.body.locations.find((l) => l.name === 'Principal')
       if (!matriz) {
-        throw new Error(`sem location "Matriz" no bootstrap: ${JSON.stringify(locations.body)}`)
+        throw new Error(`sem location "Principal" no bootstrap: ${JSON.stringify(locations.body)}`)
       }
 
       return { id: created.body.id, matrizId: matriz.id }
@@ -195,9 +195,9 @@ describe.skipIf(!dbAvailable)(
     })
 
     // ---------------------------------------------------------------------------
-    // Bootstrap de company: Matriz visível por HTTP
+    // Bootstrap de company: Principal visível por HTTP
     // ---------------------------------------------------------------------------
-    it('POST /companies 201; GET detail 200 com Matriz; location_header do recurso', async () => {
+    it('POST /companies 201; GET detail 200 com Principal; location_header do recurso', async () => {
       const owner = await makeUser('owner-det')
       const me = await owner.client.get('/api/v1/me')
       expect(me.status).toBe(200)
@@ -214,7 +214,7 @@ describe.skipIf(!dbAvailable)(
       }>(`/api/v1/companies/${created.body.id}`)
       expect(detail.status).toBe(200)
       expect(detail.body.locations).toHaveLength(1)
-      expect(detail.body.locations[0]?.name).toBe('Matriz')
+      expect(detail.body.locations[0]?.name).toBe('Principal')
       expect(detail.body.locations[0]?.isActive).toBe(true)
     })
 
@@ -257,7 +257,10 @@ describe.skipIf(!dbAvailable)(
       let list = await owner.client.get<{ locations: Array<{ name: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
       )
-      expect(list.body.locations.map((l) => l.name).sort()).toEqual(['Filial Zona Sul', 'Matriz'])
+      expect(list.body.locations.map((l) => l.name).sort()).toEqual([
+        'Filial Zona Sul',
+        'Principal',
+      ])
 
       const renamed = await owner.client.patch<{ id: string; name: string }>(
         `/api/v1/companies/${co.id}/locations/${created.body.id}`,
@@ -274,7 +277,7 @@ describe.skipIf(!dbAvailable)(
       list = await owner.client.get<{ locations: Array<{ name: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
       )
-      expect(list.body.locations.map((l) => l.name)).toEqual(['Matriz'])
+      expect(list.body.locations.map((l) => l.name)).toEqual(['Principal'])
     })
 
     it('location fantasma da própria empresa: PATCH/DELETE → 404', async () => {
@@ -305,7 +308,7 @@ describe.skipIf(!dbAvailable)(
         `/api/v1/companies/${co.id}/locations`,
       )
       expect(list.status).toBe(200)
-      expect(list.body.locations.map((l) => l.name)).toContain('Matriz')
+      expect(list.body.locations.map((l) => l.name)).toContain('Principal')
 
       const post = await member.client.post(`/api/v1/companies/${co.id}/locations`, {
         name: 'Hijack',
@@ -326,7 +329,7 @@ describe.skipIf(!dbAvailable)(
       const intact = await owner.client.get<{ locations: Array<{ name: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
       )
-      expect(intact.body.locations.map((l) => l.name)).toEqual(['Matriz'])
+      expect(intact.body.locations.map((l) => l.name)).toEqual(['Principal'])
     })
 
     // ---------------------------------------------------------------------------
@@ -366,7 +369,7 @@ describe.skipIf(!dbAvailable)(
       const intact = await ownerB.client.get<{ locations: Array<{ name: string }> }>(
         `/api/v1/companies/${coB.id}/locations`,
       )
-      expect(intact.body.locations.map((l) => l.name)).toEqual(['Matriz'])
+      expect(intact.body.locations.map((l) => l.name)).toEqual(['Principal'])
     })
   },
 )

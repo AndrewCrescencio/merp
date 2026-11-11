@@ -44,7 +44,7 @@ describe('GET /api/v1/companies/{companyId}/locations', () => {
 
   it('lists locations of the tenant company (companyId do tenant, não do corpo)', async () => {
     const locations = [
-      { id: 'loc-1', name: 'Matriz', isActive: true },
+      { id: 'loc-1', name: 'Principal', isActive: true },
       { id: 'loc-2', name: 'Filial', isActive: true },
     ]
     mockListLocations.mockResolvedValue(locations)
