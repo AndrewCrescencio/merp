@@ -1,4 +1,4 @@
-import { and, eq, like, or, sql } from 'drizzle-orm'
+import { and, eq, like, sql } from 'drizzle-orm'
 import { company, companyMember, location, user } from '../../schema'
 import { sendNotFoundError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
@@ -42,7 +42,7 @@ export class MembershipRepository {
 
   /**
    * Searches non-deleted companies the user belongs to (max 20, LIKE on
-   * name/CNPJ with escaped wildcards).
+   * name with escaped wildcards).
    */
   async searchCompanies(
     query: string,
@@ -54,8 +54,6 @@ export class MembershipRepository {
         .select({
           id: company.id,
           name: company.name,
-          cnpj: company.cnpj,
-          razaoSocial: company.razaoSocial,
           isDeleted: company.isDeleted,
           createdAt: company.createdAt,
           updatedAt: company.updatedAt,
@@ -67,7 +65,7 @@ export class MembershipRepository {
           and(
             eq(companyMember.userId, userId),
             eq(company.isDeleted, false),
-            or(like(company.name, pattern), like(company.cnpj, pattern)),
+            like(company.name, pattern),
           ),
         )
         .limit(20)
@@ -81,8 +79,6 @@ export class MembershipRepository {
         .select({
           id: company.id,
           name: company.name,
-          cnpj: company.cnpj,
-          razaoSocial: company.razaoSocial,
           isDeleted: company.isDeleted,
           createdAt: company.createdAt,
           updatedAt: company.updatedAt,

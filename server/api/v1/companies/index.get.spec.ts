@@ -58,9 +58,7 @@ describe('GET /api/v1/companies', () => {
 
   it('returns matching companies', async () => {
     mockGetQuery.mockReturnValue({ q: 'Test' })
-    mockSearchCompanies.mockResolvedValue([
-      { id: 'c1', name: 'Test Company', cnpj: '12345678901234' },
-    ])
+    mockSearchCompanies.mockResolvedValue([{ id: 'c1', name: 'Test Company' }])
 
     const handler = await import('~~/server/api/v1/companies/index.get').then((m) => m.default)
     const event = { context: { user: { id: 'user-1' }, session: { id: 's1' } } } as any
@@ -69,7 +67,7 @@ describe('GET /api/v1/companies', () => {
 
     expect(mockSearchCompanies).toHaveBeenCalledWith('Test', 'user-1')
     expect(result).toEqual({
-      companies: [{ id: 'c1', name: 'Test Company', cnpj: '12345678901234' }],
+      companies: [{ id: 'c1', name: 'Test Company' }],
     })
   })
 

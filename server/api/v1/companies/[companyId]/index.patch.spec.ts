@@ -76,7 +76,7 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
     const handler = await loadHandler()
 
     await expect(handler({ context: authContext() } as any)).rejects.toThrow(
-      'At least one field (name, cnpj, razaoSocial) is required',
+      'At least one field (name) is required',
     )
     expect(mockUpdateCompany).not.toHaveBeenCalled()
   })
@@ -104,16 +104,10 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
   })
 
   it('trims fields and updates the company on success', async () => {
-    mockReadBody.mockResolvedValue({
-      name: '  New Name  ',
-      cnpj: ' 11222333000181 ',
-      razaoSocial: ' New Razao ',
-    })
+    mockReadBody.mockResolvedValue({ name: '  New Name  ' })
     mockUpdateCompany.mockResolvedValue({
       id: 'company-1',
       name: 'New Name',
-      cnpj: '11222333000181',
-      razaoSocial: 'New Razao',
     })
 
     const handler = await loadHandler()
@@ -123,13 +117,9 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
     expect(result).toMatchObject({
       id: 'company-1',
       name: 'New Name',
-      cnpj: '11222333000181',
-      razaoSocial: 'New Razao',
     })
     expect(mockUpdateCompany).toHaveBeenCalledWith('company-1', 'user-1', {
       name: 'New Name',
-      cnpj: '11222333000181',
-      razaoSocial: 'New Razao',
     })
     expect(mockCreateAuthEvent).toHaveBeenCalledWith({
       userId: 'user-1',
@@ -138,14 +128,5 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
       ipAddress: null,
       metadata: { companyId: 'company-1' },
     })
-  })
-
-  it('rejects cnpj with invalid check digits', async () => {
-    mockReadBody.mockResolvedValue({ cnpj: '12345678000190' })
-
-    const handler = await loadHandler()
-
-    await expect(handler({ context: authContext() } as any)).rejects.toThrow('cnpj is invalid')
-    expect(mockUpdateCompany).not.toHaveBeenCalled()
   })
 })

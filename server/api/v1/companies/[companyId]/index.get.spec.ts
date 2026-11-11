@@ -51,15 +51,13 @@ describe('GET /api/v1/companies/[companyId]', () => {
     mockFindCompanyWithLocations.mockResolvedValue({
       id: 'company-b',
       name: 'Co B',
-      cnpj: null,
-      razaoSocial: null,
       isDeleted: false,
       createdAt: new Date('2026-01-01'),
       updatedAt: new Date('2026-01-02'),
       locations: [
         {
           id: 'loc-1',
-          name: 'Matriz',
+          name: 'Principal',
           isActive: true,
           createdAt: new Date('2026-01-01'),
           updatedAt: new Date('2026-01-02'),
@@ -77,15 +75,13 @@ describe('GET /api/v1/companies/[companyId]', () => {
     expect(result).toEqual({
       id: 'company-b',
       name: 'Co B',
-      cnpj: null,
-      razaoSocial: null,
       isDeleted: false,
       createdAt: new Date('2026-01-01'),
       updatedAt: new Date('2026-01-02'),
       locations: [
         {
           id: 'loc-1',
-          name: 'Matriz',
+          name: 'Principal',
           isActive: true,
           createdAt: new Date('2026-01-01'),
           updatedAt: new Date('2026-01-02'),

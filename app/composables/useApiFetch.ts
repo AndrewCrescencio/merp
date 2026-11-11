@@ -65,15 +65,12 @@ export function useAuthFetch() {
       api('/api/auth/email/verification', { method: 'POST', body: { email } }),
     deactivate: () => api('/api/v1/me/deactivate', { method: 'POST' }),
     withdrawConsent: () => api('/api/v1/me/consents/withdraw', { method: 'POST' }),
-    createCompany: (name: string, cnpj?: string, razaoSocial?: string) =>
-      api('/api/v1/companies', { method: 'POST', body: { name, cnpj, razaoSocial } }),
+    createCompany: (name: string) => api('/api/v1/companies', { method: 'POST', body: { name } }),
     getCompanies: (q?: string) =>
       api('/api/v1/companies', { method: 'GET', query: q ? { q } : undefined }),
     // companyId vive no path, nunca no body.
-    updateCompany: (
-      companyId: string,
-      data: { name?: string; cnpj?: string; razaoSocial?: string },
-    ) => api(`/api/v1/companies/${companyId}`, { method: 'PATCH', body: data }),
+    updateCompany: (companyId: string, data: { name?: string }) =>
+      api(`/api/v1/companies/${companyId}`, { method: 'PATCH', body: data }),
     deleteCompany: (companyId: string) =>
       api(`/api/v1/companies/${companyId}`, { method: 'DELETE' }),
     inviteMember: (companyId: string, email: string) =>

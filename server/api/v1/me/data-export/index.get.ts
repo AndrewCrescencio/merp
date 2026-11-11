@@ -59,8 +59,6 @@ export default defineAuthHandler(async (event, user) => {
     companies: companies.map((c) => ({
       id: c.id,
       name: c.name,
-      cnpj: c.cnpj,
-      razaoSocial: c.razaoSocial,
       role: c.role,
     })),
     sessions: [],

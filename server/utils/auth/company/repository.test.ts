@@ -320,36 +320,19 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
   })
 
   describe('updateCompany', () => {
-    it('updates name, cnpj and razaoSocial and bumps updatedAt', async () => {
+    it('updates name and bumps updatedAt', async () => {
       const owner = await registerUser(`upd-owner-${Date.now()}@example.com`, 'Upd Owner')
       const company = await repo.createCompanyWithOwner({ name: 'Update Co' }, owner.id)
-      const uniqueCnpj = `1${String(Date.now()).padStart(13, '0')}`
 
       const result = await repo.updateCompany(company.id, owner.id, {
         name: 'Updated Co',
-        cnpj: uniqueCnpj,
-        razaoSocial: 'Updated Razao',
       })
 
       expect(result).toMatchObject({
         id: company.id,
         name: 'Updated Co',
-        cnpj: uniqueCnpj,
-        razaoSocial: 'Updated Razao',
       })
       expect(result.updatedAt.getTime()).toBeGreaterThanOrEqual(company.updatedAt.getTime())
-    })
-
-    it('rejects duplicate cnpj with 409 conflict', async () => {
-      const ownerA = await registerUser(`dup-cnpj-a-${Date.now()}@example.com`, 'Dup CNPJ A')
-      const ownerB = await registerUser(`upd-dup-owner-${Date.now()}@example.com`, 'Upd Dup Owner')
-      const uniqueCnpj = `2${String(Date.now()).padStart(13, '0')}`
-      await repo.createCompanyWithOwner({ name: 'Co A', cnpj: uniqueCnpj }, ownerA.id)
-      const companyB = await repo.createCompanyWithOwner({ name: 'Co B' }, ownerB.id)
-
-      await expect(
-        repo.updateCompany(companyB.id, ownerB.id, { cnpj: uniqueCnpj }),
-      ).rejects.toMatchObject({ statusCode: 409 })
     })
 
     it('throws 404 when company does not exist', async () => {

@@ -7,5 +7,5 @@ export default defineAuthHandler(async (event, user) => {
 
   const companies = await membershipRepository.searchCompanies(q, user.id)
 
-  return { companies: companies.map((c) => ({ id: c.id, name: c.name, cnpj: c.cnpj })) }
+  return { companies: companies.map((c) => ({ id: c.id, name: c.name })) }
 })

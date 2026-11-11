@@ -5,9 +5,7 @@ import {
   createAuthEvent,
   getClientIp,
   defineAuthHandler,
-  isValidCnpj,
   requireTenant,
-  sendValidationError,
   validateCompanyUpdateInput,
 } from '~~/server/utils/shared'
 
@@ -16,10 +14,6 @@ export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
 
   const input = validateCompanyUpdateInput(await readBody(event))
-
-  if (input.cnpj && !isValidCnpj(input.cnpj)) {
-    sendValidationError('cnpj is invalid')
-  }
 
   await assertRole(
     role,

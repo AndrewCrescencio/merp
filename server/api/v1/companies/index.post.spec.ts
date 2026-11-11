@@ -3,10 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockCreateCompanyWithOwner = vi.fn()
 const mockReadBody = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
-const mockSetResponseStatus = vi.fn()
 const mockSendUnauthorizedError = vi.fn()
 const mockSendValidationError = vi.fn()
-const mockIsValidCnpj = vi.fn()
+const mockSetResponseStatus = vi.fn()
 const mockSetHeader = vi.fn()
 
 vi.mock('h3', () => ({
@@ -24,7 +23,6 @@ vi.mock('h3', () => ({
 
 vi.mock('~~/server/utils/shared', () => ({
   checkIpRateLimit: mockCheckIpRateLimit,
-  isValidCnpj: mockIsValidCnpj,
   sendUnauthorizedError: mockSendUnauthorizedError,
   sendValidationError: mockSendValidationError,
   defineAuthHandler: (fn: any) => async (event: any) => {
@@ -46,21 +44,7 @@ vi.mock('~~/server/utils/shared', () => ({
     if (body.name.trim().length > 200) {
       throw new Error('Company name must be at most 200 characters')
     }
-    if (body.cnpj !== undefined && typeof body.cnpj !== 'string') {
-      throw new Error('cnpj must be a string')
-    }
-    const cnpj = body.cnpj?.trim() || undefined
-    if (cnpj && cnpj.length > 30) {
-      throw new Error('cnpj must be at most 30 characters')
-    }
-    if (body.razaoSocial !== undefined && typeof body.razaoSocial !== 'string') {
-      throw new Error('razaoSocial must be a string')
-    }
-    const razaoSocial = body.razaoSocial?.trim() || undefined
-    if (razaoSocial && razaoSocial.length > 200) {
-      throw new Error('razaoSocial must be at most 200 characters')
-    }
-    return { name: body.name.trim(), cnpj, razaoSocial }
+    return { name: body.name.trim() }
   },
 }))
 
@@ -74,7 +58,6 @@ describe('POST /api/v1/companies', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
-    mockIsValidCnpj.mockReturnValue(true)
     mockSendUnauthorizedError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })
@@ -136,39 +119,8 @@ describe('POST /api/v1/companies', () => {
     expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
   })
 
-  it('rejects non-string cnpj instead of throwing TypeError', async () => {
-    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: 12345678901234 })
-
-    const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
-
-    await expect(handler(event)).rejects.toThrow('cnpj must be a string')
-    expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
-  })
-
-  it('rejects cnpj over 30 chars', async () => {
-    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '1'.repeat(31) })
-
-    const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
-
-    await expect(handler(event)).rejects.toThrow('cnpj must be at most 30 characters')
-    expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
-  })
-
-  it('rejects cnpj with invalid check digits', async () => {
-    mockIsValidCnpj.mockReturnValue(false)
-    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '12345678000190' })
-
-    const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
-    const event = { context: { user: { id: 'user-1' }, session: { id: 'session-1' } } } as any
-
-    await expect(handler(event)).rejects.toThrow('cnpj is invalid')
-    expect(mockCreateCompanyWithOwner).not.toHaveBeenCalled()
-  })
-
   it('creates company and makes user first member as owner', async () => {
-    mockReadBody.mockResolvedValue({ name: 'Test Company', cnpj: '11222333000181' })
+    mockReadBody.mockResolvedValue({ name: 'Test Company' })
     mockCreateCompanyWithOwner.mockResolvedValue({ id: 'company-1', name: 'Test Company' })
 
     const handler = await import('~~/server/api/v1/companies/index.post').then((m) => m.default)
@@ -176,14 +128,7 @@ describe('POST /api/v1/companies', () => {
 
     const result = await handler(event)
 
-    expect(mockCreateCompanyWithOwner).toHaveBeenCalledWith(
-      {
-        name: 'Test Company',
-        cnpj: '11222333000181',
-        razaoSocial: undefined,
-      },
-      'user-1',
-    )
+    expect(mockCreateCompanyWithOwner).toHaveBeenCalledWith({ name: 'Test Company' }, 'user-1')
     expect(result).toEqual({ id: 'company-1', name: 'Test Company' })
     expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 201)
     // criação aponta o recurso criado no header Location.
@@ -199,13 +144,6 @@ describe('POST /api/v1/companies', () => {
 
     await handler(event)
 
-    expect(mockCreateCompanyWithOwner).toHaveBeenCalledWith(
-      {
-        name: 'My Company',
-        cnpj: undefined,
-        razaoSocial: undefined,
-      },
-      'user-1',
-    )
+    expect(mockCreateCompanyWithOwner).toHaveBeenCalledWith({ name: 'My Company' }, 'user-1')
   })
 })

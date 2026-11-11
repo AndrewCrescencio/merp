@@ -23,35 +23,12 @@ export const MAX_NAME_LENGTH = 120
 export const MAX_CONSENT_VERSION_LENGTH = 50
 export const MAX_SEARCH_QUERY_LENGTH = 100
 // tetos de empresa — PII corporativa não vira coluna desproporcional
-// (CNPJ é identificador fixo de 14 dígitos; teto 30 cobre formatos com máscara).
 export const MAX_COMPANY_NAME_LENGTH = 200
-export const MAX_CNPJ_LENGTH = 30
-export const MAX_RAZAO_SOCIAL_LENGTH = 200
 
 // validação mínima de formato — o antigo email.includes('@') aceitava
 // 'a@b' e 'a@' como válidos. Este regex não é RFC 5321 completo (de propósito);
 // é a linha de frente barata antes do costoso check do better-auth.
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// Validação de CNPJ pelos dígitos verificadores (Receita Federal).
-// Aceita com ou sem máscara; exige 14 dígitos, rejeita sequências repetidas
-// ('00000000000000') e confere os dois dígitos pelo módulo 11.
-export function isValidCnpj(input: string): boolean {
-  const digits = input.replace(/\D/g, '')
-  if (digits.length !== 14 || /^(\d)\1{13}$/.test(digits)) return false
-
-  const checkDigit = (base: string, weights: number[]): number => {
-    let sum = 0
-    for (const [i, weight] of weights.entries()) sum += Number(base[i]) * weight
-    const remainder = sum % 11
-    return remainder < 2 ? 0 : 11 - remainder
-  }
-
-  return (
-    checkDigit(digits.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(digits[12]) &&
-    checkDigit(digits.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === Number(digits[13])
-  )
-}
 
 // OWASP Authentication Cheat Sheet / NIST SP 800-63B: senhas NOVAS são
 // comparadas contra valores comuns/comprometidos (deny-list top de leaks).

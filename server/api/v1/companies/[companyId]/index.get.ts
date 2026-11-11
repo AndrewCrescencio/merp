@@ -12,8 +12,6 @@ export default defineAuthHandler(async (event, user) => {
   return {
     id: company.id,
     name: company.name,
-    cnpj: company.cnpj,
-    razaoSocial: company.razaoSocial,
     isDeleted: company.isDeleted,
     createdAt: company.createdAt,
     updatedAt: company.updatedAt,

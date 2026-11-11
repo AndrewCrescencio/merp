@@ -10,14 +10,11 @@ export const company = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     name: text('name').notNull(),
-    cnpj: text('cnpj'),
-    razaoSocial: text('razao_social'),
     isDeleted: boolean('is_deleted').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex('company_cnpj_idx').on(table.cnpj),
     index('company_is_deleted_idx').on(table.isDeleted),
     index('company_name_idx').on(table.name),
   ],

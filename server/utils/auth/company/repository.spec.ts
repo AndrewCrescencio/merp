@@ -111,8 +111,6 @@ describe('CompanyRepository (unit)', () => {
       const created = {
         id: companyId,
         name: 'Test Co',
-        cnpj: null,
-        razaoSocial: null,
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -136,8 +134,6 @@ describe('CompanyRepository (unit)', () => {
       const created = {
         id: companyId,
         name: 'Test Co',
-        cnpj: null,
-        razaoSocial: null,
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -236,21 +232,6 @@ describe('CompanyRepository (unit)', () => {
       const result = await repo.updateCompany(companyId, userId, { name: 'Updated Co' })
 
       expect(result).toEqual(updated)
-    })
-
-    it('clears cnpj when empty string', async () => {
-      const updated = { id: companyId, cnpj: null }
-      mockTx.update.mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([updated]),
-          }),
-        }),
-      })
-
-      const result = await repo.updateCompany(companyId, userId, { cnpj: '' })
-
-      expect(result.cnpj).toBeNull()
     })
   })
 })

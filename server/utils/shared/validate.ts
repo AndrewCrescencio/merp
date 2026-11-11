@@ -27,8 +27,6 @@ export interface LoginInput {
 
 export interface CompanyCreateInput {
   name: string
-  cnpj?: string
-  razaoSocial?: string
 }
 
 export interface InviteInput {
@@ -136,26 +134,8 @@ export function validateCompanyCreateInput(rawBody: unknown): CompanyCreateInput
     sendValidationError('Company name must be at most 200 characters')
   }
 
-  if (body.cnpj !== undefined && typeof body.cnpj !== 'string') {
-    sendValidationError('cnpj must be a string')
-  }
-  const cnpj = body.cnpj?.trim() || undefined
-  if (cnpj && cnpj.length > 30) {
-    sendValidationError('cnpj must be at most 30 characters')
-  }
-
-  if (body.razaoSocial !== undefined && typeof body.razaoSocial !== 'string') {
-    sendValidationError('razaoSocial must be a string')
-  }
-  const razaoSocial = body.razaoSocial?.trim() || undefined
-  if (razaoSocial && razaoSocial.length > 200) {
-    sendValidationError('razaoSocial must be at most 200 characters')
-  }
-
   return {
     name: body.name.trim(),
-    cnpj,
-    razaoSocial,
   }
 }
 
@@ -250,28 +230,8 @@ export function validateCompanyUpdateInput(rawBody: unknown): Partial<CompanyCre
     }
     input.name = name
   }
-  if (body.cnpj !== undefined) {
-    if (typeof body.cnpj !== 'string') {
-      sendValidationError('cnpj must be a string')
-    }
-    const cnpj = body.cnpj.trim() || undefined
-    if (cnpj && cnpj.length > 30) {
-      sendValidationError('cnpj must be at most 30 characters')
-    }
-    input.cnpj = cnpj
-  }
-  if (body.razaoSocial !== undefined) {
-    if (typeof body.razaoSocial !== 'string') {
-      sendValidationError('razaoSocial must be a string')
-    }
-    const razaoSocial = body.razaoSocial.trim() || undefined
-    if (razaoSocial && razaoSocial.length > 200) {
-      sendValidationError('razaoSocial must be at most 200 characters')
-    }
-    input.razaoSocial = razaoSocial
-  }
   if (Object.keys(input).length === 0) {
-    sendValidationError('At least one field (name, cnpj, razaoSocial) is required')
+    sendValidationError('At least one field (name) is required')
   }
   return input
 }

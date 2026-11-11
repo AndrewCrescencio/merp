@@ -62,3 +62,34 @@
   repositorios.
 - Os testes de unidade mockam o modulo do repositorio; os testes de
   integracao usam a instancia real contra o banco de dados.
+
+## CNPJ e razaoSocial (removidos)
+
+- As colunas `company.cnpj` e `company.razao_social` e o índice único
+  `company_cnpj_idx` foram removidas do schema TS e do banco.
+- Motivo: o CNPJ único global fazia o segundo cadastro devolver 409 "already
+  exists", o que permitia a qualquer usuário logado testar se um CNPJ já está
+  na plataforma (enumeração de CNPJs).
+- A remoção é destrutiva: migration `0005_lethal_eternals.sql`
+  (`DROP INDEX company_cnpj_idx`, `DROP COLUMN cnpj`, `DROP COLUMN razao_social`).
+  Bancos já migrados precisam aplicá-la manualmente; não há como reverter sem
+  perder dados.
+- `isValidCnpj`, `MAX_CNPJ_LENGTH`, `MAX_RAZAO_SOCIAL_LENGTH` e as validações
+  de CNPJ/razaoSocial em `validate.ts` foram removidas junto.
+
+## Padrao de autenticacao dos handlers (item 1)
+
+- Todos os handlers de producao sob `server/api/v1/` usam
+  `defineAuthHandler(async (event, user) => ...)`, que garante sessão e user
+  (401 caso contrário) e repassa o user autenticado.
+- O tenant vem de `requireTenant(event)` (resolvido pelo middleware de tenant
+  a partir do path `/api/v1/companies/{companyId}/...`, nunca do body).
+- Papéis são verificados com `assertRole(role, ROLES.owner, ...)` usando a
+  constante unica em `shared/roles.ts`.
+- `server/api/auth/logout.post.ts` fica de fora por proposta: valida apenas a
+  sessão e trata `user` como opcional (comentado no arquivo).
+- Handlers públicos de `auth/*` e `health/*` não entram no padrão.
+- `requireUser` foi removido (sem consumidores); `context.userId` e
+  `context.auth` foram removidos do contexto (ninguém os lia).
+- `scripts/check-routes.ts` falha se um handler /v1 não usar
+  `defineAuthHandler(` ou conter `event.context.user as`.

@@ -5,10 +5,9 @@ import { withTenant } from '../../db/tenant-context'
 import { isPgConflict, sendConflictError, sendNotFoundError } from '../../shared/errors'
 import { randomUUID } from 'node:crypto'
 
-/** CNPJ tem índice unique — conflito vira 409 em vez de estourar como 500. */
 function rethrowCompanyError(error: unknown): never {
   if (isPgConflict(error)) {
-    sendConflictError('A company with this CNPJ already exists')
+    sendConflictError('A company with this name already exists')
   }
   throw error
 }
@@ -19,15 +18,11 @@ export function escapeLikePattern(query: string): string {
 
 export interface CreateCompanyInput {
   name: string
-  cnpj?: string
-  razaoSocial?: string
 }
 
 export interface CompanyResult {
   id: string
   name: string
-  cnpj: string | null
-  razaoSocial: string | null
   isDeleted: boolean
   createdAt: Date
   updatedAt: Date
@@ -50,7 +45,7 @@ export interface CompanyDetailResult extends CompanyResult {
 export class CompanyRepository {
   /**
    * Creates a company row without members (low-level; prefer
-   * {@link createCompanyWithOwner}). 409 when the CNPJ is taken.
+   * {@link createCompanyWithOwner}). 409 when the name is taken.
    */
   async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
     const companyId = randomUUID()
@@ -60,8 +55,6 @@ export class CompanyRepository {
         .values({
           id: companyId,
           name: input.name,
-          cnpj: input.cnpj || null,
-          razaoSocial: input.razaoSocial || null,
         })
         .returning()
       return created!
@@ -70,7 +63,8 @@ export class CompanyRepository {
 
   /**
    * Creates a company, its first member (`owner`), and a default location
-   * ("Matriz") in one transaction (founder bootstrap). 409 when the CNPJ is taken.
+   * ("Principal") in one transaction (founder bootstrap). 409 when the name
+   * is taken.
    * The bootstrap runs with `app.location_id = NULL` so the location INSERT
    * passes the RLS policy (company_id = get_tenant_id() AND (id = get_location_id() OR get_location_id() IS NULL)).
    */
@@ -92,17 +86,15 @@ export class CompanyRepository {
               .values({
                 id: companyId,
                 name: data.name,
-                cnpj: data.cnpj,
-                razaoSocial: data.razaoSocial,
               })
               .returning()
 
-            // Create default location "Matriz" with app.location_id = NULL (RLS allows this)
+            // Create default location "Principal" with app.location_id = NULL (RLS allows this)
             const [defaultLocation] = await ctxTx
               .insert(location)
               .values({
                 companyId,
-                name: 'Matriz',
+                name: 'Principal',
                 isActive: true,
               })
               .returning()
@@ -195,8 +187,8 @@ export class CompanyRepository {
   }
 
   /**
-   * Partially updates a company (only defined fields; empty cnpj/razaoSocial
-   * clears the column). 404 when RLS denies or the company is deleted.
+   * Partially updates a company (only defined fields). 404 when RLS denies
+   * or the company is deleted.
    */
   async updateCompany(
     companyId: string,
@@ -207,8 +199,6 @@ export class CompanyRepository {
       return await withTenant(companyId, null, userId, async (tx) => {
         const updates: Partial<typeof company.$inferInsert> = { updatedAt: new Date() }
         if (input.name !== undefined) updates.name = input.name
-        if (input.cnpj !== undefined) updates.cnpj = input.cnpj || null
-        if (input.razaoSocial !== undefined) updates.razaoSocial = input.razaoSocial || null
 
         const [updated] = await tx
           .update(company)
