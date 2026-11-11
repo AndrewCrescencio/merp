@@ -26,8 +26,7 @@ vi.mock('~~/server/utils/shared', () => ({
   sendUnauthorizedError: mockSendUnauthorizedError,
   sendValidationError: mockSendValidationError,
   defineAuthHandler: (fn: any) => async (event: any) => {
-    const user = event.context.user as { id: string } | undefined
-    const session = event.context.session as { id: string } | undefined
+    const { user, session } = event.context
     if (!user || !session) {
       const err = new Error(
         JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
