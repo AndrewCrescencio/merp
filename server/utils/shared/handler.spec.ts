@@ -42,7 +42,11 @@ describe('defineAuthHandler', () => {
       },
     } as any)
     expect(fn).toHaveBeenCalledTimes(1)
-    expect(fn.mock.calls[0][1]).toEqual({ id: 'u1', email: 'a@b.c', name: null })
+    expect(fn).toHaveBeenCalledWith(expect.anything(), {
+      id: 'u1',
+      email: 'a@b.c',
+      name: null,
+    })
     expect(result).toEqual({ ok: true, userId: 'u1' })
   })
 
