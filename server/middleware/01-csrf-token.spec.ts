@@ -9,6 +9,7 @@ vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
   getRequestURL: (...args: any[]) => mockGetRequestURL(...args),
   getMethod: (...args: any[]) => mockGetMethod(...args),
+  setHeader: vi.fn(),
 }))
 
 vi.mock('~~/server/utils/shared/csrf', () => ({
