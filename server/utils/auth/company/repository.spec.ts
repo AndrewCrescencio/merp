@@ -122,7 +122,7 @@ describe('CompanyRepository (unit)', () => {
         }),
       })
 
-      const result = await repo.createCompany({ name: 'Test Co' })
+      const result = await repo.createCompany({ name: 'Test Co' }, userId)
 
       expect(result).toEqual(created)
       expect(mockTx.insert).toHaveBeenCalled()

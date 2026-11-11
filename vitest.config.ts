@@ -39,7 +39,13 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'integration',
-          include: ['server/**/*.test.ts', 'shared/**/*.test.ts'],
+          include: [
+            'server/**/*.test.ts',
+            'shared/**/*.test.ts',
+            // Os testes de setup/fixtures que precisam do owner DB (bypassa RLS)
+            // vivem em tests/ — contrato da regra merp/no-owner-db-outside-tests.
+            'tests/**/*.test.ts',
+          ],
           globalSetup: ['./tests/support/test-setup.ts'],
           sequence: { shuffle: false },
           fileParallelism: false,

@@ -151,20 +151,14 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       expect(results.some((c: { name: string }) => c.name === name)).toBe(false)
     })
 
-    it('low-level createCompany without user context is denied (fail-closed)', async () => {
-      // company_insert_policy exige get_user_id() IS NOT NULL; createCompany usa
-      // withTenant(..., null, null) → app.user_id vazio → 42501 (sem GUC de utilizador).
-      let code: string | undefined
-      try {
-        await repo.createCompany({ name: `No User Co ${Date.now()}` })
-      } catch (error) {
-        let e = error as { code?: unknown; cause?: unknown } | undefined
-        while (e && !code) {
-          if (typeof e.code === 'string') code = e.code
-          e = e.cause as typeof e
-        }
-      }
-      expect(code).toBe('42501')
+    it('createCompany with valid user context succeeds', async () => {
+      const email = `test-user-${Date.now()}@example.com`
+      const user = await registerUser(email, 'Test User')
+      // User context is now required by createCompany signature; RLS policy
+      // (company_insert_policy: get_user_id() IS NOT NULL) is satisfied.
+      const created = await repo.createCompany({ name: 'New Co' }, user.id)
+      expect(created.name).toBe('New Co')
+      expect(created.id).toBeDefined()
     })
   })
 

@@ -46,10 +46,13 @@ export class CompanyRepository {
   /**
    * Creates a company row without members (low-level; prefer
    * {@link createCompanyWithOwner}). 409 when the name is taken.
+   * Requires a userId so that the RLS company_insert_policy (which checks
+   * get_user_id() IS NOT NULL) is satisfied. Pass the authenticated user's
+   * id when calling from handlers/middlewares.
    */
-  async createCompany(input: CreateCompanyInput): Promise<CompanyResult> {
+  async createCompany(input: CreateCompanyInput, userId: string): Promise<CompanyResult> {
     const companyId = randomUUID()
-    return await withTenant(companyId, null, null, async (tx) => {
+    return await withTenant(companyId, null, userId, async (tx) => {
       const [created] = await tx
         .insert(company)
         .values({
