@@ -25,6 +25,11 @@ export const MAX_SEARCH_QUERY_LENGTH = 100
 // tetos de empresa — PII corporativa não vira coluna desproporcional
 export const MAX_COMPANY_NAME_LENGTH = 200
 
+// limites de rate limit por e/IP (mantidos para compatibilidade com evaluateRateLimit
+// e as funções checkEmailRateLimit/checkIpRateLimit).
+export const MAX_REQUESTS_PER_EMAIL = 5
+export const MAX_REQUESTS_PER_IP = 20
+
 // validação mínima de formato — o antigo email.includes('@') aceitava
 // 'a@b' e 'a@' como válidos. Este regex não é RFC 5321 completo (de propósito);
 // é a linha de frente barata antes do costoso check do better-auth.
@@ -57,19 +62,39 @@ export function isWeakPassword(password: string): boolean {
 }
 
 const RATE_WINDOW_MS = 60_000
-const MAX_REQUESTS_PER_EMAIL = 5
-const MAX_REQUESTS_PER_IP = 20
-// teto por usuário nas rotas autenticadas — o nginx limita por IP
-// (camada grossa), mas é contornável com IPs rotativos; esta camada trava
-// o martelar de endpoints protegidos mesmo com N contas/IPs.
-export const MAX_REQUESTS_PER_USER = 60
-// lockout em duas camadas — por (email+IP) no limiar de 10 e
-// global por email em 50: brute-force distribuído (rotação de IPs) continua
-// travado, e o DoS custa 50 tentativas (≥10min a 5 req/min) por lock.
-const MAX_FAILED_ATTEMPTS = 10
-const MAX_GLOBAL_FAILED_ATTEMPTS = 50
-const LOCKOUT_DURATION_MS = 30 * 60 * 1000
 
+// --- Rate limits por tipo de operação (proporcional) ---
+
+// Login: limite rigoroso — 10/min por usuário (evita brute-force e DoS na autenticação).
+export const MAX_REQUESTS_PER_USER_LOGIN = 10
+
+// Recuperação de senha / forgot: limite rigoroso — 5/min por e-mail (evita
+// enumeração de e-mails e DoS no fluxo de reset).
+export const MAX_REQUESTS_PER_EMAIL_RESET = 5
+
+// Cadastro: limite específico — 3/min por IP (cria nova conta, protege contra
+// mass registration e bots). O limit por e-mail também existe (MAX_REQUESTS_PER_EMAIL).
+export const MAX_REQUESTS_PER_REGISTER_IP = 3
+
+// APIs comuns (GET list, leitura de dados): limite adequado ao uso — 120/min
+// por usuário (operations de leitura típicas de um painel ou app consumindo a API).
+export const MAX_REQUESTS_PER_API_COMMON = 120
+
+// Operações pesadas (exportações, bulk actions): limite próprio — 20/min por usuário
+// para evitar bloqueio de outros endpoints e DoS de volume.
+export const MAX_REQUESTS_PER_HEAVY_OPERATION = 20
+
+// Exportações: limite próprio — 5/min por usuário para garantir que outros
+// endpoints não sejam bloqueados por download em massa.
+export const MAX_REQUESTS_PER_EXPORT = 5
+// lockout de tentativa falha: global (50 falhas) + par (10 falhas por email+IP)
+export const MAX_FAILED_ATTEMPTS = 10
+export const MAX_GLOBAL_FAILED_ATTEMPTS = 50
+export const MAX_REQUESTS_PER_USER = 60
+
+// janela deslizante — contam apenas requests dentro de
+// RATE_WINDOW_MS; sem o salto de janela do fixed-window (burst no fim +
+// início de janelas adjacentes).
 export interface RateLimitEntry {
   window: string[] | null
 }
@@ -80,9 +105,7 @@ export interface RateLimitDecision {
   nextWindow: string[]
 }
 
-// janela deslizante — contam apenas requests dentro de
-// RATE_WINDOW_MS; sem o salto de janela do fixed-window (burst no fim +
-// início de janelas adjacentes).
+// janela deslizante genérica
 export function evaluateRateLimit(
   entry: RateLimitEntry | null,
   now: Date,
@@ -94,7 +117,6 @@ export function evaluateRateLimit(
   const recent = (entry?.window ?? []).filter((hit) => Date.parse(hit) > windowStartMs)
 
   if (recent.length >= maxRequests) {
-    // janela nunca vazia aqui (length >= maxRequests); '' preserva o NaN de antes
     const oldest = recent[0] ?? ''
     return {
       allowed: false,
@@ -116,7 +138,7 @@ export function evaluateLockout(
   failedAttempts: number,
   lockedUntil: Date | null,
   now: Date,
-  maxAttempts: number = MAX_FAILED_ATTEMPTS,
+  maxAttempts: number = 10,
 ): LockoutDecision {
   const nowMs = now.getTime()
 
@@ -129,7 +151,7 @@ export function evaluateLockout(
   }
 
   const nextAttempts = failedAttempts + 1
-  const nextLockedUntil = nextAttempts >= maxAttempts ? new Date(nowMs + LOCKOUT_DURATION_MS) : null
+  const nextLockedUntil = nextAttempts >= maxAttempts ? new Date(nowMs + 30 * 60 * 1000) : null
 
   return { locked: false, nextAttempts, nextLockedUntil }
 }
@@ -206,6 +228,36 @@ export async function checkEmailRateLimit(event: H3Event, email: string): Promis
   await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
 }
 
+// sliding window per user for login attempts — 10/min.
+/** Sliding-window rate limit for login attempts (10/min per user). Throws 429. */
+export async function checkLoginRateLimit(event: H3Event, userId: string): Promise<void> {
+  await checkRateLimitKey(event, `rate:login:${userId}`, MAX_REQUESTS_PER_USER_LOGIN)
+}
+
+// sliding window per user for password reset attempts — 5/min per email.
+/** Sliding-window rate limit for password reset attempts (5/min per email). Throws 429. */
+export async function checkPasswordResetRateLimit(event: H3Event, email: string): Promise<void> {
+  await checkRateLimitKey(event, `rate:reset:${email}`, MAX_REQUESTS_PER_EMAIL_RESET)
+}
+
+// sliding window per user for common API operations — 120/min.
+/** Sliding-window rate limit for common API operations (120/min per user). Throws 429. */
+export async function checkApiCommonRateLimit(event: H3Event, userId: string): Promise<void> {
+  await checkRateLimitKey(event, `rate:api:common:${userId}`, MAX_REQUESTS_PER_API_COMMON)
+}
+
+// sliding window per user for heavy operations — 20/min.
+/** Sliding-window rate limit for heavy operations (20/min per user). Throws 429. */
+export async function checkHeavyOperationRateLimit(event: H3Event, userId: string): Promise<void> {
+  await checkRateLimitKey(event, `rate:heavy:${userId}`, MAX_REQUESTS_PER_HEAVY_OPERATION)
+}
+
+// sliding window per user for exports — 5/min.
+/** Sliding-window rate limit for exports (5/min per user). Throws 429. */
+export async function checkExportRateLimit(event: H3Event, userId: string): Promise<void> {
+  await checkRateLimitKey(event, `rate:export:${userId}`, MAX_REQUESTS_PER_EXPORT)
+}
+
 // piso de tempo de resposta. Um endpoint que responde igual para
 // "existe" e "não existe", mas faz trabalho diferente no meio (hash de senha,
 // insert, chamada de API externa), vaza a existência da conta pelo relógio — o
@@ -224,9 +276,10 @@ export async function checkUserRateLimit(event: H3Event, userId: string): Promis
   await checkRateLimitKey(event, `rate:user:${userId}`, MAX_REQUESTS_PER_USER)
 }
 
-// chave por (email + IP) — 10 falhas de um IP não bloqueiam a vítima
-// (IP diferente) — e chave global por email com limiar maior (50) para
-// brute-force distribuído com rotação de IPs.
+/** Chave por (email + IP) — 10 falhas de um IP não bloqueiam a vítima
+  (IP diferente) — e chave global por email com limiar maior (50) para
+  brute-force distribuído com rotação de IPs.
+ */
 function pairLockoutKey(email: string, ip?: string | null): string | null {
   return ip ? `lockout:${email}:${ip}` : null
 }
@@ -240,7 +293,6 @@ async function readLockout(key: string, now: Date): Promise<LockoutDecision> {
       .from(authSecurityState)
       .where(eq(authSecurityState.key, key))
       .for('update')
-      .limit(1)
 
     return evaluateLockout(row?.count ?? 0, row?.lockedUntil ?? null, now)
   })
@@ -290,6 +342,15 @@ export async function checkAccountLockout(email: string, ip?: string | null): Pr
   }
 }
 
+/** Clears both lockout tiers after a successful login (best-effort — callers must not fail the login on error). */
+export async function resetFailedAttempts(email: string, ip?: string | null): Promise<void> {
+  const keys = [`lockout:${email}`]
+  const pairKey = pairLockoutKey(email, ip)
+  if (pairKey) keys.push(pairKey)
+
+  await db.delete(authSecurityState).where(inArray(authSecurityState.key, keys))
+}
+
 /** Records a failed login on both lockout tiers (global 50 + pair 10). Call only for `invalid_credentials`. */
 export async function recordFailedAttempt(email: string, ip?: string | null): Promise<void> {
   const now = new Date()
@@ -309,10 +370,3 @@ export async function recordFailedAttempt(email: string, ip?: string | null): Pr
 }
 
 /** Clears both lockout tiers after a successful login (best-effort — callers must not fail the login on error). */
-export async function resetFailedAttempts(email: string, ip?: string | null): Promise<void> {
-  const keys = [`lockout:${email}`]
-  const pairKey = pairLockoutKey(email, ip)
-  if (pairKey) keys.push(pairKey)
-
-  await db.delete(authSecurityState).where(inArray(authSecurityState.key, keys))
-}
