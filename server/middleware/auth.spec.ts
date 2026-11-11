@@ -31,6 +31,7 @@ vi.mock('#shared/auth', () => ({
 
 vi.mock('#shared/logger', () => ({
   logger: { warn: mockLoggerWarn, error: mockLoggerError },
+  background: vi.fn(),
 }))
 
 vi.mock('~~/server/utils/shared/errors', () => ({
@@ -43,7 +44,7 @@ vi.mock('~~/server/utils/shared/audit', () => ({
 }))
 
 vi.mock('~~/server/utils/shared/security', () => ({
-  checkUserRateLimit: mockCheckUserRateLimit,
+  checkApiCommonRateLimit: mockCheckUserRateLimit,
 }))
 
 describe('auth middleware', () => {
