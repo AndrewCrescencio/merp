@@ -19,12 +19,6 @@ export interface RegisterInput {
   consentTermsVersion: string
 }
 
-export interface LoginInput {
-  email: string
-  password: string
-  rememberMe?: boolean
-}
-
 export interface CompanyCreateInput {
   name: string
 }
@@ -102,25 +96,6 @@ export async function validateRegisterInput(rawBody: unknown): Promise<RegisterI
     password: body.password,
     name: body.name.trim(),
     consentTermsVersion: body.consentTermsVersion.trim(),
-  }
-}
-
-export function validateLoginInput(rawBody: unknown): LoginInput {
-  const body = rawBody as Record<string, unknown>
-  const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
-
-  if (!email || typeof body?.password !== 'string' || !body.password) {
-    sendValidationError('Email and password are required')
-  }
-
-  if (email.length > MAX_EMAIL_LENGTH || body.password.length > MAX_PASSWORD_LENGTH) {
-    sendValidationError('Invalid email or password')
-  }
-
-  return {
-    email,
-    password: body.password,
-    rememberMe: body.rememberMe === true,
   }
 }
 

@@ -6,7 +6,7 @@ vi.mock('nitropack/runtime', () => ({
 }))
 
 vi.mock('~~/server/utils/shared/purge', () => ({
-  runPurgeTask: vi.fn().mockResolvedValue({ result: 'success', deletedCount: 1 }),
+  runPurgeTask: vi.fn().mockResolvedValue({ result: 'success', deletedCount: 2 }),
 }))
 
 vi.mock('~~/server/utils/db', () => ({
@@ -20,22 +20,22 @@ vi.mock('~~/server/utils/db', () => ({
 }))
 
 import { runPurgeTask } from '~~/server/utils/shared/purge'
-import purgeAuthSecurityState from '~~/server/tasks/purge.auth-security-state'
+import purgeVerification from '~~/server/tasks/purge-verification'
 
-describe('purge-auth-security-state task', () => {
+describe('purge-verification task', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(runPurgeTask as any).mockResolvedValue({ result: 'success', deletedCount: 1 })
+    ;(runPurgeTask as any).mockResolvedValue({ result: 'success', deletedCount: 2 })
   })
 
-  it('chama runPurgeTask com retention de 7 dias', async () => {
-    const result = await purgeAuthSecurityState.run({} as any)
+  it('chama runPurgeTask com retention de 1 dia', async () => {
+    const result = await purgeVerification.run({} as any)
 
-    expect(result).toEqual({ result: 'success', deletedCount: 1 })
+    expect(result).toEqual({ result: 'success', deletedCount: 2 })
     expect(runPurgeTask).toHaveBeenCalledWith(
       expect.objectContaining({
-        retentionMs: 7 * 24 * 60 * 60 * 1000,
-        eventPrefix: 'purge_auth_security_state',
+        retentionMs: 24 * 60 * 60 * 1000,
+        eventPrefix: 'purge_verification',
       }),
     )
   })

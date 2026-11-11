@@ -38,7 +38,7 @@ export default defineNuxtConfig({
     '/**': {
       headers: {
         'Content-Security-Policy':
-          "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
       },
@@ -67,10 +67,13 @@ export default defineNuxtConfig({
     },
     scheduledTasks: {
       // Purge de retenção — roda de hora em hora no runtime node-server.
-      'purge-session': '0 * * * *',
-      'purge-verification': '0 * * * *',
-      'purge-auth-security-state': '0 * * * *',
-      'purge-auth-event': '0 * * * *',
+      // Formato do Nitro: chave = cron, valor = nome(s) da(s) task(s).
+      '0 * * * *': [
+        'purge-session',
+        'purge-verification',
+        'purge-auth-security-state',
+        'purge-auth-event',
+      ],
     },
     openAPI: {
       meta: {

@@ -46,7 +46,7 @@ export function setCsrfCookie(event: H3Event, token: string): void {
   })
 }
 
-export function getCsrfToken(event: H3Event): string | null {
+function getCsrfToken(event: H3Event): string | null {
   const cookie = getCookie(event, CSRF_COOKIE_NAME)
   if (!cookie) return null
   const [token, signature] = cookie.split('.')

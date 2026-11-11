@@ -20,7 +20,7 @@ vi.mock('~~/server/utils/db', () => ({
 }))
 
 import { runPurgeTask } from '~~/server/utils/shared/purge'
-import purgeAuthEvent from '~~/server/tasks/purge.auth-event'
+import purgeAuthEvent from '~~/server/tasks/purge-auth-event'
 
 describe('purge-auth-event task', () => {
   beforeEach(() => {

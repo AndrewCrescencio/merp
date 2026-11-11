@@ -6,7 +6,7 @@ vi.mock('nitropack/runtime', () => ({
 }))
 
 vi.mock('~~/server/utils/shared/purge', () => ({
-  runPurgeTask: vi.fn().mockResolvedValue({ result: 'success', deletedCount: 2 }),
+  runPurgeTask: vi.fn().mockResolvedValue({ result: 'success', deletedCount: 3 }),
 }))
 
 vi.mock('~~/server/utils/db', () => ({
@@ -20,22 +20,22 @@ vi.mock('~~/server/utils/db', () => ({
 }))
 
 import { runPurgeTask } from '~~/server/utils/shared/purge'
-import purgeVerification from '~~/server/tasks/purge.verification'
+import purgeSession from '~~/server/tasks/purge-session'
 
-describe('purge-verification task', () => {
+describe('purge-session task', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    ;(runPurgeTask as any).mockResolvedValue({ result: 'success', deletedCount: 2 })
+    ;(runPurgeTask as any).mockResolvedValue({ result: 'success', deletedCount: 3 })
   })
 
   it('chama runPurgeTask com retention de 1 dia', async () => {
-    const result = await purgeVerification.run({} as any)
+    const result = await purgeSession.run({} as any)
 
-    expect(result).toEqual({ result: 'success', deletedCount: 2 })
+    expect(result).toEqual({ result: 'success', deletedCount: 3 })
     expect(runPurgeTask).toHaveBeenCalledWith(
       expect.objectContaining({
         retentionMs: 24 * 60 * 60 * 1000,
-        eventPrefix: 'purge_verification',
+        eventPrefix: 'purge_session',
       }),
     )
   })

@@ -69,26 +69,3 @@ export async function callBetterAuth<T>(
     return handleDatabaseError(error)
   }
 }
-
-export async function callBetterAuthSilent<T>(
-  fn: BetterAuthCall<T>,
-  options?: { timeout?: number },
-): Promise<T | null> {
-  const authInstance = await resolveAuth()
-  const timeout = options?.timeout ?? BETTER_AUTH_TIMEOUT
-
-  try {
-    return await withTimeout(fn(authInstance), timeout)
-  } catch (error: unknown) {
-    if (error instanceof TimeoutError) {
-      return handleUpstreamTimeout()
-    }
-    if (error instanceof H3Error) {
-      throw error
-    }
-    if (isBetterAuthError(error)) {
-      return rethrowBetterAuthError(error)
-    }
-    return handleDatabaseError(error)
-  }
-}
