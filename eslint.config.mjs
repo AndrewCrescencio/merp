@@ -8,22 +8,34 @@ export default withNuxt(
     ignores: ['.nuxt/', '.output/'],
   },
   {
-    // createOwnerDbForSetupOnly vive em tests/support/owner-db.ts e só pode ser
-    // importado de dentro de tests/ e scripts/ — nunca de código de produção
-    // nem de outros testes.
+    // Bloqueia importar o módulo tests/support/owner-db (createOwnerDbForSetupOnly,
+    // import * como namespace ou qualquer especificador) de qualquer ficheiro
+    // FORA de tests/ e scripts/. O owner DB bypassa RLS — só testes de setup/fixtures
+    // e scripts o usam; handlers, middlewares e asserções usam `db` (role merp_app).
+    //
+    // files: .ts/.mjs apenas. .vue não entra: um <script> de componente Nuxt não
+    // importa um helper de BD Node (daria erro no build/typecheck) e não é vetor
+    // real do owner-db — decisão: não incluir .vue.
+    //
+    // ignores: só tests/** e scripts/** (antes também ignorava **/*.spec.ts e
+    // **/*.test.ts, o que furava a regra para testes fora de tests/, ex.:
+    // server/utils/foo.spec.ts).
     name: 'merp/no-owner-db-outside-tests',
     files: ['**/*.{ts,mjs}'],
-    ignores: ['tests/**', 'scripts/**', '**/*.spec.ts', '**/*.test.ts'],
+    ignores: ['tests/**', 'scripts/**'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
+              // Sem importNames: bloqueia o módulo inteiro, então named import,
+              // import * as od e qualquer outro especificador são barrados.
+              // group com globs cobre caminhos relativos (../../tests/support/owner-db)
+              // e aliases (~~/tests/support/owner-db, @/tests/support/owner-db).
               group: ['tests/support/owner-db', '**/tests/support/owner-db'],
-              importNames: ['createOwnerDbForSetupOnly'],
               message:
-                'createOwnerDbForSetupOnly é FORA DE ESCOPO fora de tests/ e scripts/. Use `db` (role merp_app). Apenas test-setup/fixtures usam o owner DB.',
+                'Importar owner-db fora de tests/ e scripts/ é proibido. Use `db` (role merp_app).',
             },
           ],
         },
