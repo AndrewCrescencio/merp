@@ -31,6 +31,14 @@ export function missingProductionEnv(env: NodeJS.ProcessEnv): string[] {
   if (!env.RESEND_API_KEY || !env.RESEND_FROM) {
     missing.push('RESEND_API_KEY/RESEND_FROM (verificação de email obrigatória)')
   }
+  // Retenção de auth_event: opcional (default 90), mas se informada deve ser
+  // um número >= 30 — o banco impõe o piso independente do valor da variável.
+  if (env.AUTH_EVENT_RETENTION_DAYS !== undefined) {
+    const days = Number(env.AUTH_EVENT_RETENTION_DAYS)
+    if (!Number.isFinite(days) || days < 30 || !Number.isInteger(days)) {
+      missing.push('AUTH_EVENT_RETENTION_DAYS (número inteiro >= 30)')
+    }
+  }
   return missing
 }
 
