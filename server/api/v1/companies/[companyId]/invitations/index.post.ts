@@ -1,22 +1,17 @@
-import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import { readBody, setHeader, setResponseStatus } from 'h3'
 import { inviteRepository } from '~~/server/utils/auth/invite/repository'
 import {
   assertRole,
   checkIpRateLimit,
   createAuthEvent,
   getClientIp,
-  sendUnauthorizedError,
+  defineAuthHandler,
   validateInviteInput,
   requireTenant,
 } from '~~/server/utils/shared'
 
-export default defineEventHandler(async (event) => {
+export default defineAuthHandler(async (event, user) => {
   await checkIpRateLimit(event)
-
-  const user = event.context.user as { id: string; email: string } | undefined
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
 
   // companyId vem do path (middleware tenant), nunca do body.
   const { companyId, role } = requireTenant(event)

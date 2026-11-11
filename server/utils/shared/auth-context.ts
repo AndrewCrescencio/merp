@@ -36,26 +36,6 @@ declare module 'h3' {
 }
 
 /**
- * Read the authenticated user set by `server/middleware/auth.ts`. Mirrors
- * {@link requireTenant} but for the session user. Handlers must NOT read
- * `.user` off the tenant context — `TenantContext` only carries
- * `{ companyId, role }`; the user always lives at `event.context.user`.
- */
-export function requireUser(event: { context: { user?: AuthContextUser } }): AuthContextUser {
-  const user = event.context.user
-  if (!user) {
-    throw createError({
-      status: 401,
-      message: JSON.stringify({
-        error: 'unauthenticated',
-        message: 'Authentication required.',
-      }),
-    })
-  }
-  return user
-}
-
-/**
  * Read the tenant set by the tenant middleware. Throws 401 if there is no
  * session (defensive — auth middleware normally guarantees it) and 500 if a
  * business handler somehow runs without the tenant middleware having matched

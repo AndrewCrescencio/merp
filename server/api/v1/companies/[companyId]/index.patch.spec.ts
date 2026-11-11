@@ -40,16 +40,11 @@ vi.mock('~~/server/utils/shared/errors', async (importOriginal) => {
   }
 })
 
-// O middleware de tenant resolve { companyId, role } do path. Os specs simulam
-// aquele contexto aqui — o handler nunca lê companyId do body.
-const ev = (role = 'owner') =>
-  ({
-    context: {
-      user: { id: 'user-1', email: 'user@example.com' },
-      tenant: { companyId: 'company-1', role },
-    },
-    headers: new Headers(),
-  }) as any
+const authContext = (role = 'owner') => ({
+  user: { id: 'user-1', email: 'user@example.com', name: null },
+  session: { id: 'session-1' },
+  tenant: { companyId: 'company-1', role },
+})
 
 describe('PATCH /api/v1/companies/{companyId}', () => {
   beforeEach(() => {
@@ -80,7 +75,7 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
 
     const handler = await loadHandler()
 
-    await expect(handler(ev())).rejects.toThrow(
+    await expect(handler({ context: authContext() } as any)).rejects.toThrow(
       'At least one field (name, cnpj, razaoSocial) is required',
     )
     expect(mockUpdateCompany).not.toHaveBeenCalled()
@@ -91,7 +86,9 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
 
     const handler = await loadHandler()
 
-    await expect(handler(ev())).rejects.toThrow('Company name must be at most 200 characters')
+    await expect(handler({ context: authContext() } as any)).rejects.toThrow(
+      'Company name must be at most 200 characters',
+    )
     expect(mockUpdateCompany).not.toHaveBeenCalled()
   })
 
@@ -100,7 +97,9 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
 
     const handler = await loadHandler()
 
-    await expect(handler(ev('member'))).rejects.toThrow('Only company owners can update companies')
+    await expect(handler({ context: authContext('member') } as any)).rejects.toThrow(
+      'Only company owners can update companies',
+    )
     expect(mockUpdateCompany).not.toHaveBeenCalled()
   })
 
@@ -119,7 +118,7 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
 
     const handler = await loadHandler()
 
-    const result = await handler(ev())
+    const result = await handler({ context: authContext() } as any)
 
     expect(result).toMatchObject({
       id: 'company-1',
@@ -146,7 +145,7 @@ describe('PATCH /api/v1/companies/{companyId}', () => {
 
     const handler = await loadHandler()
 
-    await expect(handler(ev())).rejects.toThrow('cnpj is invalid')
+    await expect(handler({ context: authContext() } as any)).rejects.toThrow('cnpj is invalid')
     expect(mockUpdateCompany).not.toHaveBeenCalled()
   })
 })

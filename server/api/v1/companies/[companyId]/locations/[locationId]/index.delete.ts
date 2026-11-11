@@ -1,11 +1,14 @@
-import { defineEventHandler, getRouterParam, sendNoContent } from 'h3'
+import { getRouterParam, sendNoContent } from 'h3'
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
-import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
-import { assertRole, ROLES, sendNotFoundError } from '~~/server/utils/shared'
+import {
+  assertRole,
+  defineAuthHandler,
+  ROLES,
+  requireTenant,
+  sendNotFoundError,
+} from '~~/server/utils/shared'
 
-export default defineEventHandler(async (event) => {
-  const user = requireUser(event)
-
+export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
   await assertRole(
     role,

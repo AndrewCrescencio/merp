@@ -46,16 +46,11 @@ vi.mock('~~/server/utils/shared/errors', async (importOriginal) => {
   }
 })
 
-// companyId vem do path (middleware tenant); o alvo (userId) também vem
-// do path via getRouterParam — nenhum id no body.
-const ev = (role = 'owner') =>
-  ({
-    context: {
-      user: { id: 'user-1', email: 'user@example.com' },
-      tenant: { companyId: 'company-1', role },
-    },
-    headers: new Headers(),
-  }) as any
+const authContext = (role = 'owner') => ({
+  user: { id: 'user-1', email: 'user@example.com', name: null },
+  session: { id: 'session-1' },
+  tenant: { companyId: 'company-1', role },
+})
 
 describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
   beforeEach(() => {
@@ -88,7 +83,9 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
 
     const handler = await loadHandler()
 
-    await expect(handler(ev())).rejects.toThrow('Company member not found')
+    await expect(handler({ context: authContext() } as any)).rejects.toThrow(
+      'Company member not found',
+    )
     expect(mockRemoveCompanyMember).not.toHaveBeenCalled()
   })
 
@@ -98,7 +95,9 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
 
       const handler = await loadHandler()
 
-      await expect(handler(ev('owner'))).rejects.toThrow('Cannot remove a company owner')
+      await expect(handler({ context: authContext('owner') } as any)).rejects.toThrow(
+        'Cannot remove a company owner',
+      )
       expect(mockRemoveCompanyMember).not.toHaveBeenCalled()
     })
 
@@ -108,7 +107,7 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
 
       const handler = await loadHandler()
 
-      const event = ev('member')
+      const event = { context: authContext('member') } as any
       const result = await handler(event)
 
       // DELETE responde 204 sem corpo (sendNoContent).
@@ -131,7 +130,9 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
 
       const handler = await loadHandler()
 
-      await expect(handler(ev('member'))).rejects.toThrow('Only company owners can remove members')
+      await expect(handler({ context: authContext('member') } as any)).rejects.toThrow(
+        'Only company owners can remove members',
+      )
       expect(mockRemoveCompanyMember).not.toHaveBeenCalled()
     })
 
@@ -141,7 +142,9 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
 
       const handler = await loadHandler()
 
-      await expect(handler(ev('owner'))).rejects.toThrow('Company member not found')
+      await expect(handler({ context: authContext('owner') } as any)).rejects.toThrow(
+        'Company member not found',
+      )
       expect(mockRemoveCompanyMember).not.toHaveBeenCalled()
     })
 
@@ -151,7 +154,9 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
 
       const handler = await loadHandler()
 
-      await expect(handler(ev('owner'))).rejects.toThrow('Cannot remove a company owner')
+      await expect(handler({ context: authContext('owner') } as any)).rejects.toThrow(
+        'Cannot remove a company owner',
+      )
       expect(mockRemoveCompanyMember).not.toHaveBeenCalled()
     })
 
@@ -162,7 +167,7 @@ describe('DELETE /api/v1/companies/{companyId}/members/{userId}', () => {
 
       const handler = await loadHandler()
 
-      const event = ev('owner')
+      const event = { context: authContext('owner') } as any
       const result = await handler(event)
 
       // DELETE responde 204 sem corpo (sendNoContent).

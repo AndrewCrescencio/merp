@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockListLocations = vi.fn()
-const mockRequireTenant = vi.fn()
-const mockRequireUser = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -14,11 +12,6 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/shared/auth-context', () => ({
-  requireTenant: mockRequireTenant,
-  requireUser: mockRequireUser,
-}))
-
 vi.mock('~~/server/utils/auth/company/location-repository', () => ({
   locationRepository: { listLocations: mockListLocations },
 }))
@@ -28,14 +21,19 @@ describe('GET /api/v1/companies/{companyId}/locations', () => {
     vi.clearAllMocks()
   })
 
+  const authContext = {
+    user: { id: 'user-1', email: 'a@b.c', name: null },
+    session: { id: 'session-1' },
+    tenant: { companyId: 'company-1', role: 'member' },
+  }
+
   const loadHandler = () =>
     import('~~/server/api/v1/companies/[companyId]/locations/index.get').then((m) => m.default)
 
   it('requires authentication', async () => {
-    mockRequireUser.mockImplementation(() => {
+    mockListLocations.mockImplementation(() => {
       throw new Error('Authentication required.')
     })
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'member' })
 
     const handler = await loadHandler()
     const event = { context: {} } as any
@@ -49,12 +47,10 @@ describe('GET /api/v1/companies/{companyId}/locations', () => {
       { id: 'loc-1', name: 'Matriz', isActive: true },
       { id: 'loc-2', name: 'Filial', isActive: true },
     ]
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'member' })
-    mockRequireUser.mockReturnValue({ id: 'user-1', email: 'a@b.c' })
     mockListLocations.mockResolvedValue(locations)
 
     const handler = await loadHandler()
-    const event = { context: {} } as any
+    const event = { context: authContext } as any
 
     const result = await handler(event)
 

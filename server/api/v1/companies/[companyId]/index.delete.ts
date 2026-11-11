@@ -1,19 +1,14 @@
-import { defineEventHandler, sendNoContent } from 'h3'
+import { sendNoContent } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
 import {
   assertRole,
   createAuthEvent,
   getClientIp,
-  sendUnauthorizedError,
+  defineAuthHandler,
   requireTenant,
 } from '~~/server/utils/shared'
 
-export default defineEventHandler(async (event) => {
-  const user = event.context.user as { id: string; email: string } | undefined
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
-
+export default defineAuthHandler(async (event, user) => {
   // companyId vem do path (middleware tenant); DELETE não tem body.
   const { companyId, role } = requireTenant(event)
 

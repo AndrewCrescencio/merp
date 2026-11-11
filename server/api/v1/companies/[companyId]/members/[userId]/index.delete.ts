@@ -1,22 +1,17 @@
-import { defineEventHandler, getRouterParam, sendNoContent } from 'h3'
+import { getRouterParam, sendNoContent } from 'h3'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import {
   assertRole,
   createAuthEvent,
   getClientIp,
+  defineAuthHandler,
   ROLES,
+  requireTenant,
   sendForbiddenError,
   sendNotFoundError,
-  sendUnauthorizedError,
-  requireTenant,
 } from '~~/server/utils/shared'
 
-export default defineEventHandler(async (event) => {
-  const user = event.context.user as { id: string; email: string } | undefined
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
-
+export default defineAuthHandler(async (event, user) => {
   // companyId e userId vêm do path; nenhum id no body.
   const { companyId, role } = requireTenant(event)
   const userId = getRouterParam(event, 'userId')

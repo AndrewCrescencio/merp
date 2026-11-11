@@ -2,8 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockGetRouterParam = vi.fn()
 const mockReadBody = vi.fn()
-const mockRequireTenant = vi.fn()
-const mockSendUnauthorizedError = vi.fn()
 const mockSetMemberDefaultLocation = vi.fn()
 const mockAssertRole = vi.fn()
 const mockSendNotFoundError = vi.fn()
@@ -22,10 +20,6 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/shared/auth-context', () => ({
-  requireTenant: mockRequireTenant,
-}))
-
 vi.mock('~~/server/utils/auth/company/membership', () => ({
   membershipRepository: { setMemberDefaultLocation: mockSetMemberDefaultLocation },
 }))
@@ -38,7 +32,6 @@ vi.mock('~~/server/utils/shared', async (importOriginal) => {
     ROLES: { owner: 'owner', member: 'member' },
     sendNotFoundError: mockSendNotFoundError,
     sendValidationError: mockSendValidationError,
-    sendUnauthorizedError: mockSendUnauthorizedError,
     createAuthEvent: mockCreateAuthEvent,
   }
 })
@@ -46,9 +39,6 @@ vi.mock('~~/server/utils/shared', async (importOriginal) => {
 describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSendUnauthorizedError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
     mockSendNotFoundError.mockImplementation((msg: string) => {
       throw new Error(msg)
     })
@@ -58,21 +48,21 @@ describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location'
     mockAssertRole.mockImplementation(() => undefined)
   })
 
+  const authContext = (role = 'owner') => ({
+    user: { id: 'user-1', email: 'a@b.c', name: null },
+    session: { id: 'session-1' },
+    tenant: { companyId: 'company-1', role },
+  })
+
   const loadHandler = () =>
     import('~~/server/api/v1/companies/[companyId]/members/[userId]/default-location.patch').then(
       (m) => m.default,
     )
 
-  const eventWithUser = (tenant: { companyId: string; role: string }) =>
-    ({
-      context: {
-        user: { id: 'user-1', email: 'a@b.c' },
-        tenant,
-      },
-    }) as any
-
   it('requires authentication', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
+    mockAssertRole.mockImplementation(() => {
+      throw new Error('Authentication required.')
+    })
     mockGetRouterParam.mockReturnValue('target-user')
 
     const handler = await loadHandler()
@@ -83,15 +73,13 @@ describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location'
   })
 
   it('403 quando o papel do tenant nao e owner', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'member' })
     mockAssertRole.mockImplementation((_role, requiredRole, _m1, m2) => {
       if (_role !== requiredRole) throw new Error(m2)
     })
     mockReadBody.mockResolvedValue({ defaultLocationId: 'loc-1' })
 
     const handler = await loadHandler()
-    const event = eventWithUser({ companyId: 'company-1', role: 'member' })
-    mockGetRouterParam.mockReturnValue('target-user')
+    const event = { context: authContext('member') } as any
 
     await expect(handler(event)).rejects.toThrow(
       'Only company owners can assign a default location',
@@ -106,31 +94,27 @@ describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location'
   })
 
   it('400 quando o body nao passa validacao', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
     mockReadBody.mockResolvedValue({})
 
     const handler = await loadHandler()
-    const event = eventWithUser({ companyId: 'company-1', role: 'owner' })
-    mockGetRouterParam.mockReturnValue('target-user')
+    const event = { context: authContext() } as any
 
     await expect(handler(event)).rejects.toThrow('defaultLocationId must be a location id or null')
     expect(mockSetMemberDefaultLocation).not.toHaveBeenCalled()
   })
 
   it('404 quando o userId do path nao vem', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
     mockReadBody.mockResolvedValue({ defaultLocationId: 'loc-1' })
     mockGetRouterParam.mockReturnValue(undefined)
 
     const handler = await loadHandler()
-    const event = eventWithUser({ companyId: 'company-1', role: 'owner' })
+    const event = { context: authContext() } as any
 
     await expect(handler(event)).rejects.toThrow('Company member not found')
     expect(mockSetMemberDefaultLocation).not.toHaveBeenCalled()
   })
 
   it('404 quando o membro ou a location nao existem na company do tenant', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
     mockGetRouterParam.mockReturnValue('target-user')
     mockReadBody.mockResolvedValue({ defaultLocationId: 'loc-1' })
     mockSetMemberDefaultLocation.mockImplementation(() => {
@@ -138,7 +122,7 @@ describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location'
     })
 
     const handler = await loadHandler()
-    const event = eventWithUser({ companyId: 'company-1', role: 'owner' })
+    const event = { context: authContext() } as any
 
     await expect(handler(event)).rejects.toThrow('Company member not found')
     expect(mockSetMemberDefaultLocation).toHaveBeenCalledWith(
@@ -150,14 +134,13 @@ describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location'
   })
 
   it('atribui a loja padrao do membro da company do tenant (companyId e userId do path)', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
     mockGetRouterParam.mockReturnValue('target-user')
     mockReadBody.mockResolvedValue({ defaultLocationId: 'loc-1' })
     mockSetMemberDefaultLocation.mockResolvedValue(undefined)
     mockCreateAuthEvent.mockResolvedValue(undefined)
 
     const handler = await loadHandler()
-    const event = eventWithUser({ companyId: 'company-1', role: 'owner' })
+    const event = { context: authContext() } as any
 
     const result = await handler(event)
 

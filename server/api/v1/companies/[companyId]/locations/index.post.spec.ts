@@ -3,8 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockReadBody = vi.fn()
 const mockSetResponseStatus = vi.fn()
 const mockSetHeader = vi.fn()
-const mockRequireTenant = vi.fn()
-const mockRequireUser = vi.fn()
 const mockCreateLocation = vi.fn()
 const mockAssertRole = vi.fn()
 const mockSendValidationError = vi.fn()
@@ -20,11 +18,6 @@ vi.mock('h3', () => ({
     ;(err as any).statusCode = opts.status
     throw err
   },
-}))
-
-vi.mock('~~/server/utils/shared/auth-context', () => ({
-  requireTenant: mockRequireTenant,
-  requireUser: mockRequireUser,
 }))
 
 vi.mock('~~/server/utils/auth/company/location-repository', () => ({
@@ -50,15 +43,19 @@ describe('POST /api/v1/companies/{companyId}/locations', () => {
     mockAssertRole.mockImplementation(() => undefined)
   })
 
+  const authContext = (role = 'owner') => ({
+    user: { id: 'user-1', email: 'a@b.c', name: null },
+    session: { id: 'session-1' },
+    tenant: { companyId: 'company-1', role },
+  })
+
   const loadHandler = () =>
     import('~~/server/api/v1/companies/[companyId]/locations/index.post').then((m) => m.default)
 
   it('requires authentication', async () => {
-    mockRequireUser.mockImplementation(() => {
+    mockAssertRole.mockImplementation(() => {
       throw new Error('Authentication required.')
     })
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
-
     const handler = await loadHandler()
     const event = { context: {} } as any
 
@@ -67,15 +64,13 @@ describe('POST /api/v1/companies/{companyId}/locations', () => {
   })
 
   it('403 quando o papel do tenant nao e owner', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'member' })
-    mockRequireUser.mockReturnValue({ id: 'user-1' })
     mockAssertRole.mockImplementation((_role, requiredRole, _m1, m2) => {
       if (_role !== requiredRole) throw new Error(m2)
     })
     mockReadBody.mockResolvedValue({ name: 'Filial' })
 
     const handler = await loadHandler()
-    const event = { context: {} } as any
+    const event = { context: authContext('member') } as any
 
     await expect(handler(event)).rejects.toThrow('Only company owners can create locations')
     expect(mockAssertRole).toHaveBeenCalledWith(
@@ -88,12 +83,10 @@ describe('POST /api/v1/companies/{companyId}/locations', () => {
   })
 
   it('400 quando o body nao passa validacao', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
-    mockRequireUser.mockReturnValue({ id: 'user-1' })
     mockReadBody.mockResolvedValue({})
 
     const handler = await loadHandler()
-    const event = { context: {} } as any
+    const event = { context: authContext() } as any
 
     await expect(handler(event)).rejects.toThrow(
       'name is required and must be a string of at most 200 characters',
@@ -108,13 +101,11 @@ describe('POST /api/v1/companies/{companyId}/locations', () => {
       name: 'Filial Zona Sul',
       isActive: true,
     }
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
-    mockRequireUser.mockReturnValue({ id: 'user-1' })
     mockReadBody.mockResolvedValue({ name: 'Filial Zona Sul' })
     mockCreateLocation.mockResolvedValue(created)
 
     const handler = await loadHandler()
-    const event = { context: {} } as any
+    const event = { context: authContext() } as any
 
     const result = await handler(event)
 

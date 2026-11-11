@@ -1,13 +1,13 @@
-import { defineEventHandler, getRouterParam, readBody } from 'h3'
+import { getRouterParam, readBody } from 'h3'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import {
   assertRole,
   createAuthEvent,
   getClientIp,
+  defineAuthHandler,
   requireTenant,
   ROLES,
   sendNotFoundError,
-  sendUnauthorizedError,
   validateDefaultLocationInput,
 } from '~~/server/utils/shared'
 
@@ -20,12 +20,7 @@ import {
  * Owner-only, como a remoção de membro: quem decide em qual loja um garçom
  * trabalha é a empresa, não o próprio garçom.
  */
-export default defineEventHandler(async (event) => {
-  const user = event.context.user as { id: string; email: string } | undefined
-  if (!user) {
-    sendUnauthorizedError('Authentication required.')
-  }
-
+export default defineAuthHandler(async (event, user) => {
   // companyId e userId vêm do path; o body só traz a location.
   const { companyId, role } = requireTenant(event)
   const userId = getRouterParam(event, 'userId')

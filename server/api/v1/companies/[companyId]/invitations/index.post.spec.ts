@@ -48,16 +48,11 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   checkIpRateLimit: vi.fn(),
 }))
 
-// O middleware de tenant resolve { companyId, role } do path; o email
-// valida só o corpo — companyId nunca vem no body.
-const eventWithUser = (role = 'owner', overrides: Record<string, unknown> = {}) =>
-  ({
-    context: {
-      user: { id: 'user-1', email: 'owner@example.com' },
-      tenant: { companyId: 'company-1', role },
-    },
-    ...overrides,
-  }) as any
+const authContext = (role = 'owner') => ({
+  user: { id: 'user-1', email: 'owner@example.com', name: null },
+  session: { id: 'session-1' },
+  tenant: { companyId: 'company-1', role },
+})
 
 describe('POST /api/v1/companies/{companyId}/invitations', () => {
   beforeEach(() => {
@@ -77,14 +72,18 @@ describe('POST /api/v1/companies/{companyId}/invitations', () => {
     mockReadBody.mockResolvedValue({ email: 'not-an-email' })
 
     const handler = await loadHandler()
-    await expect(handler(eventWithUser())).rejects.toThrow('A valid email is required')
+    await expect(handler({ context: authContext() } as any)).rejects.toThrow(
+      'A valid email is required',
+    )
   })
 
   it('rejects oversized invite email', async () => {
     mockReadBody.mockResolvedValue({ email: `${'a'.repeat(300)}@example.com` })
 
     const handler = await loadHandler()
-    await expect(handler(eventWithUser())).rejects.toThrow('A valid email is required')
+    await expect(handler({ context: authContext() } as any)).rejects.toThrow(
+      'A valid email is required',
+    )
     expect(mockCreateInvite).not.toHaveBeenCalled()
   })
 
@@ -92,7 +91,7 @@ describe('POST /api/v1/companies/{companyId}/invitations', () => {
     mockReadBody.mockResolvedValue({ email: 'user@example.com' })
 
     const handler = await loadHandler()
-    await expect(handler(eventWithUser('member'))).rejects.toThrow(
+    await expect(handler({ context: authContext('member') } as any)).rejects.toThrow(
       'Only company owners can invite members',
     )
     expect(mockCreateInvite).not.toHaveBeenCalled()
@@ -109,7 +108,7 @@ describe('POST /api/v1/companies/{companyId}/invitations', () => {
     })
 
     const handler = await loadHandler()
-    const event = eventWithUser()
+    const event = { context: authContext() } as any
     const result = await handler(event)
 
     expect(mockCreateInvite).toHaveBeenCalledWith({

@@ -1,16 +1,19 @@
-import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import { readBody, setHeader, setResponseStatus } from 'h3'
 import { z } from 'zod'
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
-import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
-import { assertRole, ROLES, sendValidationError } from '~~/server/utils/shared'
+import {
+  assertRole,
+  defineAuthHandler,
+  ROLES,
+  requireTenant,
+  sendValidationError,
+} from '~~/server/utils/shared'
 
 const createLocationSchema = z.object({
   name: z.string().min(1).max(200),
 })
 
-export default defineEventHandler(async (event) => {
-  const user = requireUser(event)
-
+export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
   await assertRole(
     role,

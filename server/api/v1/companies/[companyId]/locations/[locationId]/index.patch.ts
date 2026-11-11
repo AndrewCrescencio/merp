@@ -1,8 +1,14 @@
-import { defineEventHandler, getRouterParam, readBody } from 'h3'
+import { getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
-import { requireTenant, requireUser } from '~~/server/utils/shared/auth-context'
-import { assertRole, ROLES, sendNotFoundError, sendValidationError } from '~~/server/utils/shared'
+import {
+  assertRole,
+  defineAuthHandler,
+  ROLES,
+  requireTenant,
+  sendNotFoundError,
+  sendValidationError,
+} from '~~/server/utils/shared'
 
 const updateLocationSchema = z
   .object({
@@ -13,9 +19,7 @@ const updateLocationSchema = z
     message: 'name or isActive is required',
   })
 
-export default defineEventHandler(async (event) => {
-  const user = requireUser(event)
-
+export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
   await assertRole(
     role,

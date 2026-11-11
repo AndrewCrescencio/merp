@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockGetRouterParam = vi.fn()
-const mockRequireTenant = vi.fn()
-const mockRequireUser = vi.fn()
 const mockSoftDeleteLocation = vi.fn()
 const mockAssertRole = vi.fn()
 const mockSendNotFoundError = vi.fn()
@@ -18,11 +16,6 @@ vi.mock('h3', () => ({
     ;(err as any).statusCode = opts.status
     throw err
   },
-}))
-
-vi.mock('~~/server/utils/shared/auth-context', () => ({
-  requireTenant: mockRequireTenant,
-  requireUser: mockRequireUser,
 }))
 
 vi.mock('~~/server/utils/auth/company/location-repository', () => ({
@@ -48,16 +41,21 @@ describe('DELETE /api/v1/companies/{companyId}/locations/{locationId}', () => {
     mockAssertRole.mockImplementation(() => undefined)
   })
 
+  const authContext = (role = 'owner') => ({
+    user: { id: 'user-1', email: 'a@b.c', name: null },
+    session: { id: 'session-1' },
+    tenant: { companyId: 'company-1', role },
+  })
+
   const loadHandler = () =>
     import('~~/server/api/v1/companies/[companyId]/locations/[locationId]/index.delete').then(
       (m) => m.default,
     )
 
   it('requires authentication', async () => {
-    mockRequireUser.mockImplementation(() => {
+    mockAssertRole.mockImplementation(() => {
       throw new Error('Authentication required.')
     })
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
     mockGetRouterParam.mockReturnValue('loc-1')
 
     const handler = await loadHandler()
@@ -68,56 +66,48 @@ describe('DELETE /api/v1/companies/{companyId}/locations/{locationId}', () => {
   })
 
   it('403 quando o papel do tenant nao e owner', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'member' })
-    mockRequireUser.mockReturnValue({ id: 'user-1' })
     mockAssertRole.mockImplementation((_role, requiredRole, _m1, m2) => {
       if (_role !== requiredRole) throw new Error(m2)
     })
     mockGetRouterParam.mockReturnValue('loc-1')
 
     const handler = await loadHandler()
-    const event = { context: {} } as any
+    const event = { context: authContext('member') } as any
 
     await expect(handler(event)).rejects.toThrow('Only company owners can delete locations')
     expect(mockSoftDeleteLocation).not.toHaveBeenCalled()
   })
 
   it('404 quando o locationId do path nao vem', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
-    mockRequireUser.mockReturnValue({ id: 'user-1' })
     mockGetRouterParam.mockReturnValue(undefined)
 
     const handler = await loadHandler()
-    const event = { context: {} } as any
+    const event = { context: authContext() } as any
 
     await expect(handler(event)).rejects.toThrow('Location not found')
     expect(mockSoftDeleteLocation).not.toHaveBeenCalled()
   })
 
   it('404 quando a location nao existe na company do tenant', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
-    mockRequireUser.mockReturnValue({ id: 'user-1' })
     mockGetRouterParam.mockReturnValue('loc-1')
     mockSoftDeleteLocation.mockImplementation(() => {
       throw new Error('Location not found')
     })
 
     const handler = await loadHandler()
-    const event = { context: {} } as any
+    const event = { context: authContext() } as any
 
     await expect(handler(event)).rejects.toThrow('Location not found')
     expect(mockSoftDeleteLocation).toHaveBeenCalledWith('company-1', 'user-1', 'loc-1')
   })
 
   it('soft-delete: 204 sem corpo (companyId do tenant, nao do corpo)', async () => {
-    mockRequireTenant.mockReturnValue({ companyId: 'company-1', role: 'owner' })
-    mockRequireUser.mockReturnValue({ id: 'user-1' })
     mockGetRouterParam.mockReturnValue('loc-1')
     mockSoftDeleteLocation.mockResolvedValue(undefined)
     mockSendNoContent.mockImplementation(() => undefined)
 
     const handler = await loadHandler()
-    const event = { context: {} } as any
+    const event = { context: authContext() } as any
 
     const result = await handler(event)
 

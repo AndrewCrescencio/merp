@@ -38,16 +38,11 @@ vi.mock('~~/server/utils/shared/errors', async (importOriginal) => {
   }
 })
 
-// O middleware de tenant resolve { companyId, role } do path; DELETE não
-// carrega companyId no body nem no handler.
-const ev = (role = 'owner') =>
-  ({
-    context: {
-      user: { id: 'user-1', email: 'user@example.com' },
-      tenant: { companyId: 'company-1', role },
-    },
-    headers: new Headers(),
-  }) as any
+const authContext = (role = 'owner') => ({
+  user: { id: 'user-1', email: 'user@example.com', name: null },
+  session: { id: 'session-1' },
+  tenant: { companyId: 'company-1', role },
+})
 
 describe('DELETE /api/v1/companies/{companyId}', () => {
   beforeEach(() => {
@@ -73,7 +68,9 @@ describe('DELETE /api/v1/companies/{companyId}', () => {
   it('throws 403 when user is a member but not the owner', async () => {
     const handler = await loadHandler()
 
-    await expect(handler(ev('member'))).rejects.toThrow('Only company owners can delete companies')
+    await expect(handler({ context: authContext('member') } as any)).rejects.toThrow(
+      'Only company owners can delete companies',
+    )
     expect(mockSoftDeleteCompany).not.toHaveBeenCalled()
   })
 
@@ -86,7 +83,7 @@ describe('DELETE /api/v1/companies/{companyId}', () => {
 
     const handler = await loadHandler()
 
-    const event = ev()
+    const event = { context: authContext() } as any
     const result = await handler(event)
 
     // DELETE responde 204 sem corpo (sendNoContent).
