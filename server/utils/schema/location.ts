@@ -16,10 +16,7 @@ export const location = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('location_company_id_idx').on(table.companyId),
-    index('location_is_active_idx').on(table.isActive),
-  ],
+  (table) => [index('location_company_id_idx').on(table.companyId)],
 )
 
 export type LocationInsert = typeof location.$inferInsert

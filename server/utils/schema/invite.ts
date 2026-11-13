@@ -26,6 +26,8 @@ export const invite = pgTable(
   },
   (table) => [
     uniqueIndex('invite_company_email_idx').on(table.companyId, table.email),
+    // FK com ON DELETE CASCADE: sem índice, apagar um user varre invite inteiro.
+    index('invite_invited_by_idx').on(table.invitedBy),
     index('invite_pending_email_idx')
       .on(table.email)
       .where(sql`${table.acceptedAt} IS NULL`),

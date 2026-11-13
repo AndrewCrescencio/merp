@@ -3,22 +3,15 @@ import { pgTable, text, timestamp, boolean, uniqueIndex, index, check } from 'dr
 import { user } from './identity'
 import { location } from './location'
 
-export const company = pgTable(
-  'company',
-  {
-    id: text('id')
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    name: text('name').notNull(),
-    isDeleted: boolean('is_deleted').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    index('company_is_deleted_idx').on(table.isDeleted),
-    index('company_name_idx').on(table.name),
-  ],
-)
+export const company = pgTable('company', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text('name').notNull(),
+  isDeleted: boolean('is_deleted').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
 export const companyMember = pgTable(
   'company_member',
@@ -44,7 +37,6 @@ export const companyMember = pgTable(
   (table) => [
     uniqueIndex('company_member_company_user_idx').on(table.companyId, table.userId),
     index('company_member_user_id_idx').on(table.userId),
-    index('company_member_company_id_idx').on(table.companyId),
     index('company_member_default_location_id_idx').on(table.defaultLocationId),
     // Papéis válidos: apenas `owner` e `member` (o papel `manager` nunca existiu
     // no journal aplicado). Aplica no banco para que nenhum caminho de escrita

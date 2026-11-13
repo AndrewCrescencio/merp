@@ -18,10 +18,7 @@ export const user = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex('user_email_idx').on(table.email),
-    index('user_is_active_idx').on(table.isActive),
-  ],
+  (table) => [uniqueIndex('user_email_idx').on(table.email)],
 )
 
 export const session = pgTable(
@@ -102,9 +99,8 @@ export const authEvent = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('auth_event_user_id_idx').on(table.userId),
-    index('auth_event_email_idx').on(table.email),
-    index('auth_event_event_type_idx').on(table.eventType),
+    // listagem do próprio histórico: WHERE user_id = ? ORDER BY created_at
+    index('auth_event_user_id_created_at_idx').on(table.userId, table.createdAt),
     index('auth_event_created_at_idx').on(table.createdAt),
   ],
 )
