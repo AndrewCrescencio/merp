@@ -23,7 +23,8 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "check:routes": "tsx scripts/check-routes.ts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run check:routes",
+    "check:migrations": "tsx scripts/check-migration-prefixes.ts",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run check:routes && npm run check:migrations",
     "db:migrate:full": "tsx --env-file-if-exists=.env scripts/check-db.ts && CI=true FORCE_COLOR=0 drizzle-kit migrate && tsx --env-file-if-exists=.env scripts/verify-rls.ts",
     "db:smoke": "tsx --env-file-if-exists=.env scripts/db-smoke.ts"
   },

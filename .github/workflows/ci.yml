@@ -26,6 +26,7 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run check:routes
+      - run: npm run check:migrations
 
   typecheck:
     name: TypeCheck
