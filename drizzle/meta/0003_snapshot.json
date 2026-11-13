@@ -1,6 +1,6 @@
 {
-  "id": "162f2bc1-2dbf-4d28-a3ad-d19dfb3b1562",
-  "prevId": "4c866a89-1564-4472-a7e6-07ace5329d2e",
+  "id": "4c866a89-1564-4472-a7e6-07ace5329d2e",
+  "prevId": "f2cbe2ae-0436-450f-a4e8-e9bddd5c0cde",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -583,6 +583,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "cnpj": {
+          "name": "cnpj",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "razao_social": {
+          "name": "razao_social",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "is_deleted": {
           "name": "is_deleted",
           "type": "boolean",
@@ -606,6 +618,21 @@
         }
       },
       "indexes": {
+        "company_cnpj_idx": {
+          "name": "company_cnpj_idx",
+          "columns": [
+            {
+              "expression": "cnpj",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "company_is_deleted_idx": {
           "name": "company_is_deleted_idx",
           "columns": [

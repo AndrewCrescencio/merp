@@ -13,9 +13,9 @@ describe.skipIf(!dbAvailable)(
     const { db: ownerDb, close: closeOwnerDb } = createOwnerDbForSetupOnly()
 
     beforeAll(async () => {
-      // Aplica a migration 0006 (função purge_auth_events) no banco de teste.
+      // Aplica a migration 0005 (função purge_auth_events) no banco de teste.
       const migrationSql = readFileSync(
-        resolve(__dirname, '../../../drizzle/0006_purge_auth_events.sql'),
+        resolve(__dirname, '../../../drizzle/0005_purge_auth_events.sql'),
         'utf-8',
       )
       await ownerDb.execute(sql`${sql.raw(migrationSql)}`)
