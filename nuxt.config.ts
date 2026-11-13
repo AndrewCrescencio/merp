@@ -34,7 +34,8 @@ export default defineNuxtConfig({
     // proteção em camadas no frontend — CSP restringe fontes de
     // scripts/styles, nosniff impede MIME-sniffing e DENY bloqueia clickjacking.
     // Aplica a todas as rotas da app (SSR + SPA). Valores fixos: sem dados de
-    // env para não quebrar builds sem .env.
+    // env para não quebrar builds sem .env. Os hashes dos <script> inline do
+    // Nuxt são acrescentados ao script-src por server/plugins/csp-inline-scripts.ts.
     '/**': {
       headers: {
         'Content-Security-Policy':
