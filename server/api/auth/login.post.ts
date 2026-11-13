@@ -10,13 +10,12 @@ import {
   getClientIp,
   MAX_EMAIL_LENGTH,
   MAX_PASSWORD_LENGTH,
-  normalizeEmail,
   recordFailedAttempt,
   resetFailedAttempts,
   sendAuthError,
   sendDeactivationNotice,
   sendUnauthorizedError,
-  sendValidationError,
+  validateLoginInput,
 } from '~~/server/utils/shared'
 
 // LOCKOUT_EXEMPT_ERROR_CODES marca os codes que NÃO contam para lockout
@@ -46,21 +45,14 @@ function getLoginErrorReason(error: unknown): string {
 export default defineEventHandler(async (event) => {
   await checkIpRateLimit(event)
 
-  const body = await readBody<{ email?: string; password?: string; rememberMe?: boolean }>(event)
-
-  const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
-  // typeof password entra na validação — senha numérica passava por
-  // !body?.password e derrubava no `.length`/scrypt com TypeError → 500.
-  if (!email || typeof body?.password !== 'string' || !body.password) {
-    sendValidationError('Email and password are required')
-  }
+  const { email, password, rememberMe } = validateLoginInput(await readBody(event))
 
   // tetos de tamanho ANTES do checkEmailRateLimit — email gigante não
   // pode virar chave `rate:`/`lockout:` (PK text; índice btree quebra → 503)
   // nem pagar scrypt em senha de megabytes. Resposta 401 genérico idêntica a
   // credenciais inválidas: nenhuma conta legítima passa dos tetos (register
   // impõe os mesmos) — zero oráculo de enumeração, timing uniforme.
-  if (email.length > MAX_EMAIL_LENGTH || body.password.length > MAX_PASSWORD_LENGTH) {
+  if (email.length > MAX_EMAIL_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
     sendUnauthorizedError('Invalid email or password')
   }
 
@@ -109,8 +101,8 @@ export default defineEventHandler(async (event) => {
     const result = await signInUser(
       {
         email,
-        password: body.password,
-        rememberMe: body.rememberMe === true,
+        password,
+        rememberMe,
       },
       event.headers,
     )

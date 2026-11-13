@@ -1,17 +1,12 @@
 import { readBody, setHeader, setResponseStatus } from 'h3'
-import { z } from 'zod'
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
 import {
   assertRole,
   defineAuthHandler,
   ROLES,
   requireTenant,
-  sendValidationError,
+  validateLocationCreateInput,
 } from '~~/server/utils/shared'
-
-const createLocationSchema = z.object({
-  name: z.string().min(1).max(200),
-})
 
 export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
@@ -22,13 +17,9 @@ export default defineAuthHandler(async (event, user) => {
     'Only company owners can create locations',
   )
 
-  const body = await readBody(event)
-  const parsed = createLocationSchema.safeParse(body)
-  if (!parsed.success) {
-    sendValidationError('name is required and must be a string of at most 200 characters')
-  }
+  const input = validateLocationCreateInput(await readBody(event))
 
-  const location = await locationRepository.createLocation(companyId, user.id, parsed.data)
+  const location = await locationRepository.createLocation(companyId, user.id, input)
 
   // criação → 201 + Location do recurso criado.
   setResponseStatus(event, 201)
