@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterAll } from 'vitest'
 import { createOwnerDbForSetupOnly } from '../../support/owner-db'
 import { sql } from 'drizzle-orm'
 
@@ -7,7 +7,8 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 describe.skipIf(!dbAvailable)(
   'Grants parity — merp_app has required grants on all user tables',
   () => {
-    const { db: ownerDb } = createOwnerDbForSetupOnly()
+    const { db: ownerDb, close: closeOwnerDb } = createOwnerDbForSetupOnly()
+    afterAll(() => closeOwnerDb())
 
     it('merp_app has SELECT, INSERT, UPDATE, DELETE on all non-system tables', async () => {
       // Query information_schema for tables where merp_app lacks required grants

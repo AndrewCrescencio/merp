@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterAll } from 'vitest'
 import { db } from '../../../server/utils/db'
 import { createOwnerDbForSetupOnly } from '../../support/owner-db'
 import { sql } from 'drizzle-orm'
@@ -19,7 +19,8 @@ const rows = (r: unknown): Row[] => (r ?? []) as Row[]
  * não privilegiada da aplicação — `db` liga em APP_DATABASE_URL.
  */
 describe.skipIf(!dbAvailable)('RLS guard (CI)', () => {
-  const { db: ownerDb } = createOwnerDbForSetupOnly()
+  const { db: ownerDb, close: closeOwnerDb } = createOwnerDbForSetupOnly()
+  afterAll(() => closeOwnerDb())
 
   it('a role da aplicação não é superuser, não tem BYPASSRLS e não é dona das tabelas', async () => {
     const role = rows(

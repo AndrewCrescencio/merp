@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { db } from '../../../server/utils/db'
 import { createOwnerDbForSetupOnly } from '../../support/owner-db'
 import { sql } from 'drizzle-orm'
@@ -6,7 +6,8 @@ import { sql } from 'drizzle-orm'
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('Tenant isolation under concurrent load', () => {
-  const { db: ownerDb } = createOwnerDbForSetupOnly()
+  const { db: ownerDb, close: closeOwnerDb } = createOwnerDbForSetupOnly()
+  afterAll(() => closeOwnerDb())
   const TENANT_A = '11111111-1111-1111-1111-111111111111'
   const TENANT_B = '22222222-2222-2222-2222-222222222222'
   const USER_A = '33333333-3333-3333-3333-333333333333'

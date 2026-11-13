@@ -13,5 +13,7 @@ import { withRequiredSsl } from '../../server/utils/db'
  */
 export function createOwnerDbForSetupOnly() {
   const ownerConnectionString = process.env.DATABASE_URL!
-  return drizzle(postgres(withRequiredSsl(ownerConnectionString)), { schema })
+  const client = postgres(withRequiredSsl(ownerConnectionString))
+  // O caller fecha o pool em afterAll — pool aberto segura o worker do vitest.
+  return { db: drizzle(client, { schema }), close: () => client.end() }
 }

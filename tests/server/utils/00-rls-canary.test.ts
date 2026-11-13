@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest'
+import { describe, it, afterAll } from 'vitest'
 import { db } from '../../../server/utils/db'
 import { createOwnerDbForSetupOnly } from '../../support/owner-db'
 import { sql } from 'drizzle-orm'
@@ -6,7 +6,8 @@ import { sql } from 'drizzle-orm'
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('RLS Canary — MUST fail if suite runs as owner/superuser', () => {
-  const { db: ownerDb } = createOwnerDbForSetupOnly()
+  const { db: ownerDb, close: closeOwnerDb } = createOwnerDbForSetupOnly()
+  afterAll(() => closeOwnerDb())
 
   // As seeds usam ids fixos, mas o email tem índice unique: uma execução
   // anterior com outro id deixava a linha órfã, o ON CONFLICT DO NOTHING

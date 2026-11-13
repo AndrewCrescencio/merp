@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterAll } from 'vitest'
 import { sql } from 'drizzle-orm'
 import { createOwnerDbForSetupOnly } from '../../support/owner-db'
 
@@ -11,7 +11,8 @@ const dbAvailable = process.env.DB_AVAILABLE === 'true'
 // A senha não é verificada aqui de propósito: a migração não pode fixar senha
 // (segredo de operação) e o setup de testes define-a por fora com ALTER ROLE.
 describe.skipIf(!dbAvailable)('merp_app — role criada pela migração 0000', () => {
-  const { db: ownerDb } = createOwnerDbForSetupOnly()
+  const { db: ownerDb, close: closeOwnerDb } = createOwnerDbForSetupOnly()
+  afterAll(() => closeOwnerDb())
 
   it('é LOGIN, NOBYPASSRLS e não-superuser', async () => {
     const rows = (await ownerDb.execute(sql`

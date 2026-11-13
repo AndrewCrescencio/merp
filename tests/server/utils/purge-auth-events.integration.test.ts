@@ -10,7 +10,7 @@ const suffix = Date.now()
 describe.skipIf(!dbAvailable)(
   'purge_auth_events — function DELETE via merp_app (RLS backstop)',
   () => {
-    const { db: ownerDb } = createOwnerDbForSetupOnly()
+    const { db: ownerDb, close: closeOwnerDb } = createOwnerDbForSetupOnly()
 
     beforeAll(async () => {
       // Aplica a migration 0006 (função purge_auth_events) no banco de teste.
@@ -24,6 +24,7 @@ describe.skipIf(!dbAvailable)(
     afterAll(async () => {
       // Limpa eventos de teste criados.
       await ownerDb.execute(sql`DELETE FROM auth_event WHERE email LIKE 'purge-test@%'`)
+      await closeOwnerDb()
     })
 
     it('DELETE direto de merp_app em auth_event é negado pelo RLS (afeta 0 linhas)', async () => {
