@@ -16,8 +16,9 @@
 ## Convenções de features
 
 - Rotas seguem nomes kebab-case e verbos HTTP explícitos.
-- Dados de entrada são validados com os contratos existentes em
-  `server/utils/shared`.
+- Dados de entrada são validados com os contratos de
+  `server/utils/shared/validate.ts` (`validateXxxInput`), nunca com schemas
+  declarados no handler. A implementação interna do contrato pode usar zod.
 - Regras de autorização ficam próximas ao caso de uso, não na interface.
 - Cada mudança de schema acompanha migration e testes.
 - O schema da fundação é pequeno; features não devem ser incluídas antes de
@@ -25,34 +26,50 @@
 
 ## Migrations
 
-- **Journal vigente:** 0000–0006. `0000` cria a role `merp_app`, `0001` é o
-  schema base, `0002` policies e grants de RLS, `0004` o CHECK de papel em
-  `company_member`, `0005` a remocao destrutiva de `cnpj`/`razao_social` e
-  `0006` a funcao `purge_auth_events`. Nao ha arquivo `0003` (a entrada do
-  journal e um residuo de versao anterior; nenhuma migration do banco depende
-  dela).
-- Novas migrations somam a partir de 0006 via `drizzle-kit generate`. Nunca
-  edite migrations ja compartilhadas (sao imutáveis) e nao reaplique arquivos
-  deletados em bancos ja migrados — crie uma nova migration em vez de
-  reescrever o historico.
+- **Journal vigente:** 0000–0007 (`drizzle/meta/_journal.json`). `0000` cria
+  a role `merp_app`, `0001` é o schema base, `0002` policies e grants de RLS,
+  `0003` o CHECK de papel em `company_member`, `0004` a remoção destrutiva de
+  `cnpj`/`razao_social`, `0005` a função `purge_auth_events`, `0006` fixa o
+  `search_path` dessa função como atributo (o `SET` no corpo vazava para a
+  sessão do pool) e `0007` remove índices sem uso e indexa `invite.invited_by`.
+- Os arquivos `0003`–`0005` se chamavam `0004`–`0006` (havia um buraco no
+  prefixo, sem entrada no journal). Foram renomeados junto com snapshots e
+  `tag`s do journal; o SQL não mudou. Isso é seguro em bancos já migrados
+  porque o migrator do Drizzle decide o que aplicar pelo `when` do journal,
+  não pelo nome do arquivo.
+- **Procedimento para nova migration:** alterar o schema TS e rodar
+  `npx drizzle-kit generate --name <descricao>` (ou `--custom` para SQL
+  escrito à mão); revisar o SQL; rodar `npm run db:migrate:full` e a suíte de
+  integração. `npm run check:migrations` (também no CI) falha se dois arquivos
+  repetirem o prefixo.
+- Nunca edite migrations já compartilhadas (são imutáveis) e não reaplique
+  arquivos deletados em bancos já migrados — crie uma nova migration em vez de
+  reescrever o histórico. A única exceção registrada é a do `round_half_up`
+  abaixo.
 
 ## round_half_up (removida)
 
 - A função `round_half_up(numeric)` viveu apenas em `drizzle/0000_functions_and_roles.sql`
-  e não era usada por nenhuma tabela ou migration do journal atual (0000–0002).
-  Foi removida do 0000; o arquivo agora cria somente a role `merp_app`.
+  e não era usada por nenhuma tabela ou migration do journal.
+  Foi removida editando o 0000 — **exceção única** à regra de imutabilidade,
+  aceita porque nada dependia da função; não é precedente. O arquivo agora
+  cria somente a role `merp_app`.
 - Bancos já migrados podem manter a função como está ou removi-la à mão com
   `DROP FUNCTION round_half_up(numeric)`. Não há migration para isso porque
   o journal já está aplicado e migrations são imutáveis depois de compartilhadas.
 
 ## Convenções de testes
 
-- **Vitest com três projetos:** `unit` (`*.spec.ts`, 100% mockado, sem
-  banco, paralelo), `integration` (`*.test.ts`, PostgreSQL real, sequencial,
-  o `globalSetup` roda `db:migrate:full` — o mesmo comando da produção/CI)
-  e `e2e` (`tests/e2e/**/*.e2e.ts`, Nitro real sobre HTTP).
+- **Vitest com quatro projetos:** `unit` (`server/**` e `shared/**`
+  `*.spec.ts`, 100% mockado, sem banco, paralelo), `integration` (`*.test.ts`,
+  PostgreSQL real, sequencial, o `globalSetup` roda `db:migrate:full` — o
+  mesmo comando da produção/CI), `e2e` (`tests/e2e/**/*.e2e.ts`, Nitro real
+  sobre HTTP) e `app` (`app/**/*.spec.ts`, ambiente Nuxt, definido em
+  `vitest.app.config.ts`).
 - Comandos: `npm test` (todos), `npm run test:unit`,
-  `npm run test:integration`, `npm run test:e2e`.
+  `npm run test:integration`, `npm run test:e2e`, `npx vitest run --project app`.
+- Testes de integração ficam em `tests/` (não em `server/`); quem abre pool
+  com `createOwnerDbForSetupOnly()` fecha com `close()` no `afterAll`.
 - Todo endpoint de domínio precisa de testes de comportamento, autorização
   e isolamento entre tenants.
 - A suíte completa (unit, integracao e e2e) roda no CI (`.github/workflows/ci.yml`).
@@ -74,10 +91,10 @@
 - Motivo: o CNPJ único global fazia o segundo cadastro devolver 409 "already
   exists", o que permitia a qualquer usuário logado testar se um CNPJ já está
   na plataforma (enumeração de CNPJs).
-- A remoção é destrutiva: migration `0005_lethal_eternals.sql`
+- A remoção é destrutiva: migration `0004_lethal_eternals.sql`
   (`DROP INDEX company_cnpj_idx`, `DROP COLUMN cnpj`, `DROP COLUMN razao_social`).
-  Bancos já migrados precisam aplicá-la manualmente; não há como reverter sem
-  perder dados.
+  Está no journal, então `npm run db:migrate:full` a aplica; não há como
+  reverter sem perder dados.
 - `isValidCnpj`, `MAX_CNPJ_LENGTH`, `MAX_RAZAO_SOCIAL_LENGTH` e as validações
   de CNPJ/razaoSocial em `validate.ts` foram removidas junto.
 
@@ -89,7 +106,7 @@
 - O tenant vem de `requireTenant(event)` (resolvido pelo middleware de tenant
   a partir do path `/api/v1/companies/{companyId}/...`, nunca do body).
 - Papéis são verificados com `assertRole(role, ROLES.owner, ...)` usando a
-  constante unica em `shared/roles.ts`.
+  constante única em `server/utils/shared/roles.ts`.
 - `server/api/auth/logout.post.ts` fica de fora por proposta: valida apenas a
   sessão e trata `user` como opcional (comentado no arquivo).
 - Handlers públicos de `auth/*` e `health/*` não entram no padrão.
