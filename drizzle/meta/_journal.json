@@ -43,6 +43,13 @@
       "when": 1794355512371,
       "tag": "0005_purge_auth_events",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794575430920,
+      "tag": "0006_harden_purge_auth_events",
+      "breakpoints": true
     }
   ]
 }

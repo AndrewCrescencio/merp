@@ -92,7 +92,7 @@ describe.skipIf(!dbAvailable)('RLS guard (CI)', () => {
           JOIN pg_namespace n ON n.oid = p.pronamespace
          WHERE n.nspname = 'public'
            AND p.prosecdef
-           AND NOT (p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp'])
+           AND NOT (coalesce(p.proconfig, '{}') @> ARRAY['search_path=pg_catalog, pg_temp'])
          ORDER BY 1`),
     )
 
