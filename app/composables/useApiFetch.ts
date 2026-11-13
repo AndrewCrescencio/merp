@@ -76,7 +76,7 @@ export function useAuthFetch() {
     inviteMember: (companyId: string, email: string) =>
       api(`/api/v1/companies/${companyId}/invitations`, { method: 'POST', body: { email } }),
     getInvites: (companyId: string) =>
-      api('/api/v1/me/invitations', { method: 'GET', query: { companyId } }),
+      api(`/api/v1/companies/${companyId}/invitations`, { method: 'GET' }),
     acceptInvite: (token: string) =>
       api('/api/v1/me/invitations/accept', { method: 'POST', body: { token } }),
     // userId no path; omitir não existe mais — para sair, passe o próprio id.
