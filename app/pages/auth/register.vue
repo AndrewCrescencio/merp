@@ -19,7 +19,7 @@ async function submit() {
         consentTermsVersion: consentTermsVersion.value.trim(),
       },
     })
-    await navigateTo('/login')
+    await navigateTo('/auth/login')
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro ao registrar'
     error.value = message
@@ -128,7 +128,7 @@ async function submit() {
 
       <p class="text-center text-sm text-gray-600">
         Já tem conta?
-        <NuxtLink to="/login" class="font-medium text-indigo-600 hover:text-indigo-500">
+        <NuxtLink to="/auth/login" class="font-medium text-indigo-600 hover:text-indigo-500">
           Entrar
         </NuxtLink>
       </p>
