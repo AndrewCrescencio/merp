@@ -36,10 +36,11 @@ export default defineNuxtConfig({
     // Aplica a todas as rotas da app (SSR + SPA). Valores fixos: sem dados de
     // env para não quebrar builds sem .env. Os hashes dos <script> inline do
     // Nuxt são acrescentados ao script-src por server/plugins/csp-inline-scripts.ts.
+    // Única fonte da CSP: o nginx não define outra (seriam aplicadas juntas).
     '/**': {
       headers: {
         'Content-Security-Policy':
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
+          "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
       },
