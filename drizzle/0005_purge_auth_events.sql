@@ -1,4 +1,4 @@
--- Migration 0006: função de purge de auth_event com retenção mínima imposta no banco.
+-- Migration 0005: função de purge de auth_event com retenção mínima imposta no banco.
 --
 -- merp_app so pode apagar auth_event atraves desta funcao SECURITY DEFINER
 -- (que roda com o privilégio do dono da funcao). DELETE direto na tabela

@@ -1,8 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, afterAll } from 'vitest'
 import { createOwnerDbForSetupOnly } from '../../support/owner-db'
 import { sql } from 'drizzle-orm'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 const suffix = Date.now()
@@ -10,20 +8,14 @@ const suffix = Date.now()
 describe.skipIf(!dbAvailable)(
   'purge_auth_events — function DELETE via merp_app (RLS backstop)',
   () => {
-    const { db: ownerDb } = createOwnerDbForSetupOnly()
-
-    beforeAll(async () => {
-      // Aplica a migration 0006 (função purge_auth_events) no banco de teste.
-      const migrationSql = readFileSync(
-        resolve(__dirname, '../../../drizzle/0006_purge_auth_events.sql'),
-        'utf-8',
-      )
-      await ownerDb.execute(sql`${sql.raw(migrationSql)}`)
-    })
+    const { db: ownerDb, close: closeOwnerDb } = createOwnerDbForSetupOnly()
 
     afterAll(async () => {
-      // Limpa eventos de teste criados.
-      await ownerDb.execute(sql`DELETE FROM auth_event WHERE email LIKE 'purge-test@%'`)
+      // Limpa os eventos criados por esta execução (purge-test-* e purge-app-*).
+      await ownerDb.execute(
+        sql`DELETE FROM auth_event WHERE email LIKE ${`purge-%-${suffix}@test.com`}`,
+      )
+      await closeOwnerDb()
     })
 
     it('DELETE direto de merp_app em auth_event é negado pelo RLS (afeta 0 linhas)', async () => {
@@ -130,6 +122,21 @@ describe.skipIf(!dbAvailable)(
         sql`SELECT count(*) AS cnt FROM auth_event WHERE email = ${emailAntigo}`,
       )
       expect(Number((row as any).cnt)).toBe(0)
+    })
+
+    it('nao altera o search_path da sessao chamadora', async () => {
+      const { db } = await import('../../../server/utils/db')
+      await db.transaction(async (tx) => {
+        const [before] = await tx.execute(sql`SELECT current_setting('search_path') AS sp`)
+        await tx.execute(sql`SELECT purge_auth_events(interval '30 days')`)
+        const [after] = await tx.execute(sql`SELECT current_setting('search_path') AS sp`)
+        expect((after as { sp: string }).sp).toBe((before as { sp: string }).sp)
+      })
+
+      const [fn] = await ownerDb.execute(sql`
+        SELECT proconfig FROM pg_proc WHERE proname = 'purge_auth_events'
+      `)
+      expect((fn as { proconfig: string[] }).proconfig).toContain('search_path=pg_catalog, pg_temp')
     })
 
     it('outras roles nao executam a funcao (REVOKE de PUBLIC mantido)', async () => {

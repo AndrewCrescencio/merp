@@ -1,4 +1,4 @@
--- Etapa functions_and_roles da cadeia única de migrações (0000 → 0001 → 0002).
+-- Etapa functions_and_roles da cadeia única de migrações (0000 → 0005; ver drizzle/meta/_journal.json).
 -- Cria a role da aplicação `merp_app` (fail-closed por RLS): NOBYPASSRLS por
 -- default, INHERIT e sem BYPASSRLS, então nunca contorna as policies.
 -- Definida aqui porque os GRANTs da 0002 falhariam com "role does not exist".

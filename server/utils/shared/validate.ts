@@ -242,3 +242,58 @@ export function validateDefaultLocationInput(rawBody: unknown): {
   }
   return { defaultLocationId: value }
 }
+
+export interface LoginInput {
+  email: string
+  password: string
+  rememberMe: boolean
+}
+
+// Só a forma do pedido: os tetos de tamanho ficam no handler, porque lá viram
+// 401 genérico (igual a credencial inválida) e não 400 — sem oráculo.
+export function validateLoginInput(rawBody: unknown): LoginInput {
+  const body = (rawBody ?? {}) as Record<string, unknown>
+  const email = typeof body.email === 'string' ? normalizeEmail(body.email) : ''
+  // typeof password entra na validação — senha numérica passava por
+  // !body?.password e derrubava no `.length`/scrypt com TypeError → 500.
+  if (!email || typeof body.password !== 'string' || !body.password) {
+    sendValidationError('Email and password are required')
+  }
+  return { email, password: body.password, rememberMe: body.rememberMe === true }
+}
+
+const MAX_LOCATION_NAME_LENGTH = 200
+
+export function validateLocationCreateInput(rawBody: unknown): { name: string } {
+  const body = (rawBody ?? {}) as Record<string, unknown>
+  const name = typeof body.name === 'string' ? body.name.trim() : ''
+  if (!name || name.length > MAX_LOCATION_NAME_LENGTH) {
+    sendValidationError('name is required and must be a string of at most 200 characters')
+  }
+  return { name }
+}
+
+export function validateLocationUpdateInput(rawBody: unknown): {
+  name?: string
+  isActive?: boolean
+} {
+  const body = (rawBody ?? {}) as Record<string, unknown>
+  const input: { name?: string; isActive?: boolean } = {}
+  if (body.name !== undefined) {
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    if (!name || name.length > MAX_LOCATION_NAME_LENGTH) {
+      sendValidationError('name or isActive is required')
+    }
+    input.name = name
+  }
+  if (body.isActive !== undefined) {
+    if (typeof body.isActive !== 'boolean') {
+      sendValidationError('name or isActive is required')
+    }
+    input.isActive = body.isActive
+  }
+  if (Object.keys(input).length === 0) {
+    sendValidationError('name or isActive is required')
+  }
+  return input
+}
