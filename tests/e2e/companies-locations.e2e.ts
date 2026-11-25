@@ -103,6 +103,9 @@ describe.skipIf(!dbAvailable)(
       if (created.status !== 201) {
         throw new Error(`POST /companies: HTTP ${created.status} ${JSON.stringify(created.body)}`)
       }
+      if (created.headers.get('location') !== `/api/v1/companies/${created.body.id}`) {
+        throw new Error(`POST /companies: Location inesperado ${created.headers.get('location')}`)
+      }
 
       const locations = await user.client.get<{
         locations: Array<{ id: string; name: string; isActive: boolean }>
@@ -206,7 +209,7 @@ describe.skipIf(!dbAvailable)(
         name: `Det Co ${unique()}`,
       })
       expect(created.status).toBe(201)
-      expect(created.headers.get('location')).toContain(created.body.id)
+      expect(created.headers.get('location')).toBe(`/api/v1/companies/${created.body.id}`)
 
       const detail = await owner.client.get<{
         id: string
@@ -216,6 +219,24 @@ describe.skipIf(!dbAvailable)(
       expect(detail.body.locations).toHaveLength(1)
       expect(detail.body.locations[0]?.name).toBe('Principal')
       expect(detail.body.locations[0]?.isActive).toBe(true)
+    })
+
+    it('GET /companies retorna apenas memberships próprias e valida q', async () => {
+      const owner = await makeUser('company-search')
+      const co = await createCompany(owner, `Search ${unique()}`)
+      const own = await owner.client.get<{
+        companies: Array<{ id: string; name: string }>
+      }>('/api/v1/companies?q=Search')
+      expect(own.status).toBe(200)
+      expect(own.body.companies.some((company) => company.id === co.id)).toBe(true)
+
+      const invalid = await owner.client.get('/api/v1/companies?q=%20')
+      expect(invalid.status).toBe(400)
+
+      const other = await makeUser('company-search-other')
+      const isolated = await other.client.get('/api/v1/companies?q=Search')
+      expect(isolated.status).toBe(200)
+      expect((isolated.body as { companies: Array<{ id: string }> }).companies).toHaveLength(0)
     })
 
     // ---------------------------------------------------------------------------
@@ -252,7 +273,9 @@ describe.skipIf(!dbAvailable)(
       )
       expect(created.status).toBe(201)
       expect(created.body.name).toBe('Filial Zona Sul')
-      expect(created.headers.get('location')).toContain(created.body.id)
+      expect(created.headers.get('location')).toBe(
+        `/api/v1/companies/${co.id}/locations/${created.body.id}`,
+      )
 
       let list = await owner.client.get<{ locations: Array<{ name: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
@@ -273,6 +296,7 @@ describe.skipIf(!dbAvailable)(
         `/api/v1/companies/${co.id}/locations/${created.body.id}`,
       )
       expect(deleted.status).toBe(204)
+      expect(deleted.body).toBeNull()
 
       list = await owner.client.get<{ locations: Array<{ name: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
@@ -370,6 +394,189 @@ describe.skipIf(!dbAvailable)(
         `/api/v1/companies/${coB.id}/locations`,
       )
       expect(intact.body.locations.map((l) => l.name)).toEqual(['Principal'])
+    })
+
+    // ---------------------------------------------------------------------------
+    // Contratos de company e membros
+    // ---------------------------------------------------------------------------
+    it('sem sessão recebe 401 em rota protegida com tenant válido', async () => {
+      const owner = await makeUser('authz-owner')
+      const co = await createCompany(owner, `Authz ${unique()}`)
+      const fresh = new E2eClient(baseUrl())
+      const response = await fresh.get(`/api/v1/companies/${co.id}`)
+      expect(response.status).toBe(401)
+    })
+
+    it('owner-only responde 403 e mantém company, membros e location intactos', async () => {
+      const owner = await makeUser('owner-only')
+      const co = await createCompany(owner, `Owner Only ${unique()}`)
+      const member = await makeUser('owner-only-member')
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+
+      const members = await member.client.get(`/api/v1/companies/${co.id}/members`)
+      expect(members.status).toBe(403)
+
+      const rename = await member.client.patch(`/api/v1/companies/${co.id}`, { name: 'Intruso' })
+      expect(rename.status).toBe(403)
+      expect((rename.body as { error?: string }).error).toBe('forbidden')
+
+      const invalidRename = await member.client.patch(`/api/v1/companies/${co.id}`, {})
+      expect(invalidRename.status).toBe(400)
+
+      const assign = await member.client.patch(
+        `/api/v1/companies/${co.id}/members/${member.id}/default-location`,
+        { defaultLocationId: co.matrizId },
+      )
+      expect(assign.status).toBe(403)
+
+      const removeOwner = await member.client.delete(
+        `/api/v1/companies/${co.id}/members/${owner.id}`,
+      )
+      expect(removeOwner.status).toBe(403)
+
+      const stillThere = await owner.client.get<{ id: string; name: string }>(
+        `/api/v1/companies/${co.id}`,
+      )
+      expect(stillThere.status).toBe(200)
+      expect(stillThere.body.name).toContain('Owner Only')
+      const memberList = await owner.client.get<{ members: Array<{ userId: string }> }>(
+        `/api/v1/companies/${co.id}/members`,
+      )
+      expect(memberList.body.members.some((m) => m.userId === member.id)).toBe(true)
+
+      const ownerAssign = await owner.client.patch(
+        `/api/v1/companies/${co.id}/members/${member.id}/default-location`,
+        { defaultLocationId: null },
+      )
+      expect(ownerAssign.status).toBe(200)
+      const afterAssign = await owner.client.get<{
+        members: Array<{ userId: string; defaultLocationId: string | null }>
+      }>(`/api/v1/companies/${co.id}/members`)
+      expect(afterAssign.body.members.find((m) => m.userId === member.id)?.defaultLocationId).toBe(
+        null,
+      )
+
+      const ownerRename = await owner.client.patch<{ name: string }>(`/api/v1/companies/${co.id}`, {
+        name: 'Renamed by owner',
+      })
+      expect(ownerRename.status).toBe(200)
+      expect(ownerRename.body.name).toBe('Renamed by owner')
+    })
+
+    it('membro lista convites; owner cria convite e destinatário aceita via /me', async () => {
+      const owner = await makeUser('invite-owner')
+      const co = await createCompany(owner, `Invite ${unique()}`)
+      const member = await makeUser('invite-member')
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+      const recipient = await makeUser('invite-recipient')
+
+      const created = await owner.client.post<{
+        id: string
+        companyId: string
+        email: string
+        token: string
+      }>(`/api/v1/companies/${co.id}/invitations`, { email: recipient.email })
+      expect(created.status).toBe(201)
+      expect(created.body.email).toBe(recipient.email)
+      expect(created.body.companyId).toBe(co.id)
+      expect(created.headers.get('location')).toBe(
+        `/api/v1/companies/${co.id}/invitations/${created.body.id}`,
+      )
+
+      const listed = await member.client.get<{ invites: Array<{ id: string; email: string }> }>(
+        `/api/v1/companies/${co.id}/invitations`,
+      )
+      expect(listed.status).toBe(200)
+      expect(listed.body.invites.some((invite) => invite.id === created.body.id)).toBe(true)
+
+      const accepted = await recipient.client.post<{ companyId: string }>(
+        '/api/v1/me/invitations/accept',
+        { token: created.body.token },
+      )
+      expect(accepted.status).toBe(200)
+      expect(accepted.body.companyId).toBe(co.id)
+      const ownerExport = await owner.client.get<{
+        authEvents: Array<{ eventType: string }>
+      }>('/api/v1/me/data-export')
+      expect(ownerExport.status).toBe(200)
+      expect(
+        ownerExport.body.authEvents.some((event) => event.eventType === 'invite_created'),
+      ).toBe(true)
+      const recipientExport = await recipient.client.get<{
+        authEvents: Array<{ eventType: string }>
+      }>('/api/v1/me/data-export')
+      expect(
+        recipientExport.body.authEvents.some((event) => event.eventType === 'invite_accepted'),
+      ).toBe(true)
+      const companies = await recipient.client.get<{
+        companies: Array<{ id: string; role: string }>
+      }>('/api/v1/me')
+      expect(companies.body.companies).toContainEqual({
+        id: co.id,
+        role: 'member',
+        name: expect.any(String),
+      })
+    })
+
+    it('membro pode sair com 204 vazio; owner não pode remover a si próprio', async () => {
+      const owner = await makeUser('leave-owner')
+      const co = await createCompany(owner, `Leave ${unique()}`)
+      const member = await makeUser('leave-member')
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+
+      const ownerLeave = await owner.client.delete(`/api/v1/companies/${co.id}/members/${owner.id}`)
+      expect(ownerLeave.status).toBe(403)
+      expect(ownerLeave.body).toBeNull()
+
+      const leave = await member.client.delete(`/api/v1/companies/${co.id}/members/${member.id}`)
+      expect(leave.status).toBe(204)
+      expect(leave.body).toBeNull()
+      const detail = await member.client.get(`/api/v1/companies/${co.id}`)
+      expect(detail.status).toBe(404)
+      const members = await owner.client.get<{ members: Array<{ userId: string }> }>(
+        `/api/v1/companies/${co.id}/members`,
+      )
+      expect(members.body.members.some((m) => m.userId === member.id)).toBe(false)
+    })
+
+    it('DELETE company retorna 204 vazio e remove acesso do owner', async () => {
+      const owner = await makeUser('delete-company')
+      const co = await createCompany(owner, `Delete ${unique()}`)
+      const deleted = await owner.client.delete(`/api/v1/companies/${co.id}`)
+      expect(deleted.status).toBe(204)
+      expect(deleted.body).toBeNull()
+      expect((await owner.client.get(`/api/v1/companies/${co.id}`)).status).toBe(404)
+    })
+
+    it('invite e assign recusados por membro preservam estado; validação precede papel', async () => {
+      const owner = await makeUser('precedence-owner')
+      const co = await createCompany(owner, `Precedence ${unique()}`)
+      const member = await makeUser('precedence-member')
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+      const invitedEmail = `not-created-${unique()}@e2e.test`
+
+      const invite = await member.client.post(`/api/v1/companies/${co.id}/invitations`, {
+        email: invitedEmail,
+      })
+      expect(invite.status).toBe(403)
+      const inviteList = await owner.client.get<{ invites: Array<{ email: string }> }>(
+        `/api/v1/companies/${co.id}/invitations`,
+      )
+      expect(inviteList.body.invites.some((item) => item.email === invitedEmail)).toBe(false)
+
+      // Nesta implementação a validação do body ocorre antes de assertRole;
+      // o wrapper futuro deve preservar esta precedência nesta fase.
+      const invalidAssign = await member.client.patch(
+        `/api/v1/companies/${co.id}/members/${member.id}/default-location`,
+        {},
+      )
+      expect(invalidAssign.status).toBe(400)
+      const members = await owner.client.get<{
+        members: Array<{ userId: string; defaultLocationId: string | null }>
+      }>(`/api/v1/companies/${co.id}/members`)
+      expect(
+        members.body.members.find((item) => item.userId === member.id)?.defaultLocationId,
+      ).toBe(co.matrizId)
     })
   },
 )
