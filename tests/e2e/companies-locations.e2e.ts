@@ -268,6 +268,32 @@ describe.skipIf(!dbAvailable)(
       expect(list.body.locations).toHaveLength(1)
     })
 
+    it('locations exige sessão e rejeita body inválido com 400', async () => {
+      const owner = await makeUser('location-validation')
+      const co = await createCompany(owner, `Validation ${unique()}`)
+      const fresh = new E2eClient(baseUrl())
+
+      expect((await fresh.get(`/api/v1/companies/${co.id}/locations`)).status).toBe(401)
+
+      const invalid = await owner.client.post(`/api/v1/companies/${co.id}/locations`, {})
+      expect(invalid.status).toBe(400)
+      expect((invalid.body as { message?: string }).message).toContain('name is required')
+
+      const invalidPatch = await owner.client.patch(
+        `/api/v1/companies/${co.id}/locations/${co.matrizId}`,
+        {},
+      )
+      expect(invalidPatch.status).toBe(400)
+      expect((invalidPatch.body as { message?: string }).message).toContain(
+        'name or isActive is required',
+      )
+
+      const list = await owner.client.get<{ locations: unknown[] }>(
+        `/api/v1/companies/${co.id}/locations`,
+      )
+      expect(list.body.locations).toHaveLength(1)
+    })
+
     // ---------------------------------------------------------------------------
     // Ciclo de vida da location (com CSRF válido)
     // ---------------------------------------------------------------------------

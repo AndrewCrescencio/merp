@@ -25,18 +25,24 @@ adicione funcionalidades de um domínio específico aqui.
 - Mudanças em auth, tenant, RLS ou segurança exigem testes de regressão.
 - Para adicionar uma feature de domínio, siga a [receita de feature do README](README.md#receita-de-feature).
 
+## Escolha dos casos de teste por operação
+
+Para cada operação HTTP, selecione os casos que realmente se aplicam e cubra-os no contrato público: sessão ausente (401), papel sem permissão (403), outro tenant (404 sem vazamento), e caminho feliz (status, corpo, headers e efeito persistido). Escritas também devem cobrir validação de entrada e CSRF quando aplicável. Uma chamada a função mockada não prova autorização; mantenha esse comportamento coberto por HTTP e, para isolamento, por PostgreSQL como `merp_app`.
+
+Use `*.spec.ts` para lógica pura e unidades isoladas sem banco; `*.test.ts` para repositórios, RLS, atomicidade e persistência real em PostgreSQL; e `*.e2e.ts` para o contrato HTTP real. Mantenha testes focados do wrapper para ordem de execução, audit, tipos e propagação de erros. Separe arquivos `.spec` e `.test` somente quando exercitarem responsabilidades distintas; confirme os padrões de descoberta em `vitest.config.ts` antes de renomear ou remover testes. Para a receita completa de uma feature, consulte [README](README.md#receita-de-feature).
+
 ## Convenção de nomes de teste (vitest.config.ts)
 
 | Sufixo      | Projeto       | Onde roda                          | Requisito                                                                                 |
 | ----------- | ------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
-| `*.spec.ts` | `unit`        | `vitest run --project unit`        | 100% mockado, sem banco, paralelo, sem `globalSetup`                                      |
+| `*.spec.ts` | `unit`        | `vitest run --project unit`        | Lógica pura ou unidade isolada, sem banco, paralelo, sem `globalSetup`                    |
 | `*.test.ts` | `integration` | `vitest run --project integration` | PostgreSQL real (`DB_AVAILABLE=true`), sequencial, `globalSetup` aplica `db:migrate:full` |
 | `*.e2e.ts`  | `e2e`         | `vitest run --project e2e`         | servidor Nitro real sobre HTTP (`tests/e2e/`)                                             |
 | `app/**`    | `app`         | `npm test` (`vitest run`)          | componentes/paginas Vue via `vitest.app.config.ts` (projeto `app`, incluso em `npm test`) |
 
 Componentes/paginas Vue usam `vitest.app.config.ts` (projeto `app`, incluso em `npm test`).
 
-Não mescle `*.spec.ts` com `*.test.ts` de um mesmo módulo: se o teste toca banco, é `.test.ts`; se é puro/mockado, é `.spec.ts`. Renomeie apenas o que destoar e verifique que os testes continuam rodando.
+Não misture no mesmo arquivo testes de lógica pura e integração de banco. Não crie arquivos `.spec.ts` e `.test.ts` para a mesma responsabilidade; a separação só é apropriada quando há responsabilidades distintas, como algoritmo puro e persistência real. Renomeie apenas o que destoar e verifique que os padrões de descoberta continuam incluindo os testes.
 
 ## Antes de concluir
 
