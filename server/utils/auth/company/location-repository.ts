@@ -30,7 +30,7 @@ export class LocationRepository {
 
   /**
    * Creates a new location for a company.
-   * Owner-only (checked by caller via assertCompanyRole); RLS backstop is
+   * Owner-only (checked by caller via assertRole); RLS backstop is
    * tenant-level, same as membership repositories. Runs with
    * app.location_id = NULL so the INSERT passes the location policy
    * (id = get_location_id() OR get_location_id() IS NULL).
@@ -51,7 +51,7 @@ export class LocationRepository {
 
   /**
    * Updates a location (name and/or isActive).
-   * Owner-only (checked by caller via assertCompanyRole).
+   * Owner-only (checked by caller via assertRole).
    */
   async updateLocation(
     companyId: string,
@@ -90,7 +90,7 @@ export class LocationRepository {
 
   /**
    * Soft-deletes a location (sets isActive = false).
-   * Owner-only (checked by caller via assertCompanyRole).
+   * Owner-only (checked by caller via assertRole).
    */
   async softDeleteLocation(
     companyId: string,

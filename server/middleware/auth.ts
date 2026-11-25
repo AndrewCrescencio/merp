@@ -5,12 +5,8 @@ import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
 import { SESSION_COOKIE_NAME } from '#shared/app'
 import {
-  // Rate limits proporcionais por tipo de operação (ver security.ts):
-  //   checkLoginRateLimit     → 10/min (brute-force login)
-  //   checkPasswordResetRateLimit → 5/min (forgot password)
-  //   checkApiCommonRateLimit → 120/min (leitura/ops comuns autenticadas)
-  //   checkHeavyOperationRateLimit → 20/min (exportações, bulk actions)
-  //   checkExportRateLimit    → 5/min (exportações em massa)
+  // Limite das rotas autenticadas comuns; rotas públicas aplicam seu próprio
+  // limite por IP/e-mail nos handlers correspondentes.
   checkApiCommonRateLimit,
   // Funções auxiliares do middleware:
   background,
@@ -136,11 +132,8 @@ export default defineEventHandler(async (event) => {
     sendAuthError(401, 'unauthorized', 'Authentication required.')
   }
 
-  // teto por usuário para ops comuns autenticadas — 120/min, proporcional
-  // ao tráfego típico de um painel/app consumindo a API. O limit rigoroso de
-  // login (10/min) e de reset de senha (5/min) são aplicados nos respectivos
-  // handlers (login.post.ts, password-reset.post.ts) via checkLoginRateLimit
-  // e checkPasswordResetRateLimit.
+  // Limite por usuário para operações autenticadas comuns (120/min). As rotas
+  // públicas não passam por este middleware e limitam IP/e-mail nos handlers.
   await checkApiCommonRateLimit(event, session.user.id)
 
   emitSessionEvent(event, {

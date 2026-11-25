@@ -4,9 +4,8 @@ import type { AuthContextUser } from './auth-context'
 
 /**
  * Wrapper for authenticated endpoints.
- * Session, rate limit (60/min) and session_validated already ran in
- * server/middleware/auth.ts — calling checkUserRateLimit here de novo cobraria
- * 2 tokens por request e dobraria o teto documentado (60/min → 30/min).
+ * Session, rate limit (120/min) and session_validated already ran in
+ * server/middleware/auth.ts. No additional rate-limit token is charged here.
  *
  * Não resolve tenant: handler que precise de companyId no path usa
  * `requireTenant(event)`, do `~~/server/utils/shared/auth-context`.

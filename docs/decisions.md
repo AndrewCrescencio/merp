@@ -98,7 +98,7 @@
 - `isValidCnpj`, `MAX_CNPJ_LENGTH`, `MAX_RAZAO_SOCIAL_LENGTH` e as validações
   de CNPJ/razaoSocial em `validate.ts` foram removidas junto.
 
-## Padrao de autenticacao dos handlers (item 1)
+## Padrão de autenticação dos handlers
 
 - Todos os handlers de producao sob `server/api/v1/` usam
   `defineAuthHandler(async (event, user) => ...)`, que garante sessão e user
@@ -107,8 +107,7 @@
   a partir do path `/api/v1/companies/{companyId}/...`, nunca do body).
 - Papéis são verificados com `assertRole(role, ROLES.owner, ...)` usando a
   constante única em `server/utils/shared/roles.ts`.
-- `server/api/auth/logout.post.ts` fica de fora por proposta: valida apenas a
-  sessão e trata `user` como opcional (comentado no arquivo).
+- `server/api/auth/logout.post.ts` valida a sessão e aceita `user` opcional.
 - Handlers públicos de `auth/*` e `health/*` não entram no padrão.
 - `requireUser` foi removido (sem consumidores); `context.userId` e
   `context.auth` foram removidos do contexto (ninguém os lia).
