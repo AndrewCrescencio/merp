@@ -3,9 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockGetRouterParam = vi.fn()
 const mockReadBody = vi.fn()
 const mockSetMemberDefaultLocation = vi.fn()
-const mockAssertRole = vi.fn()
-const mockSendNotFoundError = vi.fn()
-const mockSendValidationError = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 
 vi.mock('h3', () => ({
@@ -24,28 +21,11 @@ vi.mock('~~/server/utils/auth/company/membership', () => ({
   membershipRepository: { setMemberDefaultLocation: mockSetMemberDefaultLocation },
 }))
 
-vi.mock('~~/server/utils/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('~~/server/utils/shared')>()
-  return {
-    ...actual,
-    assertRole: mockAssertRole,
-    ROLES: { owner: 'owner', member: 'member' },
-    sendNotFoundError: mockSendNotFoundError,
-    sendValidationError: mockSendValidationError,
-    createAuthEvent: mockCreateAuthEvent,
-  }
-})
+vi.mock('~~/server/utils/shared/audit', () => ({ createAuthEvent: mockCreateAuthEvent }))
 
 describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSendNotFoundError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
-    mockSendValidationError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
-    mockAssertRole.mockImplementation(() => undefined)
   })
 
   const authContext = (role = 'owner') => ({
@@ -60,9 +40,6 @@ describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location'
     )
 
   it('requires authentication', async () => {
-    mockAssertRole.mockImplementation(() => {
-      throw new Error('Authentication required.')
-    })
     mockGetRouterParam.mockReturnValue('target-user')
 
     const handler = await loadHandler()
@@ -73,9 +50,6 @@ describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location'
   })
 
   it('403 quando o papel do tenant nao e owner', async () => {
-    mockAssertRole.mockImplementation((_role, requiredRole, _m1, m2) => {
-      if (_role !== requiredRole) throw new Error(m2)
-    })
     mockReadBody.mockResolvedValue({ defaultLocationId: 'loc-1' })
 
     const handler = await loadHandler()
@@ -84,12 +58,7 @@ describe('PATCH /api/v1/companies/{companyId}/members/{userId}/default-location'
     await expect(handler(event)).rejects.toThrow(
       'Only company owners can assign a default location',
     )
-    expect(mockAssertRole).toHaveBeenCalledWith(
-      'member',
-      'owner',
-      expect.any(String),
-      'Only company owners can assign a default location',
-    )
+    expect(mockReadBody).not.toHaveBeenCalled()
     expect(mockSetMemberDefaultLocation).not.toHaveBeenCalled()
   })
 

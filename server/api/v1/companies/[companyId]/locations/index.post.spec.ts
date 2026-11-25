@@ -4,8 +4,6 @@ const mockReadBody = vi.fn()
 const mockSetResponseStatus = vi.fn()
 const mockSetHeader = vi.fn()
 const mockCreateLocation = vi.fn()
-const mockAssertRole = vi.fn()
-const mockSendValidationError = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -24,23 +22,9 @@ vi.mock('~~/server/utils/auth/company/location-repository', () => ({
   locationRepository: { createLocation: mockCreateLocation },
 }))
 
-vi.mock('~~/server/utils/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('~~/server/utils/shared')>()
-  return {
-    ...actual,
-    assertRole: mockAssertRole,
-    ROLES: { owner: 'owner', member: 'member' },
-    sendValidationError: mockSendValidationError,
-  }
-})
-
 describe('POST /api/v1/companies/{companyId}/locations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSendValidationError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
-    mockAssertRole.mockImplementation(() => undefined)
   })
 
   const authContext = (role = 'owner') => ({
@@ -53,9 +37,6 @@ describe('POST /api/v1/companies/{companyId}/locations', () => {
     import('~~/server/api/v1/companies/[companyId]/locations/index.post').then((m) => m.default)
 
   it('requires authentication', async () => {
-    mockAssertRole.mockImplementation(() => {
-      throw new Error('Authentication required.')
-    })
     const handler = await loadHandler()
     const event = { context: {} } as any
 
@@ -64,21 +45,13 @@ describe('POST /api/v1/companies/{companyId}/locations', () => {
   })
 
   it('403 quando o papel do tenant nao e owner', async () => {
-    mockAssertRole.mockImplementation((_role, requiredRole, _m1, m2) => {
-      if (_role !== requiredRole) throw new Error(m2)
-    })
     mockReadBody.mockResolvedValue({ name: 'Filial' })
 
     const handler = await loadHandler()
     const event = { context: authContext('member') } as any
 
     await expect(handler(event)).rejects.toThrow('Only company owners can create locations')
-    expect(mockAssertRole).toHaveBeenCalledWith(
-      'member',
-      'owner',
-      expect.any(String),
-      'Only company owners can create locations',
-    )
+    expect(mockReadBody).not.toHaveBeenCalled()
     expect(mockCreateLocation).not.toHaveBeenCalled()
   })
 

@@ -86,19 +86,27 @@ validação, autorização e testes de comportamento e isolamento entre tenants.
 
    ```ts
    import { locationRepository } from '~~/server/utils/auth/company/location-repository'
-   import { defineAuthHandler, requireTenant } from '~~/server/utils/shared'
+   import { defineAuthHandler } from '~~/server/utils/shared'
 
-   export default defineAuthHandler(async (event, user) => {
-     const { companyId } = requireTenant(event)
+   export default defineAuthHandler({ tenant: true, role: 'any' }, async ({ tenant, user }) => {
+     const { companyId } = tenant
      const locations = await locationRepository.listLocations(companyId, user.id)
      return { locations }
    })
    ```
 
-   `defineAuthHandler(async (event, user) => ...)` exige sessão; o tenant vem
-   de `requireTenant(event)` a partir do path, nunca do body. Use `withTenant`
-   em toda consulta da feature e `assertRole(role, ROLES.owner, ...)` quando a
-   operação exigir owner. Os únicos papéis são `owner` e `member`.
+   `defineAuthHandler(options, handler)` exige sessão. Com `tenant: true`, o
+   middleware resolve a empresa pelo path e o wrapper entrega `tenant` ao
+   callback. Use `role: 'any'` para qualquer membro ou `role: 'owner'` para
+   operações de owner. Rotas de sessão, como `/me`, omitem tenant e role.
+   Use `withTenant` nas consultas de tenant.
+
+   Em escritas, configure `body` com um validador ou schema Zod. O callback
+   recebe a saída da validação após a verificação de papel. Configure
+   `rateLimit: 'ip'` nas rotas com essa cota adicional, `audit` para registrar
+   eventos informativos após sucesso e `created` para responder `201` com o
+   `Location` do recurso. Se a auditoria for obrigatória para o negócio,
+   grave na mesma transação da operação ou use entrega durável.
 
 3. Gere uma migration nova com
    `npx drizzle-kit generate --name <descricao>` (ou `--custom` para SQL

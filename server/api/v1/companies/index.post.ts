@@ -1,19 +1,14 @@
-import { readBody, setHeader, setResponseStatus } from 'h3'
 import { companyRepository } from '~~/server/utils/auth/company/repository'
-import {
-  checkIpRateLimit,
-  defineAuthHandler,
-  validateCompanyCreateInput,
-} from '~~/server/utils/shared'
+import { defineAuthHandler, validateCompanyCreateInput } from '~~/server/utils/shared'
 
-export default defineAuthHandler(async (event, user) => {
-  await checkIpRateLimit(event)
-
-  const { name } = validateCompanyCreateInput(await readBody(event))
-
-  const created = await companyRepository.createCompanyWithOwner({ name }, user.id)
-
-  setResponseStatus(event, 201)
-  setHeader(event, 'Location', `/api/v1/companies/${created.id}`)
-  return { id: created.id, name: created.name }
-})
+export default defineAuthHandler(
+  {
+    rateLimit: 'ip',
+    body: validateCompanyCreateInput,
+    created: ({ id }: { id: string }) => `/api/v1/companies/${id}`,
+  },
+  async ({ body, user }) => {
+    const created = await companyRepository.createCompanyWithOwner(body, user.id)
+    return { id: created.id, name: created.name }
+  },
+)

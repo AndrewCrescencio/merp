@@ -2,8 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockGetRouterParam = vi.fn()
 const mockSoftDeleteLocation = vi.fn()
-const mockAssertRole = vi.fn()
-const mockSendNotFoundError = vi.fn()
 const mockSendNoContent = vi.fn()
 
 vi.mock('h3', () => ({
@@ -22,23 +20,9 @@ vi.mock('~~/server/utils/auth/company/location-repository', () => ({
   locationRepository: { softDeleteLocation: mockSoftDeleteLocation },
 }))
 
-vi.mock('~~/server/utils/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('~~/server/utils/shared')>()
-  return {
-    ...actual,
-    assertRole: mockAssertRole,
-    ROLES: { owner: 'owner', member: 'member' },
-    sendNotFoundError: mockSendNotFoundError,
-  }
-})
-
 describe('DELETE /api/v1/companies/{companyId}/locations/{locationId}', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSendNotFoundError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
-    mockAssertRole.mockImplementation(() => undefined)
   })
 
   const authContext = (role = 'owner') => ({
@@ -53,9 +37,6 @@ describe('DELETE /api/v1/companies/{companyId}/locations/{locationId}', () => {
     )
 
   it('requires authentication', async () => {
-    mockAssertRole.mockImplementation(() => {
-      throw new Error('Authentication required.')
-    })
     mockGetRouterParam.mockReturnValue('loc-1')
 
     const handler = await loadHandler()
@@ -66,9 +47,6 @@ describe('DELETE /api/v1/companies/{companyId}/locations/{locationId}', () => {
   })
 
   it('403 quando o papel do tenant nao e owner', async () => {
-    mockAssertRole.mockImplementation((_role, requiredRole, _m1, m2) => {
-      if (_role !== requiredRole) throw new Error(m2)
-    })
     mockGetRouterParam.mockReturnValue('loc-1')
 
     const handler = await loadHandler()

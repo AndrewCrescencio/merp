@@ -1,8 +1,7 @@
 import { locationRepository } from '~~/server/utils/auth/company/location-repository'
-import { defineAuthHandler, requireTenant } from '~~/server/utils/shared'
+import { defineAuthHandler } from '~~/server/utils/shared'
 
-export default defineAuthHandler(async (event, user) => {
-  const { companyId } = requireTenant(event)
-  const locations = await locationRepository.listLocations(companyId, user.id)
+export default defineAuthHandler({ tenant: true, role: 'any' }, async ({ tenant, user }) => {
+  const locations = await locationRepository.listLocations(tenant.companyId, user.id)
   return { locations }
 })

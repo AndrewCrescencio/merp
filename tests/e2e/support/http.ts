@@ -202,3 +202,21 @@ export async function seedCompanyMember(
     await sql.end()
   }
 }
+
+/** Faz o banco recusar o evento de convite do usuário desta fixture. */
+export async function withRejectedAudit<T>(run: () => Promise<T>): Promise<T> {
+  const sql = ownerSql()
+  try {
+    await sql`
+      ALTER TABLE auth_event ADD CONSTRAINT e2e_reject_invite_audit
+      CHECK (event_type <> 'invite_created' OR email NOT LIKE 'invite-audit-%@e2e.test') NOT VALID
+    `
+    try {
+      return await run()
+    } finally {
+      await sql`ALTER TABLE auth_event DROP CONSTRAINT e2e_reject_invite_audit`
+    }
+  } finally {
+    await sql.end()
+  }
+}

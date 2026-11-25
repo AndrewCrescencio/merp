@@ -16,11 +16,11 @@ adicione funcionalidades de um domínio específico aqui.
 - Não confie em IDs enviados no body quando eles podem ser derivados do path
   ou da sessão.
 - Handlers de produção sob `server/api/v1/` usam
-  `defineAuthHandler(async (event, user) => ...)` (sessão obrigatória, 401
-  caso contrário); o tenant vem de `requireTenant(event)` (path, nunca o
-  body) e papéis de `assertRole(role, ROLES.owner, ...)` — só `owner` e
-  `member` existem. `server/api/auth/logout.post.ts` fica de fora por
-  proposta (user opcional).
+  `defineAuthHandler(options, handler)` e exigem sessão. Com `tenant: true`,
+  o wrapper entrega o tenant resolvido pelo middleware a partir do path.
+  Configure `role: 'any'` para qualquer associado ou `role: 'owner'` para
+  ações de owner. Regras de papel condicionais ficam no handler. O logout
+  em `server/api/auth/logout.post.ts` aceita user opcional.
 - Migrations são imutáveis depois de compartilhadas.
 - Mudanças em auth, tenant, RLS ou segurança exigem testes de regressão.
 - Para adicionar uma feature de domínio, siga a [receita de feature do README](README.md#receita-de-feature).

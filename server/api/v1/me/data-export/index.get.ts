@@ -3,7 +3,7 @@ import { listUserAuthEvents } from '~~/server/utils/auth/identity/queries'
 import { membershipRepository } from '~~/server/utils/auth/company/membership'
 import { defineAuthHandler } from '~~/server/utils/shared'
 
-export default defineAuthHandler(async (event, user) => {
+export default defineAuthHandler({}, async ({ event, user }) => {
   const [sessionData, companies, authEvents] = await Promise.all([
     callBetterAuth(async (auth) => auth.api.getSession({ headers: event.headers }), {
       timeout: 5_000,
