@@ -23,6 +23,7 @@ adicione funcionalidades de um domínio específico aqui.
   proposta (user opcional).
 - Migrations são imutáveis depois de compartilhadas.
 - Mudanças em auth, tenant, RLS ou segurança exigem testes de regressão.
+- Para adicionar uma feature de domínio, siga a [receita de feature do README](README.md#receita-de-feature).
 
 ## Convenção de nomes de teste (vitest.config.ts)
 
