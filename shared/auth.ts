@@ -11,7 +11,7 @@ if (process.env.NODE_ENV === 'production' && corsOrigin === 'http://localhost:30
   throw new Error('CORS_ORIGIN é obrigatória em produção (sem fallback localhost).')
 }
 
-export function createAuth(database: Db = db) {
+function createAuth(database: Db = db) {
   return betterAuth({
     database: drizzleAdapter(database, {
       provider: 'pg',

@@ -3,7 +3,7 @@ import { send, setResponseHeaders, setResponseStatus } from 'h3'
 import { logger } from '#shared/logger'
 import type { ApiError } from './utils/shared/errors'
 
-export interface NormalizedError {
+interface NormalizedError {
   status: number
   body: ApiError
 }
@@ -11,7 +11,7 @@ export interface NormalizedError {
 // decisão pura e testável — erros do contrato ({ error, message } em
 // JSON) com status < 500 são repassados intactos; qualquer outro erro (500 ou
 // inesperado) vira internal_error sem vazar detalhes internos.
-export function normalizeError(error: unknown): NormalizedError {
+function normalizeError(error: unknown): NormalizedError {
   const candidate =
     typeof error === 'object' && error !== null
       ? (error as { statusCode?: number; status?: number; message?: string; data?: unknown })

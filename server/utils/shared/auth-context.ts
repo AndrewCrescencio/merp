@@ -13,7 +13,7 @@ export interface AuthContextUser {
   name: string | null
 }
 
-export interface AuthContextSession {
+interface AuthContextSession {
   id: string
 }
 

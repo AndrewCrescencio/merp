@@ -88,7 +88,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       )
 
       expect(updated).toHaveLength(0)
-      expect(await repo.findCompanyById(companyB.id, userB.id)).toMatchObject({
+      expect(await repo.findCompanyWithLocations(companyB.id, userB.id)).toMatchObject({
         name: 'Upd Company B',
       })
     })
@@ -102,8 +102,8 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
 
       const companyB = await repo.createCompanyWithOwner({ name: 'Find Company B' }, userB.id)
 
-      expect(await repo.findCompanyById(companyB.id, userA.id)).toBeNull()
-      expect(await repo.findCompanyById(companyB.id, userB.id)).toMatchObject({
+      expect(await repo.findCompanyWithLocations(companyB.id, userA.id)).toBeNull()
+      expect(await repo.findCompanyWithLocations(companyB.id, userB.id)).toMatchObject({
         id: companyB.id,
       })
     })
@@ -149,16 +149,6 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
 
       const results = await membershipRepo.searchCompanies('Atomic Fail', searcher.id)
       expect(results.some((c: { name: string }) => c.name === name)).toBe(false)
-    })
-
-    it('createCompany with valid user context succeeds', async () => {
-      const email = `test-user-${Date.now()}@example.com`
-      const user = await registerUser(email, 'Test User')
-      // User context is now required by createCompany signature; RLS policy
-      // (company_insert_policy: get_user_id() IS NOT NULL) is satisfied.
-      const created = await repo.createCompany({ name: 'New Co' }, user.id)
-      expect(created.name).toBe('New Co')
-      expect(created.id).toBeDefined()
     })
   })
 
@@ -293,7 +283,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const result = await repo.softDeleteCompany(company.id, owner.id)
 
       expect(result).toMatchObject({ id: company.id, isDeleted: true })
-      expect(await repo.findCompanyById(company.id, owner.id)).toBeNull()
+      expect(await repo.findCompanyWithLocations(company.id, owner.id)).toBeNull()
       expect(await membershipRepo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
       expect(await membershipRepo.getCompanyMembershipRole(owner.id, company.id)).toBeNull()
     })
@@ -308,7 +298,9 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         statusCode: 404,
       })
 
-      expect(await repo.findCompanyById(company.id, owner.id)).toMatchObject({ id: company.id })
+      expect(await repo.findCompanyWithLocations(company.id, owner.id)).toMatchObject({
+        id: company.id,
+      })
       expect(await membershipRepo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
     })
   })
@@ -348,7 +340,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         repo.updateCompany(company.id, member.id, { name: 'Hacked Name' }),
       ).rejects.toMatchObject({ statusCode: 404 })
 
-      expect(await repo.findCompanyById(company.id, owner.id)).toMatchObject({
+      expect(await repo.findCompanyWithLocations(company.id, owner.id)).toMatchObject({
         name: 'Upd TOC Company',
       })
     })

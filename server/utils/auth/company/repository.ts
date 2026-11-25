@@ -44,27 +44,6 @@ export interface CompanyDetailResult extends CompanyResult {
 /** Company CRUD repository — every query runs under {@link withTenant} (RLS backstop). */
 export class CompanyRepository {
   /**
-   * Creates a company row without members (low-level; prefer
-   * {@link createCompanyWithOwner}). 409 when the name is taken.
-   * Requires a userId so that the RLS company_insert_policy (which checks
-   * get_user_id() IS NOT NULL) is satisfied. Pass the authenticated user's
-   * id when calling from handlers/middlewares.
-   */
-  async createCompany(input: CreateCompanyInput, userId: string): Promise<CompanyResult> {
-    const companyId = randomUUID()
-    return await withTenant(companyId, null, userId, async (tx) => {
-      const [created] = await tx
-        .insert(company)
-        .values({
-          id: companyId,
-          name: input.name,
-        })
-        .returning()
-      return created!
-    })
-  }
-
-  /**
    * Creates a company, its first member (`owner`), and a default location
    * ("Principal") in one transaction (founder bootstrap). 409 when the name
    * is taken.
@@ -119,19 +98,6 @@ export class CompanyRepository {
     } catch (error) {
       rethrowCompanyError(error)
     }
-  }
-
-  /** Finds a non-deleted company visible to the user, or null (RLS outsiders get null). */
-  async findCompanyById(id: string, userId: string): Promise<CompanyResult | null> {
-    return await withTenant(null, null, userId, async (tx) => {
-      const [found] = await tx
-        .select()
-        .from(company)
-        .where(and(eq(company.id, id), eq(company.isDeleted, false)))
-        .limit(1)
-
-      return found || null
-    })
   }
 
   /**

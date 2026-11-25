@@ -10,7 +10,7 @@ import { TEST_APP_URL, TEST_OWNER_URL } from '../../support/test-urls'
  * o cliente precisa MIRAR (o JWT de verificação mintado abaixo é assinado com
  * o MESMO segredo que o server usa para reconstruir/validar).
  */
-export function ensureE2eEnv(): void {
+function ensureE2eEnv(): void {
   process.env.APP_DATABASE_URL ||= TEST_APP_URL
   process.env.BETTER_AUTH_URL ||= 'http://localhost:3000'
   process.env.CORS_ORIGIN ||= 'http://localhost:3000'
@@ -41,7 +41,7 @@ export interface AuthInput {
  * só a entrega por email (sem RESEND_API_KEY o token morre no logger; este é
  * o conteúdo que o link do email carregaria).
  */
-export async function mintEmailVerificationToken(email: string): Promise<string> {
+async function mintEmailVerificationToken(email: string): Promise<string> {
   return await new SignJWT({ email: email.toLowerCase() })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()

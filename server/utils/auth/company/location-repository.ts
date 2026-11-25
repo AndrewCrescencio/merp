@@ -119,25 +119,6 @@ export class LocationRepository {
       return updated!
     })
   }
-
-  /**
-   * Finds a location by ID within a company (including inactive).
-   * Used for cross-tenant checks.
-   */
-  async findLocationById(
-    companyId: string,
-    userId: string,
-    locationId: string,
-  ): Promise<LocationResult | null> {
-    return await withTenant(companyId, null, userId, async (tx) => {
-      const [found] = await tx
-        .select()
-        .from(location)
-        .where(and(eq(location.id, locationId), eq(location.companyId, companyId)))
-        .limit(1)
-      return found || null
-    })
-  }
 }
 
 export const locationRepository = new LocationRepository()
