@@ -31,7 +31,7 @@ export default defineAuthHandler(async (event, user) => {
 
   // Auto-remoção (sair da empresa): qualquer membro, exceto o owner.
   if (userId === user.id) {
-    await assertRole(role, null, 'You are not a member of this company')
+    assertRole(role, null, 'You are not a member of this company')
 
     if (role === ROLES.owner) {
       sendForbiddenError('Cannot remove a company owner')
@@ -45,7 +45,7 @@ export default defineAuthHandler(async (event, user) => {
   }
 
   // Remover outro membro: exige owner.
-  await assertRole(
+  assertRole(
     role,
     ROLES.owner,
     'You are not a member of this company',

@@ -29,6 +29,26 @@ describe.skipIf(!dbAvailable)('LocationRepository (integration)', () => {
   }
 
   describe('leitura e escrita de locations da propria empresa', () => {
+    it('remove a associação padrão quando o local fica inativo e rejeita nova associação', async () => {
+      const owner = await registerUser(`loc-inactive-owner-${Date.now()}@example.com`, 'Owner')
+      const member = await registerUser(`loc-inactive-member-${Date.now()}@example.com`, 'Member')
+      const company = await companyRepo.createCompanyWithOwner(
+        { name: 'Inactive Company' },
+        owner.id,
+      )
+      await membershipRepo.createCompanyMember(company.id, member.id, 'member')
+      const location = await locationRepo.createLocation(company.id, owner.id, { name: 'Branch' })
+
+      await membershipRepo.setMemberDefaultLocation(company.id, owner.id, member.id, location.id)
+      await locationRepo.softDeleteLocation(company.id, owner.id, location.id)
+
+      await expect(
+        membershipRepo.setMemberDefaultLocation(company.id, owner.id, member.id, location.id),
+      ).rejects.toMatchObject({ statusCode: 404 })
+      const details = await membershipRepo.getCompanyMembershipWithDetails(member.id, company.id)
+      expect(details?.defaultLocationId).toBeNull()
+    })
+
     it('o owner lista e cria locations da sua empresa', async () => {
       const owner = await registerUser(`loc-owner-${Date.now()}@example.com`, 'Loc Owner')
       const company = await companyRepo.createCompanyWithOwner({ name: 'Loc Company' }, owner.id)

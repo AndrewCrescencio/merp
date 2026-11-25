@@ -39,7 +39,8 @@ describe('error-handler', () => {
   it('passes through contract JSON errors with status < 500', async () => {
     const error = {
       statusCode: 401,
-      message: JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
+      message: 'Authentication required.',
+      data: { error: 'unauthorized', message: 'Authentication required.' },
     }
     const event = {} as any
 
@@ -57,7 +58,8 @@ describe('error-handler', () => {
   it('always sets JSON content-type on error responses', async () => {
     const error = {
       statusCode: 403,
-      message: JSON.stringify({ error: 'forbidden', message: 'nope' }),
+      message: 'nope',
+      data: { error: 'forbidden', message: 'nope' },
     }
     const event = {} as any
 
@@ -67,6 +69,23 @@ describe('error-handler', () => {
     expect(mockSetResponseHeaders).toHaveBeenCalledWith(event, {
       'content-type': 'application/json',
     })
+  })
+
+  it('accepts legacy contract JSON in message during migration', async () => {
+    const error = {
+      statusCode: 409,
+      message: JSON.stringify({ error: 'conflict', message: 'Already exists' }),
+    }
+    const event = {} as any
+
+    const handler = await import('~~/server/error-handler').then((m) => m.default)
+    await callHandler(handler, error, event)
+
+    expect(mockSetResponseStatus).toHaveBeenCalledWith(event, 409)
+    expect(mockSend).toHaveBeenCalledWith(
+      event,
+      JSON.stringify({ error: 'conflict', message: 'Already exists' }),
+    )
   })
 
   it('turns generic 500 errors into internal_error without leaking the message', async () => {

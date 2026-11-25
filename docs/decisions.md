@@ -113,4 +113,46 @@
 - `requireUser` foi removido (sem consumidores); `context.userId` e
   `context.auth` foram removidos do contexto (ninguém os lia).
 - `scripts/check-routes.ts` falha se um handler /v1 não usar
+
+## Fase 1.1 — contrato de erros e invariantes verificadas
+
+- **Envelope HTTP:** clientes recebem `{ error, message }` em JSON, com
+  `Content-Type: application/json`; status <500 preserva o código e as
+  mensagens públicas, enquanto falhas inesperadas e status >=500 viram
+  `500 { error: "internal_error", message: "Internal server error" }`.
+  `useApiFetch` lê `data.error` e `data.message`. Decisão: produtores passam a
+  usar `H3Error.data` estruturado e `message` humano; `normalizeError` aceita
+  também o JSON legado em `message` durante a migração. Respostas seguem com
+  `Location` apenas nos endpoints de criação e o middleware global mantém
+  `Cache-Control: no-store` (o normalizador define content-type, sem remover
+  headers já enviados).
+- **Entrada nullish:** validação esperada deve resultar em 400 e mensagem de
+  validação, nunca `TypeError`. A inspeção encontrou acessos diretos nos
+  validadores de objeto/query. Decisão: normalizar `null`/`undefined` como
+  objeto vazio antes de validar; os campos ausentes acionam as mensagens já
+  existentes.
+- **Local inativo:** documentação de `setMemberDefaultLocation` diz que só
+  locais ativos podem ser associados, mas a query anterior ignorava
+  `is_active`; além disso, desativar um local deixava referências padrão
+  apontando para ele. Decisão: rejeitar reassociação a local inativo com 404 e
+  limpar referências no mesmo contexto transacional quando um local é
+  desativado.
+- **Bootstrap e concorrência:** criação da empresa, local Principal e
+  associação owner ocorre na mesma transação (`createCompanyWithOwner`), com
+  `app.allow_founder_bootstrap`; testes de tenant exercitam carga concorrente
+  e isolamento com GUCs transacionais. Não foi encontrada evidência de
+  violação que justifique mudança adicional nesta fase.
+- **Falha de inicialização do auth:** `getAuth` mantinha uma Promise rejeitada
+  em cache, tornando falhas síncronas de inicialização permanentes no processo.
+  Decisão: limpar o cache apenas se a Promise que falhou ainda for a atual,
+  permitindo nova tentativa sem apagar uma inicialização posterior.
+- **Cadastro com e-mail existente:** `registerUser` retorna `null` para
+  duplicata, e `register.post.ts` devolve o mesmo status/campos genéricos e
+  aplica piso temporal de 700 ms; cadastro novo também espera o envio. Decisão:
+  manter essa resposta anti-enumeração e seu piso temporal.
+- **Histórico de empresa:** `softDeleteCompany` marca a empresa como deletada e
+  apaga associações; convites têm FK `ON DELETE CASCADE` apenas no hard delete,
+  e o esquema não registra histórico de membership. A retenção exigida para
+  histórico de associação/convites após soft delete não está decidida. Pendente
+  de decisão de produto; não alterar semântica destrutiva nesta fase.
   `defineAuthHandler(` ou conter `event.context.user as`.

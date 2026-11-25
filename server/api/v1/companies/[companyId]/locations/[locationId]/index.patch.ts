@@ -11,7 +11,7 @@ import {
 
 export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
-  await assertRole(
+  assertRole(
     role,
     ROLES.owner,
     'You are not a member of this company',

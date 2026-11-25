@@ -1,5 +1,6 @@
 import { createError } from 'h3'
 import { logger } from '#shared/logger'
+import type { Role } from './roles'
 
 export interface ApiError {
   error: string
@@ -11,6 +12,7 @@ export function sendAuthError(status: number, error: string, message: string): n
     status,
     statusText: status.toString(),
     message: JSON.stringify({ error, message } satisfies ApiError),
+    data: { error, message } satisfies ApiError,
   })
 }
 
@@ -39,12 +41,12 @@ export function sendForbiddenError(message: string): never {
   sendAuthError(403, 'forbidden', message)
 }
 
-export async function assertRole(
-  role: string | null | undefined,
-  requiredRole: string | null,
+export function assertRole(
+  role: Role | null | undefined,
+  requiredRole: Role | null,
   notMemberMessage: string,
   wrongRoleMessage?: string,
-): Promise<void> {
+): void {
   if (!role) {
     sendForbiddenError(notMemberMessage)
   }

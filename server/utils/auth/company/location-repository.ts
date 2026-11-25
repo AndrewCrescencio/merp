@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { location } from '../../schema'
+import { companyMember, location } from '../../schema'
 import { withTenant } from '../../db/tenant-context'
 import { sendNotFoundError } from '../../shared/errors'
 import type { LocationResult } from './repository'
@@ -73,6 +73,17 @@ export class LocationRepository {
       if (!updated) {
         sendNotFoundError('Location not found')
       }
+      if (input.isActive === false) {
+        await tx
+          .update(companyMember)
+          .set({ defaultLocationId: null })
+          .where(
+            and(
+              eq(companyMember.companyId, companyId),
+              eq(companyMember.defaultLocationId, locationId),
+            ),
+          )
+      }
       return updated!
     })
   }
@@ -96,6 +107,15 @@ export class LocationRepository {
       if (!updated) {
         sendNotFoundError('Location not found')
       }
+      await tx
+        .update(companyMember)
+        .set({ defaultLocationId: null })
+        .where(
+          and(
+            eq(companyMember.companyId, companyId),
+            eq(companyMember.defaultLocationId, locationId),
+          ),
+        )
       return updated!
     })
   }

@@ -3,6 +3,7 @@ import { company, companyMember, location, user } from '../../schema'
 import { sendNotFoundError } from '../../shared/errors'
 import { withTenant } from '../../db/tenant-context'
 import { escapeLikePattern, type CompanyResult } from './repository'
+import type { Role } from '../../shared/roles'
 
 export interface CompanyMemberResult {
   id: string
@@ -103,14 +104,14 @@ export class MembershipRepository {
   }
 
   /** Returns the membership role (`owner`|`member`) or null for non-members. */
-  async getCompanyMembershipRole(userId: string, companyId: string): Promise<string | null> {
+  async getCompanyMembershipRole(userId: string, companyId: string): Promise<Role | null> {
     return await withTenant(companyId, null, userId, async (tx) => {
       const [found] = await tx
         .select({ role: companyMember.role })
         .from(companyMember)
         .where(and(eq(companyMember.userId, userId), eq(companyMember.companyId, companyId)))
         .limit(1)
-      return found?.role ?? null
+      return (found?.role as Role | undefined) ?? null
     })
   }
 
@@ -209,7 +210,13 @@ export class MembershipRepository {
         const [found] = await tx
           .select({ id: location.id })
           .from(location)
-          .where(and(eq(location.id, defaultLocationId), eq(location.companyId, companyId)))
+          .where(
+            and(
+              eq(location.id, defaultLocationId),
+              eq(location.companyId, companyId),
+              eq(location.isActive, true),
+            ),
+          )
           .limit(1)
 
         if (!found) {

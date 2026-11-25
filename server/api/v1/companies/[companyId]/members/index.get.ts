@@ -5,7 +5,7 @@ export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
 
   // Apenas o owner pode listar membros (o papel `manager` não existe).
-  await assertRole(
+  assertRole(
     role,
     ROLES.owner,
     'You are not a member of this company',

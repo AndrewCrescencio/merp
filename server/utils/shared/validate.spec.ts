@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   validateDefaultLocationInput,
+  validateCompanyCreateInput,
+  validateCompanySearchInput,
   validateLocationCreateInput,
   validateLocationUpdateInput,
   validateLoginInput,
@@ -30,6 +32,15 @@ describe('validateDefaultLocationInput', () => {
     expect(() => validateDefaultLocationInput({ defaultLocationId: 42 })).toThrow(
       'defaultLocationId must be',
     )
+  })
+})
+
+describe('nullish input validation', () => {
+  it('returns validation errors for null and undefined objects and queries', () => {
+    for (const input of [null, undefined]) {
+      expect(() => validateCompanyCreateInput(input)).toThrow('Company name is required')
+      expect(() => validateCompanySearchInput(input)).toThrow('Search query is required')
+    }
   })
 })
 

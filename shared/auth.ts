@@ -93,14 +93,20 @@ let authPromise: Promise<AuthInstance> | null = null
 
 export function getAuth(): Promise<AuthInstance> {
   if (!authPromise) {
-    authPromise = (async () => {
-      const instance = createAuth()
-      logger.info('Better Auth instance initialized', {
-        baseURL: process.env.BETTER_AUTH_URL,
-        corsOrigin,
+    const wrapped = Promise.resolve()
+      .then(() => {
+        const instance = createAuth()
+        logger.info('Better Auth instance initialized', {
+          baseURL: process.env.BETTER_AUTH_URL,
+          corsOrigin,
+        })
+        return instance
       })
-      return instance
-    })()
+      .catch((error: unknown) => {
+        if (authPromise === wrapped) authPromise = null
+        throw error
+      })
+    authPromise = wrapped
   }
   return authPromise
 }

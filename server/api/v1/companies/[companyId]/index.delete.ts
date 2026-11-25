@@ -12,7 +12,7 @@ export default defineAuthHandler(async (event, user) => {
   // companyId vem do path (middleware tenant); DELETE não tem body.
   const { companyId, role } = requireTenant(event)
 
-  await assertRole(
+  assertRole(
     role,
     'owner',
     'You are not a member of this company',

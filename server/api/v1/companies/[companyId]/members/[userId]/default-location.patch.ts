@@ -30,7 +30,7 @@ export default defineAuthHandler(async (event, user) => {
     sendNotFoundError('Company member not found')
   }
 
-  await assertRole(
+  assertRole(
     role,
     ROLES.owner,
     'You are not a member of this company',

@@ -14,12 +14,28 @@ export interface NormalizedError {
 export function normalizeError(error: unknown): NormalizedError {
   const candidate =
     typeof error === 'object' && error !== null
-      ? (error as { statusCode?: number; status?: number; message?: string })
+      ? (error as { statusCode?: number; status?: number; message?: string; data?: unknown })
       : undefined
 
   const status = candidate?.statusCode ?? candidate?.status ?? 500
   const rawMessage = typeof candidate?.message === 'string' ? candidate.message : ''
 
+  if (status < 500 && candidate?.data) {
+    const data = candidate.data
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      typeof (data as ApiError).error === 'string' &&
+      typeof (data as ApiError).message === 'string'
+    ) {
+      return {
+        status,
+        body: { error: (data as ApiError).error, message: (data as ApiError).message },
+      }
+    }
+  }
+
+  // Compatibilidade transitória com erros H3 produzidos antes de `data`.
   if (status < 500 && rawMessage) {
     try {
       const parsed = JSON.parse(rawMessage) as unknown

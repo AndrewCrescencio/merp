@@ -5,7 +5,7 @@ import { assertRole, defineAuthHandler, requireTenant } from '~~/server/utils/sh
 // viram 404 no middleware de tenant (sem enumeração de companyId).
 export default defineAuthHandler(async (event) => {
   const { companyId, role } = requireTenant(event)
-  await assertRole(role, null, 'You are not a member of this company')
+  assertRole(role, null, 'You are not a member of this company')
 
   const invites = await inviteRepository.listCompanyInvites(companyId)
   return { invites }

@@ -17,7 +17,7 @@ export default defineAuthHandler(async (event, user) => {
   const { companyId, role } = requireTenant(event)
   const { email } = validateInviteInput(await readBody(event))
 
-  await assertRole(
+  assertRole(
     role,
     'owner',
     'You are not a member of this company',
