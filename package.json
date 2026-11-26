@@ -6,13 +6,12 @@
     "node": ">=26.0.0 <27"
   },
   "scripts": {
-    "build": "node scripts/generate-tailwind.mjs && nuxt build",
+    "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "prepare": "husky",
-    "pretest": "node scripts/generate-tailwind.mjs",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
@@ -52,6 +51,7 @@
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.4.0",
     "@tailwindcss/postcss": "^4.3.5",
+    "@tailwindcss/vite": "^4.3.5",
     "@types/node": "^26.6.10",
     "@vue/test-utils": "^2.6.0",
     "drizzle-kit": "^0.31.11",
