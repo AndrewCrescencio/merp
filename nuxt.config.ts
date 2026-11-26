@@ -19,6 +19,11 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint'],
   devtools: { enabled: true },
   css: ['~/assets/css/main.css'],
+  runtimeConfig: {
+    public: {
+      productInsightsEnabled: false,
+    },
+  },
   routeRules: {
     '/api/**': {
       cors: true,

@@ -1,3 +1,4 @@
+import type { AcquisitionChannel } from '~~/shared/contracts/acquisition'
 import { CSRF_COOKIE_NAME } from '#shared/app'
 import { createApiTransport, isInternalApiPath, type ApiFetcher } from '~~/shared/api-transport'
 
@@ -27,10 +28,16 @@ export function useAuthFetch() {
   return {
     login: (email: string, password: string, rememberMe = false) =>
       api('/api/auth/login', { method: 'POST', body: { email, password, rememberMe } }),
-    register: (email: string, password: string, name: string, consentTermsVersion: string) =>
+    register: (
+      email: string,
+      password: string,
+      name: string,
+      consentTermsVersion: string,
+      acquisitionChannel?: AcquisitionChannel,
+    ) =>
       api('/api/auth/register', {
         method: 'POST',
-        body: { email, password, name, consentTermsVersion },
+        body: { email, password, name, consentTermsVersion, acquisitionChannel },
       }),
     logout: () => api('/api/auth/logout', { method: 'POST' }),
     verifyEmail: (token: string) =>
