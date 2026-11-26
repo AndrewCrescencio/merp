@@ -1,10 +1,9 @@
 COMPOSE      := docker compose
-# Stack de produção lê variáveis de `.env.production.example` (copiado para
-# `.env` e editado antes do deploy). Variáveis do ambiente de shell continuam
-# com precedência sobre o arquivo.
-COMPOSE_PROD := $(COMPOSE) --env-file .env.production.example -f docker-compose.yml -f docker-compose.prod.yml
+# Produção usa exclusivamente .env. Variáveis do ambiente de shell continuam
+# com precedência sobre o arquivo; .env.production.example é apenas template.
+COMPOSE_PROD := $(COMPOSE) --env-file .env -f docker-compose.yml -f docker-compose.prod.yml
 
-.PHONY: help init setup db migrate migrate-full migrate-prod dev dev-d dev-down prod prod-down prod-logs studio
+.PHONY: help init setup db migrate migrate-full check-prod-env migrate-prod dev dev-d dev-down prod prod-down prod-logs studio
 
 help: ## Lista os alvos disponíveis
 	@echo "Tenant starter — inicialização e operação"
@@ -36,7 +35,10 @@ migrate-full: ## Migrações do journal (schema + funções + RLS) + verificaç�
 
 migrate: migrate-full ## Alias de migrate-full — o journal contém tudo, incluindo RLS
 
-migrate-prod: ## Migrações COMPLETAS (journal + RLS) no container de produção
+check-prod-env: ## Exige .env para os comandos de produção
+	@test -f .env || { echo "Erro: .env não encontrado. Copie .env.production.example para .env e configure os valores antes de usar comandos de produção." >&2; exit 1; }
+
+migrate-prod: check-prod-env ## Migrações COMPLETAS (journal + RLS) no container de produção
 	$(COMPOSE_PROD) build migrate
 	$(COMPOSE_PROD) run --rm migrate
 
@@ -54,10 +56,10 @@ dev-d: ## Stack dev em background
 prod: migrate-prod ## Sobe stack de produção (migra primeiro, depois sobe)
 	$(COMPOSE_PROD) up -d
 
-prod-down: ## Para stack de produção
+prod-down: check-prod-env ## Para stack de produção
 	$(COMPOSE_PROD) down
 
-prod-logs: ## Segue logs de produção
+prod-logs: check-prod-env ## Segue logs de produção
 	$(COMPOSE_PROD) logs -f
 
 studio: ## Abre Drizzle Studio
