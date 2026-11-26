@@ -25,9 +25,12 @@ pnpm run dev
 
 Aplicação: <http://localhost:3000>
 
-Produção: copie `.env.production.example` para `.env`, troque os placeholders
-(`seu-dominio.com`, `change-me`, etc.) e rode `make prod` (migra primeiro e
-depois sobe a stack com `docker-compose.prod.yml`).
+Produção: `.env.production.example` é apenas um template. Copie-o para `.env`,
+troque os placeholders (`seu-dominio.com`, `change-me`, etc.) e rode
+`make prod`. Os comandos de produção usam exclusivamente `.env` e falham com
+uma mensagem clara se ele não existir; o template nunca é usado como fallback.
+`make prod` aplica as migrations antes de subir a stack com
+`docker-compose.prod.yml`.
 
 ## Requisitos
 
