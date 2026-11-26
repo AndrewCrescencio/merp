@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { membershipRepository } from '~~/server/utils/companies/company/membership'
 import { callBetterAuth } from '~~/server/utils/auth/identity/client'
 import { listUserAuthEvents } from '~~/server/utils/auth/identity/queries'
+import { checkExportRateLimit } from '~~/server/utils/shared/security'
 import handler from './index.get'
 
 vi.mock('~~/server/utils/companies/company/membership', () => ({
@@ -10,6 +11,7 @@ vi.mock('~~/server/utils/companies/company/membership', () => ({
 }))
 vi.mock('~~/server/utils/auth/identity/client', () => ({ callBetterAuth: vi.fn() }))
 vi.mock('~~/server/utils/auth/identity/queries', () => ({ listUserAuthEvents: vi.fn() }))
+vi.mock('~~/server/utils/shared/security', () => ({ checkExportRateLimit: vi.fn() }))
 
 const findUserCompanies = vi.mocked(membershipRepository.findUserCompanies)
 const userAuthEvents = vi.mocked(listUserAuthEvents)
@@ -64,6 +66,16 @@ describe('GET /api/v1/me/data-export', () => {
     })
     expect(findUserCompanies).toHaveBeenCalledWith(user.id)
     expect(userAuthEvents).toHaveBeenCalledWith(user.id)
+    expect(checkExportRateLimit).toHaveBeenCalledWith(event, user.id)
+  })
+
+  it('applies export limit before fetching any data', async () => {
+    vi.mocked(checkExportRateLimit).mockRejectedValueOnce(new Error('limited'))
+
+    await expect(handler(event)).rejects.toThrow('limited')
+    expect(betterAuth).not.toHaveBeenCalled()
+    expect(findUserCompanies).not.toHaveBeenCalled()
+    expect(userAuthEvents).not.toHaveBeenCalled()
   })
 
   it('falls back to the authenticated profile when session details are absent', async () => {
