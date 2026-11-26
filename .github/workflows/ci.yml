@@ -18,39 +18,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run format:check
-      - run: npm run check:routes
-      - run: npm run check:migrations
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run format:check
+      - run: pnpm run check:routes
+      - run: pnpm run check:migrations
 
   typecheck:
     name: TypeCheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run typecheck
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
 
   build:
     name: Production Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run build
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
         env:
           NODE_ENV: production
           CORS_ORIGIN: https://example.com
@@ -73,11 +76,12 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'npm'
-      - run: npm ci
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: Wait for Postgres
         run: |
           for i in {1..30}; do
@@ -90,6 +94,6 @@ jobs:
           echo "Postgres not ready after 30s"
           exit 1
       - name: Run Drizzle migrations + RLS (owner)
-        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test npm run db:migrate:full
+        run: DATABASE_URL=postgres://merp:merp@localhost:5432/merp_test pnpm run db:migrate:full
       - name: Run full test suite (merp_app)
-        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true npm test
+        run: APP_DATABASE_URL=postgres://merp_app:merp_app@localhost:5432/merp_test DB_AVAILABLE=true pnpm test

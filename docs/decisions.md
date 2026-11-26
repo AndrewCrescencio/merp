@@ -39,14 +39,14 @@
 
 ## Migrations
 
-- Crie migrations com `npx drizzle-kit generate --name <descricao>` ou
+- Crie migrations com `pnpm exec drizzle-kit generate --name <descricao>` ou
   `--custom` para SQL manual. Revise o SQL, aplique com
-  `npm run db:migrate:full` e execute a suíte de integração.
+  `pnpm run db:migrate:full` e execute a suíte de integração.
 - **Migrations compartilhadas são imutáveis.** Não edite ou reaplique arquivos
   deletados em bancos já migrados; crie uma migration nova para corrigir ou
   alterar o schema. Bancos compartilhados já aplicaram o journal, por isso
   reescrever o histórico pode causar divergência entre ambientes.
-- `npm run check:migrations` (executado no CI) detecta prefixos duplicados.
+- `pnpm run check:migrations` (executado no CI) detecta prefixos duplicados.
   Mantenha prefixos e journal coerentes.
 
 ## Testes e dados
@@ -54,7 +54,7 @@
 - Vitest tem quatro projetos: `unit` (`*.spec.ts`, sem banco, mockado e
   paralelo), `integration` (`*.test.ts`, PostgreSQL real e sequencial), `e2e`
   (`tests/e2e/**/*.e2e.ts`, Nitro real por HTTP) e `app` (`app/**/*.spec.ts`,
-  ambiente Nuxt). `npm test` executa todos.
+  ambiente Nuxt). `pnpm test` executa todos.
 - Testes de integração ficam em `tests/`; `globalSetup` aplica
   `db:migrate:full`. Código que abre pool com
   `createOwnerDbForSetupOnly()` deve fechá-lo no `afterAll`.
@@ -201,9 +201,9 @@ schema, roles, grants, funções e policies (incluindo ENABLE e FORCE), executar
 ### Tailwind e Vite
 
 Manter o gerador atual até passar uma alternativa de ponta a ponta. Em
-checkout limpo o CSS compilado é ignorado pelo Git e `npm run dev` não o
+checkout limpo o CSS compilado é ignorado pelo Git e `pnpm run dev` não o
 gera. O GET de `/auth/login` devolveu `500` por falta de `tailwind.css`.
-Rodar `node scripts/generate-tailwind.mjs` antes de `npm run dev` produziu
+Rodar `node scripts/generate-tailwind.mjs` antes de `pnpm run dev` produziu
 `200` e estilos Tailwind. O build vigente passou, com 13.401 bytes no CSS
 gerado e 13.275 bytes no CSS de entrada entregue ao cliente. A geração
 anterior ao dev precisa ser repetida ao introduzir

@@ -100,7 +100,7 @@ services:
       target: build
       args:
         - CORS_ORIGIN=${CORS_ORIGIN:?CORS_ORIGIN obrigatória no build}
-    command: npm run db:migrate:full
+    command: pnpm run db:migrate:full
     environment:
       # Role owner (dona) — só migrações usam; nunca vai no container do app.
       - DATABASE_URL=${DATABASE_URL?Variável não setada - role owner (dona) é obrigatória para migrações}

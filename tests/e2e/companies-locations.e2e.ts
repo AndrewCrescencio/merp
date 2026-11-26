@@ -27,7 +27,7 @@ if (dbAvailable) {
   ctx.teardown = [
     ...(ctx.teardown ?? []),
     () => {
-      execSync('npx nuxt prepare', { cwd: process.cwd(), stdio: 'pipe' })
+      execSync('pnpm exec nuxt prepare', { cwd: process.cwd(), stdio: 'pipe' })
     },
   ]
 }

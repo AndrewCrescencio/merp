@@ -7,7 +7,7 @@ import { TEST_OWNER_URL, TEST_APP_URL } from './tests/support/test-urls.ts'
 //   *.test.ts = integração, PostgreSQL real, sequencial, globalSetup que aplica
 //               db:migrate:full (o MESMO comando da produção/CI);
 //   app/**    = componentes/páginas Vue no ambiente Nuxt (vitest.app.config.ts).
-// Correr `npm run test:unit` paga só o arranque do vitest (~1s) em vez do
+// Correr `pnpm run test:unit` paga só o arranque do vitest (~1s) em vez do
 // drizzle-kit migrate (~1,4s) mais 40 ficheiros em série.
 export default defineConfig({
   resolve: {

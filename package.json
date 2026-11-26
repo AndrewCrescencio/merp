@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=24.0.0 <25"
+    "node": ">=26.0.0 <27"
   },
   "scripts": {
     "build": "node scripts/generate-tailwind.mjs && nuxt build",
@@ -25,7 +25,7 @@
     "format:check": "prettier . --check",
     "check:routes": "tsx scripts/check-routes.ts",
     "check:migrations": "tsx scripts/check-migration-prefixes.ts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run check:routes && npm run check:migrations",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:routes && pnpm run check:migrations",
     "db:migrate:full": "tsx --env-file-if-exists=.env scripts/check-db.ts && CI=true FORCE_COLOR=0 drizzle-kit migrate && tsx --env-file-if-exists=.env scripts/verify-rls.ts",
     "db:smoke": "tsx --env-file-if-exists=.env scripts/db-smoke.ts"
   },
@@ -39,35 +39,36 @@
     ]
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.7.22",
-    "@neondatabase/serverless": "^1.2.0",
-    "better-auth": "^1.7.22",
+    "@better-auth/drizzle-adapter": "^1.7.28",
+    "@neondatabase/serverless": "^1.2.1",
+    "better-auth": "^1.7.28",
     "drizzle-orm": "^0.45.4",
-    "nuxt": "^4.6.4",
+    "nuxt": "^4.7.0",
     "postgres": "^3.4.9",
-    "vue": "^3.5.45",
+    "vue": "^3.5.46",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/test-utils": "^4.4.0",
     "@tailwindcss/postcss": "^4.3.5",
-    "@types/node": "^24.19.2",
-    "@vue/test-utils": "^2.5.1",
+    "@types/node": "^26.6.10",
+    "@vue/test-utils": "^2.6.0",
     "drizzle-kit": "^0.31.11",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
     "h3": "^1.15.11",
     "happy-dom": "^21.0.4",
     "husky": "^9.1.7",
-    "jose": "^6.2.17",
-    "lint-staged": "^17.6.0",
-    "nitropack": "^2.13.6",
-    "postcss": "^8.5.32",
+    "jose": "^6.2.18",
+    "lint-staged": "^17.6.2",
+    "nitropack": "^2.14.0",
+    "postcss": "^8.5.33",
     "prettier": "^3.10.1",
+    "tailwindcss": "^4.3.5",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.2"
   },
   "overrides": {
     "@simple-git/argv-parser@<2.0.1": "^2.0.1",
@@ -82,5 +83,6 @@
     "shell-quote": "^1.8.5",
     "svgo": "^4.1.0",
     "tar": "^7.5.22"
-  }
+  },
+  "packageManager": "pnpm@12.23.0"
 }

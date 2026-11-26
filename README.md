@@ -17,9 +17,10 @@ Esta base resolve a infraestrutura comum sem impor um domínio de negócio:
 ```bash
 # Desenvolvimento local — valores prontos, sem edição
 cp .env.example .env
+pnpm install --frozen-lockfile
 docker compose up -d postgres
-npm run db:migrate:full
-npm run dev
+pnpm run db:migrate:full
+pnpm run dev
 ```
 
 Aplicação: <http://localhost:3000>
@@ -30,26 +31,27 @@ depois sobe a stack com `docker-compose.prod.yml`).
 
 ## Requisitos
 
-- Node >= 24 (`engines` no package.json)
+- Node.js 26 LTS (`nvm install` usa a versão da linha definida em `.nvmrc`)
+- pnpm 12.23.0
 - Docker Compose
 
 ## Comandos
 
 ```bash
-npm test
-npm run test:unit
-npm run test:integration
-npm run lint
-npm run typecheck
-npm run check:routes
-npm run check:migrations
-npm run format:check
-npm run build
+pnpm test
+pnpm run test:unit
+pnpm run test:integration
+pnpm run lint
+pnpm run typecheck
+pnpm run check:routes
+pnpm run check:migrations
+pnpm run format:check
+pnpm run build
 ```
 
-`npm test` executa os projetos unit, integração, e2e e app. Integração e e2e
+`pnpm test` executa os projetos unit, integração, e2e e app. Integração e e2e
 precisam do PostgreSQL configurado como no CI; o CI aplica migrations como
-owner e executa a suíte como `merp_app`. `npm run check` reúne format, lint,
+owner e executa a suíte como `merp_app`. `pnpm run check` reúne format, lint,
 typecheck, rotas e migrations.
 
 ## Estrutura
@@ -110,11 +112,11 @@ validação, autorização e testes de comportamento e isolamento entre tenants.
    grave na mesma transação da operação ou use entrega durável.
 
 3. Gere uma migration nova com
-   `npx drizzle-kit generate --name <descricao>` (ou `--custom` para SQL
+   `pnpm exec drizzle-kit generate --name <descricao>` (ou `--custom` para SQL
    escrito à mão), revise o SQL e nunca edite migration já compartilhada.
    Toda mudança de schema acompanha migration e testes.
 4. Cubra comportamento, autorização e isolamento entre tenants; rode
-   `npm run db:migrate:full`, `npm run test:integration` e `npm run check`.
+   `pnpm run db:migrate:full`, `pnpm run test:integration` e `pnpm run check`.
    Mudanças em auth, tenant, RLS ou segurança também exigem testes de regressão.
 
 ## Decisões técnicas

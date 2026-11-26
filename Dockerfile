@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.7
 
 # ---- Base ----
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 
 WORKDIR /app
 
-# package-lock.json entra junto: `npm ci` é determinístico a partir dele (o
-# npm embutido na node:24-alpine lê lockfileVersion 3 sem problema).
-COPY package.json package-lock.json* ./
+# Instala a versão do pnpm declarada no package.json.
+COPY package.json ./
+RUN npm install --global "$(node -p 'require("./package.json").packageManager')"
 
 # ---- Build ----
 FROM base AS build
@@ -15,14 +15,13 @@ FROM base AS build
 ARG CORS_ORIGIN
 ENV CORS_ORIGIN=${CORS_ORIGIN}
 
-RUN npm ci
-
 COPY . .
 
-RUN npm run build
+RUN pnpm install --frozen-lockfile
+RUN pnpm run build
 
 # ---- Production ----
-FROM node:24-alpine AS production
+FROM node:26-alpine AS production
 
 RUN addgroup -g 1001 -S appgroup \
  && adduser -S -D -H -u 1001 -G appgroup appuser

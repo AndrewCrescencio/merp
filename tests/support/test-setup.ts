@@ -141,13 +141,13 @@ export async function setup(): Promise<void> {
     console.log('[test-setup] Base de dados merp_test já existe')
   }
 
-  console.log('[test-setup] A aplicar migrações (npm run db:migrate:full)...')
+  console.log('[test-setup] A aplicar migrações (pnpm run db:migrate:full)...')
   // O comando é o MESMO da produção/CI: journal completo (funções+role 0000,
   // schema 0001, RLS/policies/grants 0002) mais a guarda scripts/verify-rls.ts
   // no fim. Push foi removido: sincronizava o schema sem as policies e divergia
   // do que db:migrate:full entrega. merp_test é descartável, mas o reset acima é
   // o que garante que o journal é a única fonte.
-  run('npm run db:migrate:full', { DATABASE_URL: TEST_OWNER_URL })
+  run('pnpm run db:migrate:full', { DATABASE_URL: TEST_OWNER_URL })
 
   console.log('[test-setup] A definir senha de teste da role merp_app...')
   // a migração 0000 cria a role merp_app SEM senha (credencial é

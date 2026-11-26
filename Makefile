@@ -22,17 +22,17 @@ init: ## Do zero ao banco migrado: .env, dependências, PostgreSQL e policies de
 	$(MAKE) db
 	$(MAKE) migrate-full
 	@echo ""
-	@echo "Pronto. Suba o Nuxt com: npm run dev"
+	@echo "Pronto. Suba o Nuxt com: pnpm run dev"
 
 setup: ## Instala dependências e gera os tipos do Nuxt
-	npm install && npx nuxt prepare
+	pnpm install && pnpm exec nuxt prepare
 
 db: ## Sobe só o PostgreSQL e espera o healthcheck ficar verde
 	@$(COMPOSE) up -d --wait postgres || \
 		echo "⚠ compose não subiu — se já houver um PostgreSQL respondendo na porta, o próximo passo usa esse."
 
 migrate-full: ## Migrações do journal (schema + funções + RLS) + verificação FORCE
-	npm run db:migrate:full
+	pnpm run db:migrate:full
 
 migrate: migrate-full ## Alias de migrate-full — o journal contém tudo, incluindo RLS
 
@@ -43,7 +43,7 @@ migrate-prod: ## Migrações COMPLETAS (journal + RLS) no container de produçã
 dev-down: ## Para stack dev
 	$(COMPOSE) down
 
-dev: ## Stack dev em foreground (Docker; o Nuxt continua sendo npm run dev)
+dev: ## Stack dev em foreground (Docker; o Nuxt continua sendo pnpm run dev)
 	$(COMPOSE) up
 
 dev-d: ## Stack dev em background
@@ -61,4 +61,4 @@ prod-logs: ## Segue logs de produção
 	$(COMPOSE_PROD) logs -f
 
 studio: ## Abre Drizzle Studio
-	npx drizzle-kit studio
+	pnpm exec drizzle-kit studio

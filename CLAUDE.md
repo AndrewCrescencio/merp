@@ -38,26 +38,26 @@ Use `*.spec.ts` para lógica pura e unidades isoladas sem banco; `*.test.ts` par
 
 ## Convenção de nomes de teste (vitest.config.ts)
 
-| Sufixo      | Projeto       | Onde roda                          | Requisito                                                                                 |
-| ----------- | ------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
-| `*.spec.ts` | `unit`        | `vitest run --project unit`        | Lógica pura ou unidade isolada, sem banco, paralelo, sem `globalSetup`                    |
-| `*.test.ts` | `integration` | `vitest run --project integration` | PostgreSQL real (`DB_AVAILABLE=true`), sequencial, `globalSetup` aplica `db:migrate:full` |
-| `*.e2e.ts`  | `e2e`         | `vitest run --project e2e`         | servidor Nitro real sobre HTTP (`tests/e2e/`)                                             |
-| `app/**`    | `app`         | `npm test` (`vitest run`)          | componentes/paginas Vue via `vitest.app.config.ts` (projeto `app`, incluso em `npm test`) |
+| Sufixo      | Projeto       | Onde roda                          | Requisito                                                                                  |
+| ----------- | ------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| `*.spec.ts` | `unit`        | `vitest run --project unit`        | Lógica pura ou unidade isolada, sem banco, paralelo, sem `globalSetup`                     |
+| `*.test.ts` | `integration` | `vitest run --project integration` | PostgreSQL real (`DB_AVAILABLE=true`), sequencial, `globalSetup` aplica `db:migrate:full`  |
+| `*.e2e.ts`  | `e2e`         | `vitest run --project e2e`         | servidor Nitro real sobre HTTP (`tests/e2e/`)                                              |
+| `app/**`    | `app`         | `pnpm test` (`vitest run`)         | componentes/paginas Vue via `vitest.app.config.ts` (projeto `app`, incluso em `pnpm test`) |
 
-Componentes/paginas Vue usam `vitest.app.config.ts` (projeto `app`, incluso em `npm test`).
+Componentes/paginas Vue usam `vitest.app.config.ts` (projeto `app`, incluso em `pnpm test`).
 
 Não misture no mesmo arquivo testes de lógica pura e integração de banco. Não crie arquivos `.spec.ts` e `.test.ts` para a mesma responsabilidade; a separação só é apropriada quando há responsabilidades distintas, como algoritmo puro e persistência real. Renomeie apenas o que destoar e verifique que os padrões de descoberta continuam incluindo os testes.
 
 ## Antes de concluir
 
 ```bash
-npm run format:check
-npm run lint
-npm run typecheck
-npm run check:routes
-npm test   # roda unit + integracao + e2e + o projeto app (vitest.app.config.ts)
+pnpm run format:check
+pnpm run lint
+pnpm run typecheck
+pnpm run check:routes
+pnpm test   # roda unit + integracao + e2e + o projeto app (vitest.app.config.ts)
 ```
 
 A suíte completa (unit, integracao, e2e e app) roda no CI; localmente o
-minimo e `npm run test:unit` (integracao precisa de PostgreSQL).
+minimo e `pnpm run test:unit` (integracao precisa de PostgreSQL).
