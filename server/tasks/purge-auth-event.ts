@@ -1,8 +1,7 @@
 import { defineTask } from 'nitropack/runtime'
 import { runPurgeTask } from '~~/server/utils/shared/purge'
 import { db } from '~~/server/utils/db'
-import { authEvent } from '~~/server/utils/schema'
-import { lt } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 
 /**
  * Purge de eventos de auth (auth_event) por retenção de tempo.
@@ -27,18 +26,18 @@ export default defineTask({
     name: 'purge-auth-event',
   },
   async run() {
+    const days = retentionDays()
     return await runPurgeTask({
-      retentionMs: retentionDays() * 24 * 60 * 60 * 1000,
+      retentionMs: days * 24 * 60 * 60 * 1000,
       eventPrefix: 'purge_auth_event',
       startLog: 'purge_auth_event_start',
       completeLog: 'purge_auth_event_complete',
       errorLog: 'purge_auth_event_error',
-      remove: async (cutoff) => {
-        const results = await db
-          .delete(authEvent)
-          .where(lt(authEvent.createdAt, cutoff))
-          .returning({ id: authEvent.id })
-        return results.length
+      remove: async () => {
+        const [result] = await db.execute(sql`
+          SELECT public.purge_auth_events(${`${days} days`}::interval) AS deleted_count
+        `)
+        return Number(result.deleted_count)
       },
     })
   },
