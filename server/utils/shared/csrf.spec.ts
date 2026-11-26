@@ -1,3 +1,4 @@
+import { getCookie, getRequestHeader, setCookie, type H3Event } from 'h3'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
 vi.mock('h3', () => ({
@@ -43,5 +44,21 @@ describe('CSRF secret (>= 32 em produção)', () => {
     const { setCsrfCookie } = await import('./csrf')
 
     expect(() => setCsrfCookie({} as never, 'tok')).not.toThrow()
+  })
+})
+
+describe('validateCsrf', () => {
+  it('recusa header com token diferente do cookie assinado', async () => {
+    const { setCsrfCookie, validateCsrf } = await import('./csrf')
+    const event = {} as H3Event
+    const token = 'token-a'
+
+    setCsrfCookie(event, token)
+    const signedCookie = vi.mocked(setCookie).mock.lastCall?.[2]
+    vi.mocked(getCookie).mockReturnValueOnce(signedCookie).mockReturnValueOnce(signedCookie)
+    vi.mocked(getRequestHeader).mockReturnValueOnce(token).mockReturnValueOnce('token-b')
+
+    expect(validateCsrf(event)).toBe(true)
+    expect(validateCsrf(event)).toBe(false)
   })
 })

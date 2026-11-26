@@ -262,10 +262,11 @@ describe.skipIf(!dbAvailable)(
       expect(noCsrf.status).toBe(403)
       expect((noCsrf.body as { error?: string }).error).toBe('csrf_invalid')
 
-      const list = await owner.client.get<{ locations: unknown[] }>(
+      const list = await owner.client.get<{ locations: Array<{ id: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
       )
-      expect(list.body.locations).toHaveLength(1)
+      expect(list.status).toBe(200)
+      expect(list.body.locations.map(({ id }) => id)).toEqual([co.matrizId])
     })
 
     it('locations exige sessão e rejeita body inválido com 400', async () => {
