@@ -185,6 +185,29 @@ export async function resetRateLimits(): Promise<void> {
   }
 }
 
+/** Envelhece artificialmente a janela para testar sua reabertura sem aguardar 60 s. */
+export async function expireUserRateLimit(
+  userId: string,
+  prefix: 'export' | 'api:common',
+): Promise<void> {
+  const sql = ownerSql()
+  try {
+    await sql`
+      UPDATE auth_security_state
+      SET "window" = (
+        SELECT COALESCE(
+          jsonb_agg(to_jsonb((hit::timestamptz - interval '61 seconds')::text)),
+          '[]'::jsonb
+        )
+        FROM jsonb_array_elements_text("window") AS hits(hit)
+      )
+      WHERE key = ${`rate:${prefix}:${userId}`}
+    `
+  } finally {
+    await sql.end()
+  }
+}
+
 /** Membro (não-owner) semeado via owner DB — setup explícito do cenário. */
 export async function seedCompanyMember(
   companyId: string,
