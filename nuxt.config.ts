@@ -1,4 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import tailwindcss from '@tailwindcss/vite'
 // o header CORS é baked no build pelo Nitro — sem a env, produção
 // compilaria com fallback localhost silencioso. Falha explícita no build.
 // Escopo: SÓ no build (`nuxt build`/`generate`). `nuxt prepare` (roda no
@@ -17,8 +18,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN && isBuild
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint'],
   devtools: { enabled: true },
-  css: ['~/assets/css/tailwind.css'],
-
+  css: ['~/assets/css/main.css'],
   routeRules: {
     '/api/**': {
       cors: true,
@@ -84,6 +84,10 @@ export default defineNuxtConfig({
         version: '1.0.0',
       },
     },
+  },
+
+  vite: {
+    plugins: [tailwindcss()],
   },
 
   eslint: {
