@@ -6,6 +6,7 @@ const error = ref('')
 const success = ref(false)
 const loading = ref(false)
 const tokenValid = ref(true)
+const auth = useAuthFetch()
 
 const token = computed(() => route.query.token as string)
 
@@ -21,10 +22,7 @@ async function submit() {
   }
   loading.value = true
   try {
-    await $fetch('/api/auth/password/reset', {
-      method: 'POST',
-      body: { token: token.value, newPassword: password.value },
-    })
+    await auth.resetPassword(token.value, password.value)
     success.value = true
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Link inválido ou expirado'

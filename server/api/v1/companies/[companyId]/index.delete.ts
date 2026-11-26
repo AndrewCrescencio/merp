@@ -1,35 +1,19 @@
-import { sendNoContent } from 'h3'
-import { companyRepository } from '~~/server/utils/auth/company/repository'
-import {
-  assertRole,
-  createAuthEvent,
-  getClientIp,
-  defineAuthHandler,
-  requireTenant,
-} from '~~/server/utils/shared'
+import { companyRepository } from '~~/server/utils/companies/company/repository'
+import { defineAuthHandler, ROLES } from '~~/server/utils/shared'
 
-export default defineAuthHandler(async (event, user) => {
-  // companyId vem do path (middleware tenant); DELETE não tem body.
-  const { companyId, role } = requireTenant(event)
-
-  await assertRole(
-    role,
-    'owner',
-    'You are not a member of this company',
-    'Only company owners can delete companies',
-  )
-
-  await companyRepository.softDeleteCompany(companyId, user.id)
-
-  const ip = getClientIp(event)
-  await createAuthEvent({
-    userId: user.id,
-    email: user.email,
-    eventType: 'company_deleted',
-    ipAddress: ip || null,
-    metadata: { companyId },
-  })
-
-  // DELETE responde 204 sem corpo.
-  return sendNoContent(event)
-})
+export default defineAuthHandler(
+  {
+    tenant: true,
+    role: ROLES.owner,
+    forbiddenMessage: 'Only company owners can delete companies',
+    audit: (_, { tenant }) => ({
+      eventType: 'company_deleted',
+      metadata: { companyId: tenant.companyId },
+    }),
+  },
+  async ({ tenant, user }) => {
+    await companyRepository.softDeleteCompany(tenant.companyId, user.id)
+    // Nitro envia 204 para null após o wrapper registrar a auditoria.
+    return null
+  },
+)

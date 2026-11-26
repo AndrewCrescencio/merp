@@ -1,32 +1,21 @@
-import { readBody } from 'h3'
-import { inviteRepository } from '~~/server/utils/auth/invite/repository'
-import {
-  checkIpRateLimit,
-  createAuthEvent,
-  getClientIp,
-  defineAuthHandler,
-  validateInviteAcceptInput,
-} from '~~/server/utils/shared'
+import { inviteRepository } from '~~/server/utils/companies/invite/repository'
+import { defineAuthHandler, validateInviteAcceptInput } from '~~/server/utils/shared'
 
-export default defineAuthHandler(async (event, user) => {
-  await checkIpRateLimit(event)
-
-  const { token } = validateInviteAcceptInput(await readBody(event))
-
-  const accepted = await inviteRepository.acceptInvite(token, user.email, user.id)
-
-  const ip = getClientIp(event)
-  await createAuthEvent({
-    userId: user.id,
-    email: user.email,
-    eventType: 'invite_accepted',
-    ipAddress: ip || null,
-    metadata: { companyId: accepted.companyId },
-  })
-
-  return {
-    id: accepted.id,
-    companyId: accepted.companyId,
-    acceptedAt: accepted.acceptedAt,
-  }
-})
+export default defineAuthHandler(
+  {
+    rateLimit: 'ip',
+    body: validateInviteAcceptInput,
+    audit: ({ companyId }: { companyId: string }) => ({
+      eventType: 'invite_accepted',
+      metadata: { companyId },
+    }),
+  },
+  async ({ body, user }) => {
+    const { id, companyId, acceptedAt } = await inviteRepository.acceptInvite(
+      body.token,
+      user.email,
+      user.id,
+    )
+    return { id, companyId, acceptedAt }
+  },
+)

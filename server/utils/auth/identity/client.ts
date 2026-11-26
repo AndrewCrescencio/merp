@@ -38,11 +38,12 @@ function rethrowBetterAuthError(error: { statusCode: number; message: string }):
   throw createError({
     status: statusCode,
     statusText: String(statusCode),
-    message: JSON.stringify({
+    message,
+    data: {
       error:
         statusCode === 400 ? 'validation_error' : statusCode === 401 ? 'unauthorized' : 'error',
       message,
-    }),
+    },
   })
 }
 

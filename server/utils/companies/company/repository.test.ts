@@ -5,15 +5,19 @@ const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_tes
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
-  let repo: import('~~/server/utils/auth/company/repository').CompanyRepository
-  let membershipRepo: import('~~/server/utils/auth/company/membership').MembershipRepository
+  let repo: import('~~/server/utils/companies/company/repository').CompanyRepository
+  let membershipRepo: import('~~/server/utils/companies/company/membership').MembershipRepository
+  let locationRepo: import('~~/server/utils/companies/company/location-repository').LocationRepository
 
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = INTEGRATION_DB_URL
-    repo = new (await import('~~/server/utils/auth/company/repository')).CompanyRepository()
+    repo = new (await import('~~/server/utils/companies/company/repository')).CompanyRepository()
     membershipRepo = new (
-      await import('~~/server/utils/auth/company/membership')
+      await import('~~/server/utils/companies/company/membership')
     ).MembershipRepository()
+    locationRepo = new (
+      await import('~~/server/utils/companies/company/location-repository')
+    ).LocationRepository()
   })
 
   // Um seed que não cria a conta deve falhar alto: o resto do teste usaria
@@ -62,7 +66,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
 
       // cm_select_policy confia no tenant context (fornecido pelo app, não pelo
       // atacante) — sem contexto, user A não vê nada da empresa B (fail-closed).
-      const rows = await withTenant(null, null, userA.id, (tx) =>
+      const rows = await withTenant({ companyId: null, locationId: null, userId: userA.id }, (tx) =>
         tx.select().from(companyMember).where(eq(companyMember.companyId, companyB.id)),
       )
 
@@ -83,12 +87,14 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const { company } = await import('~~/server/utils/schema')
       const { eq } = await import('drizzle-orm')
 
-      const updated = await withTenant(companyB.id, null, userA.id, (tx) =>
-        tx.update(company).set({ name: 'Hacked' }).where(eq(company.id, companyB.id)).returning(),
+      const updated = await withTenant(
+        { companyId: companyB.id, locationId: null, userId: userA.id },
+        (tx) =>
+          tx.update(company).set({ name: 'Hacked' }).where(eq(company.id, companyB.id)).returning(),
       )
 
       expect(updated).toHaveLength(0)
-      expect(await repo.findCompanyById(companyB.id, userB.id)).toMatchObject({
+      expect(await repo.findCompanyWithLocations(companyB.id, userB.id)).toMatchObject({
         name: 'Upd Company B',
       })
     })
@@ -102,9 +108,28 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
 
       const companyB = await repo.createCompanyWithOwner({ name: 'Find Company B' }, userB.id)
 
-      expect(await repo.findCompanyById(companyB.id, userA.id)).toBeNull()
-      expect(await repo.findCompanyById(companyB.id, userB.id)).toMatchObject({
+      expect(await repo.findCompanyWithLocations(companyB.id, userA.id)).toBeNull()
+      expect(await repo.findCompanyWithLocations(companyB.id, userB.id)).toMatchObject({
         id: companyB.id,
+      })
+    })
+
+    it('findCompanyWithLocations temporarily switches to company scope and restores its caller', async () => {
+      const owner = await registerUser(`scope-return-${Date.now()}@example.com`, 'Scope Return')
+      const company = await repo.createCompanyWithOwner({ name: 'Scope Return Company' }, owner.id)
+      const { withTenant } = await import('~~/server/utils/db/tenant-context')
+      const { sql } = await import('drizzle-orm')
+
+      await withTenant({ companyId: null, locationId: null, userId: owner.id }, async (tx) => {
+        const detail = await repo.findCompanyWithLocations(company.id, owner.id, tx)
+        expect(detail?.locations.map(({ name }) => name)).toEqual(['Principal'])
+
+        const [scope] = await tx.execute(sql`
+          SELECT NULLIF(current_setting('app.tenant_id', true), '') AS "companyId",
+                 NULLIF(current_setting('app.location_id', true), '') AS "locationId",
+                 NULLIF(current_setting('app.user_id', true), '') AS "userId"
+        `)
+        expect(scope).toEqual({ companyId: null, locationId: null, userId: owner.id })
       })
     })
 
@@ -132,10 +157,30 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
     it('creates company and owner atomically', async () => {
       const owner = await registerUser(`atomic-owner-${Date.now()}@example.com`, 'Atomic Owner')
 
-      const company = await repo.createCompanyWithOwner({ name: 'Atomic Company' }, owner.id)
+      const { withTenant } = await import('~~/server/utils/db/tenant-context')
+      const { sql } = await import('drizzle-orm')
+      let companyId = ''
+      await withTenant({ companyId: null, locationId: null, userId: owner.id }, async (tx) => {
+        const created = await repo.createCompanyWithOwner({ name: 'Atomic Company' }, owner.id, tx)
+        companyId = created.id
 
+        const [marker] = await tx.execute(
+          sql`SELECT current_setting('app.allow_founder_bootstrap', true) AS value`,
+        )
+        expect([null, '']).toContain((marker as { value: string | null }).value)
+
+        const locations = await locationRepo.listLocations(created.id, owner.id, tx)
+        expect(locations.map((item) => item.name)).toEqual(['Principal'])
+        expect(await membershipRepo.getCompanyMembershipRole(owner.id, created.id, tx)).toBe(
+          'owner',
+        )
+      })
+
+      const company = await repo.findCompanyWithLocations(companyId, owner.id)
       expect(company).toMatchObject({ name: 'Atomic Company', isDeleted: false })
-      expect(await membershipRepo.getCompanyMembershipRole(owner.id, company.id)).toBe('owner')
+      expect(company?.locations).toHaveLength(1)
+      expect(company?.locations[0]?.name).toBe('Principal')
+      expect(await membershipRepo.getCompanyMembershipRole(owner.id, companyId)).toBe('owner')
     })
 
     it('rolls back company creation when owner insert fails', async () => {
@@ -145,20 +190,25 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         'Atomic Searcher',
       )
 
-      await expect(repo.createCompanyWithOwner({ name }, 'nonexistent-user-id')).rejects.toThrow()
+      const { withTenant } = await import('~~/server/utils/db/tenant-context')
+      await withTenant({ companyId: null, locationId: null, userId: searcher.id }, async (tx) => {
+        await expect(
+          repo.createCompanyWithOwner({ name }, 'nonexistent-user-id', tx),
+        ).rejects.toThrow()
+
+        // The failed nested operation rolled back to its savepoint. The
+        // caller scope is still usable inside the owning transaction.
+        expect(await membershipRepo.searchCompanies('Atomic Fail', searcher.id, tx)).toEqual([])
+      })
 
       const results = await membershipRepo.searchCompanies('Atomic Fail', searcher.id)
       expect(results.some((c: { name: string }) => c.name === name)).toBe(false)
-    })
 
-    it('createCompany with valid user context succeeds', async () => {
-      const email = `test-user-${Date.now()}@example.com`
-      const user = await registerUser(email, 'Test User')
-      // User context is now required by createCompany signature; RLS policy
-      // (company_insert_policy: get_user_id() IS NOT NULL) is satisfied.
-      const created = await repo.createCompany({ name: 'New Co' }, user.id)
-      expect(created.name).toBe('New Co')
-      expect(created.id).toBeDefined()
+      // Reusing the same unique company name proves the company and Principal
+      // inserts from before the failed founder association were rolled back.
+      await expect(repo.createCompanyWithOwner({ name }, searcher.id)).resolves.toMatchObject({
+        name,
+      })
     })
   })
 
@@ -181,7 +231,18 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const member = await registerUser(`add-member-${Date.now()}@example.com`, 'Add Member')
       const company = await repo.createCompanyWithOwner({ name: 'Add Member Company' }, owner.id)
 
-      await membershipRepo.createCompanyMember(company.id, member.id, 'member')
+      const { withTenant } = await import('~~/server/utils/db/tenant-context')
+      const { sql } = await import('drizzle-orm')
+      await withTenant(
+        { companyId: company.id, locationId: null, userId: owner.id },
+        async (tx) => {
+          await membershipRepo.createCompanyMember(company.id, member.id, 'member', tx)
+          const [marker] = await tx.execute(
+            sql`SELECT current_setting('app.allow_member_bootstrap', true) AS value`,
+          )
+          expect([null, '']).toContain((marker as { value: string | null }).value)
+        },
+      )
 
       expect(await membershipRepo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
     })
@@ -227,7 +288,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       // Raw SQL com o flag de member no GUC — a policy (0014) exige o flag de
       // founder para role='owner'; role='member' é negado pelo flag errado.
       await expect(
-        withTenant(company.id, null, attacker.id, async (tx) => {
+        withTenant({ companyId: company.id, locationId: null, userId: attacker.id }, async (tx) => {
           await tx.execute(sql`SELECT set_config('app.allow_member_bootstrap', 'true', true)`)
           await tx.insert(companyMember).values({
             companyId: company.id,
@@ -250,7 +311,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const { getPostgresErrorCode } = await import('~~/server/utils/shared/errors')
 
       await expect(
-        withTenant(company.id, null, member.id, (tx) =>
+        withTenant({ companyId: company.id, locationId: null, userId: member.id }, (tx) =>
           tx
             .update(companyMember)
             .set({ role: 'owner' })
@@ -273,7 +334,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const { getPostgresErrorCode } = await import('~~/server/utils/shared/errors')
 
       await expect(
-        withTenant(companyA.id, null, member.id, (tx) =>
+        withTenant({ companyId: companyA.id, locationId: null, userId: member.id }, (tx) =>
           tx
             .update(companyMember)
             .set({ companyId: companyB.id })
@@ -293,7 +354,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
       const result = await repo.softDeleteCompany(company.id, owner.id)
 
       expect(result).toMatchObject({ id: company.id, isDeleted: true })
-      expect(await repo.findCompanyById(company.id, owner.id)).toBeNull()
+      expect(await repo.findCompanyWithLocations(company.id, owner.id)).toBeNull()
       expect(await membershipRepo.getCompanyMembershipRole(member.id, company.id)).toBeNull()
       expect(await membershipRepo.getCompanyMembershipRole(owner.id, company.id)).toBeNull()
     })
@@ -308,7 +369,9 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         statusCode: 404,
       })
 
-      expect(await repo.findCompanyById(company.id, owner.id)).toMatchObject({ id: company.id })
+      expect(await repo.findCompanyWithLocations(company.id, owner.id)).toMatchObject({
+        id: company.id,
+      })
       expect(await membershipRepo.getCompanyMembershipRole(member.id, company.id)).toBe('member')
     })
   })
@@ -348,7 +411,7 @@ describe.skipIf(!dbAvailable)('CompanyRepository (integration)', () => {
         repo.updateCompany(company.id, member.id, { name: 'Hacked Name' }),
       ).rejects.toMatchObject({ statusCode: 404 })
 
-      expect(await repo.findCompanyById(company.id, owner.id)).toMatchObject({
+      expect(await repo.findCompanyWithLocations(company.id, owner.id)).toMatchObject({
         name: 'Upd TOC Company',
       })
     })

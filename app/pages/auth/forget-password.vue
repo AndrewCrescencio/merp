@@ -3,15 +3,13 @@ const email = ref('')
 const error = ref('')
 const success = ref(false)
 const loading = ref(false)
+const auth = useAuthFetch()
 
 async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await $fetch('/api/auth/password/forgot', {
-      method: 'POST',
-      body: { email: email.value.trim() },
-    })
+    await auth.forgetPassword(email.value.trim())
     success.value = true
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro ao enviar email'

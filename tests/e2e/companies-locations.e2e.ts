@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setup, useTestContext, url } from '@nuxt/test-utils/e2e'
-import { E2eClient, resetRateLimits, seedCompanyMember } from './support/http'
+import { E2eClient, resetRateLimits, seedCompanyMember, withRejectedAudit } from './support/http'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
@@ -11,7 +11,13 @@ if (dbAvailable) {
   // que ativaria sslmode=require na conexão local (sem TLS) e as envs de
   // produção — o dev server roda o MESMO Nitro/middleware/handlers sem o
   // stub de produção.
-  await setup({ server: true, dev: true, teardownTimeout: 120_000 })
+  await setup({
+    server: true,
+    dev: true,
+    teardownTimeout: 120_000,
+    // Com TCP até o worker do Nitro, o rate limit por IP recebe o IP do socket.
+    env: { NITRO_NO_UNIX_SOCKET: '1' },
+  })
 
   // O dev server regenera .nuxt/tsconfig.* do REPO apontando para o buildDir
   // efêmero do worker (removido no teardown) — `tsc` perde os auto-imports.
@@ -53,7 +59,15 @@ describe.skipIf(!dbAvailable)(
       password: string
     }
 
-    /** Fluxo REAL: register → verifyEmail (token mintado como o do link) → login. */
+    async function eventTypes(user: User): Promise<string[]> {
+      const exported = await user.client.get<{ authEvents: Array<{ eventType: string }> }>(
+        '/api/v1/me/data-export',
+      )
+      expect(exported.status).toBe(200)
+      return exported.body.authEvents.map(({ eventType }) => eventType)
+    }
+
+    /** Registra, confirma email, autentica e obtém o token CSRF para as escritas. */
     async function makeUser(label: string): Promise<User> {
       const email = `${label.toLowerCase()}-${unique()}@e2e.test`
       const pass = password()
@@ -83,25 +97,22 @@ describe.skipIf(!dbAvailable)(
         throw new Error(`login ${label}: HTTP ${logged.status} ${JSON.stringify(logged.body)}`)
       }
 
+      const me = await client.get('/api/v1/me')
+      expect(me.status).toBe(200)
+      expect(me.headers.get('x-csrf-token')).toBeTruthy()
+
       return { client, id: String(registered.body.id), email, password: pass }
     }
 
-    /**
-     * Company criada pelo endpoint real. O GET prévio é o bootstrap do CSRF:
-     * o cookie só é emitido em requests seguros não-isentos — antes do login
-     * não há rota /api que o emita para o público.
-     */
     async function createCompany(user: User, name: string): Promise<CompanyRef> {
-      const me = await user.client.get<{ id: string }>('/api/v1/me')
-      if (me.status !== 200) {
-        throw new Error(`GET /me: HTTP ${me.status}`)
-      }
-
       const created = await user.client.post<{ id: string; name: string }>('/api/v1/companies', {
         name,
       })
       if (created.status !== 201) {
         throw new Error(`POST /companies: HTTP ${created.status} ${JSON.stringify(created.body)}`)
+      }
+      if (created.headers.get('location') !== `/api/v1/companies/${created.body.id}`) {
+        throw new Error(`POST /companies: Location inesperado ${created.headers.get('location')}`)
       }
 
       const locations = await user.client.get<{
@@ -206,7 +217,7 @@ describe.skipIf(!dbAvailable)(
         name: `Det Co ${unique()}`,
       })
       expect(created.status).toBe(201)
-      expect(created.headers.get('location')).toContain(created.body.id)
+      expect(created.headers.get('location')).toBe(`/api/v1/companies/${created.body.id}`)
 
       const detail = await owner.client.get<{
         id: string
@@ -216,6 +227,24 @@ describe.skipIf(!dbAvailable)(
       expect(detail.body.locations).toHaveLength(1)
       expect(detail.body.locations[0]?.name).toBe('Principal')
       expect(detail.body.locations[0]?.isActive).toBe(true)
+    })
+
+    it('GET /companies retorna apenas memberships próprias e valida q', async () => {
+      const owner = await makeUser('company-search')
+      const co = await createCompany(owner, `Search ${unique()}`)
+      const own = await owner.client.get<{
+        companies: Array<{ id: string; name: string }>
+      }>('/api/v1/companies?q=Search')
+      expect(own.status).toBe(200)
+      expect(own.body.companies.some((company) => company.id === co.id)).toBe(true)
+
+      const invalid = await owner.client.get('/api/v1/companies?q=%20')
+      expect(invalid.status).toBe(400)
+
+      const other = await makeUser('company-search-other')
+      const isolated = await other.client.get('/api/v1/companies?q=Search')
+      expect(isolated.status).toBe(200)
+      expect((isolated.body as { companies: Array<{ id: string }> }).companies).toHaveLength(0)
     })
 
     // ---------------------------------------------------------------------------
@@ -239,6 +268,32 @@ describe.skipIf(!dbAvailable)(
       expect(list.body.locations).toHaveLength(1)
     })
 
+    it('locations exige sessão e rejeita body inválido com 400', async () => {
+      const owner = await makeUser('location-validation')
+      const co = await createCompany(owner, `Validation ${unique()}`)
+      const fresh = new E2eClient(baseUrl())
+
+      expect((await fresh.get(`/api/v1/companies/${co.id}/locations`)).status).toBe(401)
+
+      const invalid = await owner.client.post(`/api/v1/companies/${co.id}/locations`, {})
+      expect(invalid.status).toBe(400)
+      expect((invalid.body as { message?: string }).message).toContain('name is required')
+
+      const invalidPatch = await owner.client.patch(
+        `/api/v1/companies/${co.id}/locations/${co.matrizId}`,
+        {},
+      )
+      expect(invalidPatch.status).toBe(400)
+      expect((invalidPatch.body as { message?: string }).message).toContain(
+        'name or isActive is required',
+      )
+
+      const list = await owner.client.get<{ locations: unknown[] }>(
+        `/api/v1/companies/${co.id}/locations`,
+      )
+      expect(list.body.locations).toHaveLength(1)
+    })
+
     // ---------------------------------------------------------------------------
     // Ciclo de vida da location (com CSRF válido)
     // ---------------------------------------------------------------------------
@@ -252,7 +307,9 @@ describe.skipIf(!dbAvailable)(
       )
       expect(created.status).toBe(201)
       expect(created.body.name).toBe('Filial Zona Sul')
-      expect(created.headers.get('location')).toContain(created.body.id)
+      expect(created.headers.get('location')).toBe(
+        `/api/v1/companies/${co.id}/locations/${created.body.id}`,
+      )
 
       let list = await owner.client.get<{ locations: Array<{ name: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
@@ -273,6 +330,7 @@ describe.skipIf(!dbAvailable)(
         `/api/v1/companies/${co.id}/locations/${created.body.id}`,
       )
       expect(deleted.status).toBe(204)
+      expect(deleted.body).toBeNull()
 
       list = await owner.client.get<{ locations: Array<{ name: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
@@ -370,6 +428,283 @@ describe.skipIf(!dbAvailable)(
         `/api/v1/companies/${coB.id}/locations`,
       )
       expect(intact.body.locations.map((l) => l.name)).toEqual(['Principal'])
+    })
+
+    // ---------------------------------------------------------------------------
+    // Contratos de company e membros
+    // ---------------------------------------------------------------------------
+    it('sem sessão recebe 401 em rota protegida com tenant válido', async () => {
+      const owner = await makeUser('authz-owner')
+      const co = await createCompany(owner, `Authz ${unique()}`)
+      const fresh = new E2eClient(baseUrl())
+      const response = await fresh.get(`/api/v1/companies/${co.id}`)
+      expect(response.status).toBe(401)
+    })
+
+    it('owner-only responde 403 e mantém company, membros e location intactos', async () => {
+      const owner = await makeUser('owner-only')
+      const co = await createCompany(owner, `Owner Only ${unique()}`)
+      const member = await makeUser('owner-only-member')
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+
+      const members = await member.client.get(`/api/v1/companies/${co.id}/members`)
+      expect(members.status).toBe(403)
+
+      const rename = await member.client.patch(`/api/v1/companies/${co.id}`, { name: 'Intruso' })
+      expect(rename.status).toBe(403)
+      expect((rename.body as { error?: string }).error).toBe('forbidden')
+
+      const invalidRename = await member.client.patch(`/api/v1/companies/${co.id}`, {})
+      expect(invalidRename.status).toBe(403)
+      expect(invalidRename.body.message).toBe('Only company owners can update companies')
+      expect((await owner.client.patch(`/api/v1/companies/${co.id}`, {})).status).toBe(400)
+
+      const assign = await member.client.patch(
+        `/api/v1/companies/${co.id}/members/${member.id}/default-location`,
+        { defaultLocationId: co.matrizId },
+      )
+      expect(assign.status).toBe(403)
+
+      const removeOwner = await member.client.delete(
+        `/api/v1/companies/${co.id}/members/${owner.id}`,
+      )
+      expect(removeOwner.status).toBe(403)
+
+      const stillThere = await owner.client.get<{ id: string; name: string }>(
+        `/api/v1/companies/${co.id}`,
+      )
+      expect(stillThere.status).toBe(200)
+      expect(stillThere.body.name).toContain('Owner Only')
+      const memberList = await owner.client.get<{ members: Array<{ userId: string }> }>(
+        `/api/v1/companies/${co.id}/members`,
+      )
+      expect(memberList.body.members.some((m) => m.userId === member.id)).toBe(true)
+
+      const ownerAssign = await owner.client.patch(
+        `/api/v1/companies/${co.id}/members/${member.id}/default-location`,
+        { defaultLocationId: null },
+      )
+      expect(ownerAssign.status).toBe(200)
+      const afterAssign = await owner.client.get<{
+        members: Array<{ userId: string; defaultLocationId: string | null }>
+      }>(`/api/v1/companies/${co.id}/members`)
+      expect(afterAssign.body.members.find((m) => m.userId === member.id)?.defaultLocationId).toBe(
+        null,
+      )
+
+      const ownerRename = await owner.client.patch<{ name: string }>(`/api/v1/companies/${co.id}`, {
+        name: 'Renamed by owner',
+      })
+      expect(ownerRename.status).toBe(200)
+      expect(ownerRename.body.name).toBe('Renamed by owner')
+      expect(await eventTypes(owner)).toEqual(
+        expect.arrayContaining(['member_default_location_updated', 'company_updated']),
+      )
+      expect(await eventTypes(member)).not.toContain('member_default_location_updated')
+    })
+
+    it('membro lista convites; owner cria convite e destinatário aceita via /me', async () => {
+      const owner = await makeUser('invite-owner')
+      const co = await createCompany(owner, `Invite ${unique()}`)
+      const member = await makeUser('invite-member')
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+      const recipient = await makeUser('invite-recipient')
+
+      const created = await owner.client.post<{
+        id: string
+        companyId: string
+        email: string
+        token: string
+      }>(`/api/v1/companies/${co.id}/invitations`, { email: recipient.email })
+      expect(created.status).toBe(201)
+      expect(created.body.email).toBe(recipient.email)
+      expect(created.body.companyId).toBe(co.id)
+      expect(created.headers.get('location')).toBe(
+        `/api/v1/companies/${co.id}/invitations/${created.body.id}`,
+      )
+
+      const listed = await member.client.get<{ invites: Array<{ id: string; email: string }> }>(
+        `/api/v1/companies/${co.id}/invitations`,
+      )
+      expect(listed.status).toBe(200)
+      expect(listed.body.invites).toEqual([
+        expect.objectContaining({ id: created.body.id, email: recipient.email, acceptedAt: null }),
+      ])
+      expect(listed.body.invites[0]).not.toHaveProperty('token')
+      expect(listed.body.invites[0]).not.toHaveProperty('tokenHash')
+
+      const acceptPath = '/api/v1/me/invitations/accept'
+      const acceptBody = { token: created.body.token }
+      expect((await recipient.client.post(acceptPath, {})).status).toBe(400)
+      expect((await member.client.post(acceptPath, acceptBody)).status).toBe(404)
+      const accepted = await recipient.client.post(acceptPath, acceptBody)
+      expect(accepted.status).toBe(200)
+      expect(accepted.body).toEqual({
+        id: created.body.id,
+        companyId: co.id,
+        acceptedAt: expect.any(String),
+      })
+      expect((await recipient.client.post(acceptPath, acceptBody)).status).toBe(404)
+      expect(await eventTypes(owner)).toContain('invite_created')
+      expect(await eventTypes(recipient)).toContain('invite_accepted')
+      const companies = await recipient.client.get<{
+        companies: Array<{ id: string; role: string }>
+      }>('/api/v1/me')
+      expect(companies.body.companies).toContainEqual({
+        id: co.id,
+        role: 'member',
+        name: expect.any(String),
+      })
+    })
+
+    it('membro pode sair com 204 vazio; owner não pode remover a si próprio', async () => {
+      const owner = await makeUser('leave-owner')
+      const co = await createCompany(owner, `Leave ${unique()}`)
+      const member = await makeUser('leave-member')
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+
+      const ownerLeave = await owner.client.delete(`/api/v1/companies/${co.id}/members/${owner.id}`)
+      expect(ownerLeave.status).toBe(403)
+      expect(ownerLeave.body).toEqual({
+        error: 'forbidden',
+        message: 'Cannot remove a company owner',
+      })
+
+      const leave = await member.client.delete(`/api/v1/companies/${co.id}/members/${member.id}`)
+      expect(leave.status).toBe(204)
+      expect(leave.body).toBeNull()
+      const detail = await member.client.get(`/api/v1/companies/${co.id}`)
+      expect(detail.status).toBe(404)
+      const members = await owner.client.get<{ members: Array<{ userId: string }> }>(
+        `/api/v1/companies/${co.id}/members`,
+      )
+      expect(members.body.members.some((m) => m.userId === member.id)).toBe(false)
+      expect(await eventTypes(member)).toContain('member_removed')
+      expect(await eventTypes(owner)).not.toContain('member_removed')
+
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+      const removed = await owner.client.delete(`/api/v1/companies/${co.id}/members/${member.id}`)
+      expect(removed.status).toBe(204)
+      expect(removed.body).toBeNull()
+      expect((await member.client.get(`/api/v1/companies/${co.id}`)).status).toBe(404)
+      expect(await eventTypes(owner)).toContain('member_removed')
+      expect(
+        (await owner.client.delete(`/api/v1/companies/${co.id}/members/${member.id}`)).status,
+      ).toBe(404)
+    })
+
+    it('DELETE company retorna 204 vazio e remove acesso do owner', async () => {
+      const owner = await makeUser('delete-company')
+      const co = await createCompany(owner, `Delete ${unique()}`)
+      const deleted = await owner.client.delete(`/api/v1/companies/${co.id}`)
+      expect(deleted.status).toBe(204)
+      expect(deleted.body).toBeNull()
+      expect((await owner.client.get(`/api/v1/companies/${co.id}`)).status).toBe(404)
+      expect(await eventTypes(owner)).toContain('company_deleted')
+    })
+
+    it('invite e assign recusados por member preservam estado; papel precede body', async () => {
+      const owner = await makeUser('precedence-owner')
+      const co = await createCompany(owner, `Precedence ${unique()}`)
+      const member = await makeUser('precedence-member')
+      await seedCompanyMember(co.id, member.id, co.matrizId)
+      const invitedEmail = `not-created-${unique()}@e2e.test`
+      const invitations = `/api/v1/companies/${co.id}/invitations`
+      const invalidInvite = await member.client.post(invitations, {})
+      expect(invalidInvite.status).toBe(403)
+      expect(invalidInvite.body.message).toBe('Only company owners can invite members')
+
+      const invite = await member.client.post(invitations, {
+        email: invitedEmail,
+      })
+      expect(invite.status).toBe(403)
+      const inviteList = await owner.client.get<{ invites: Array<{ email: string }> }>(
+        `/api/v1/companies/${co.id}/invitations`,
+      )
+      expect(inviteList.body.invites.some((item) => item.email === invitedEmail)).toBe(false)
+
+      const assignment = `/api/v1/companies/${co.id}/members/${member.id}/default-location`
+      const invalidAssign = await member.client.patch(assignment, {})
+      expect(invalidAssign.status).toBe(403)
+      expect(invalidAssign.body.message).toBe('Only company owners can assign a default location')
+      const invalidOwnerAssign = await owner.client.patch(assignment, {})
+      expect(invalidOwnerAssign.status).toBe(400)
+      const members = await owner.client.get<{
+        members: Array<{ userId: string; defaultLocationId: string | null }>
+      }>(`/api/v1/companies/${co.id}/members`)
+      expect(
+        members.body.members.find((item) => item.userId === member.id)?.defaultLocationId,
+      ).toBe(co.matrizId)
+    })
+
+    it('convites: valida sessão, tenant, body e limite por IP antes da validação', async () => {
+      const owner = await makeUser('invite-limit')
+      const co = await createCompany(owner, `Invite Limit ${unique()}`)
+      const outsider = await makeUser('invite-outsider')
+      const invitations = `/api/v1/companies/${co.id}/invitations`
+      const payload = { email: outsider.email }
+      const anonymous = new E2eClient(baseUrl())
+      expect((await anonymous.get('/api/v1/me')).status).toBe(401)
+      expect((await anonymous.post(invitations, payload)).status).toBe(401)
+      expect((await outsider.client.get(invitations)).status).toBe(404)
+      expect((await outsider.client.post(invitations, payload)).status).toBe(404)
+
+      await resetRateLimits()
+      for (let i = 0; i < 20; i++) {
+        const invalid = await owner.client.post(invitations, {})
+        expect(invalid.status).toBe(400)
+        expect(invalid.body).toEqual({
+          error: 'validation_error',
+          message: 'A valid email is required',
+        })
+      }
+      const limited = await owner.client.post(invitations, {})
+      expect(limited.status).toBe(429)
+      expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0)
+      expect(Number(limited.headers.get('ratelimit-reset'))).toBeGreaterThan(0)
+      expect(limited.headers.get('ratelimit-remaining')).toBe('0')
+      expect((await owner.client.get(invitations)).body).toEqual({ invites: [] })
+    })
+
+    it('convite duplicado não gera auditoria nem Location de sucesso', async () => {
+      const owner = await makeUser('invite-duplicate')
+      const co = await createCompany(owner, `Duplicate ${unique()}`)
+      const invitations = `/api/v1/companies/${co.id}/invitations`
+      const payload = { email: `duplicate-${unique()}@e2e.test` }
+      expect((await owner.client.post(invitations, payload)).status).toBe(201)
+      const duplicate = await owner.client.post(invitations, payload)
+      expect(duplicate.status).toBe(409)
+      expect(duplicate.headers.get('location')).toBeNull()
+      expect((await eventTypes(owner)).filter((event) => event === 'invite_created')).toHaveLength(
+        1,
+      )
+    })
+
+    it('falha de auditoria preserva o 201 e o convite já gravado', async () => {
+      const owner = await makeUser('invite-audit')
+      const co = await createCompany(owner, `Audit ${unique()}`)
+      const invitations = `/api/v1/companies/${co.id}/invitations`
+      const email = `audit-${unique()}@e2e.test`
+      const created = await withRejectedAudit(() =>
+        owner.client.post<{ id: string }>(invitations, { email }),
+      )
+      expect(created.status).toBe(201)
+      expect(created.headers.get('location')).toBe(`${invitations}/${created.body.id}`)
+      const list = await owner.client.get(invitations)
+      expect(list.status).toBe(200)
+      expect(list.body.invites).toEqual([expect.objectContaining({ id: created.body.id, email })])
+      expect(await eventTypes(owner)).not.toContain('invite_created')
+    })
+
+    it.each([
+      ['/api/v1/me/deactivate', 'Account deactivated successfully'],
+      ['/api/v1/me/consents/withdraw', 'Consent withdrawn successfully'],
+    ])('%s funciona sem tenant e encerra a sessão', async (path, message) => {
+      const user = await makeUser('account-close')
+      const response = await user.client.post(path)
+      expect(response.status).toBe(200)
+      expect(response.body).toEqual({ message })
+      expect((await user.client.get('/api/v1/me')).status).toBe(401)
     })
   },
 )

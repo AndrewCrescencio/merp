@@ -1,9 +1,7 @@
-import { companyRepository } from '~~/server/utils/auth/company/repository'
-import { defineAuthHandler, requireTenant, sendNotFoundError } from '~~/server/utils/shared'
+import { companyRepository } from '~~/server/utils/companies/company/repository'
+import { defineAuthHandler, sendNotFoundError } from '~~/server/utils/shared'
 
-export default defineAuthHandler(async (event, user) => {
-  const tenant = requireTenant(event)
-
+export default defineAuthHandler({ tenant: true, role: 'any' }, async ({ tenant, user }) => {
   const company = await companyRepository.findCompanyWithLocations(tenant.companyId, user.id)
   if (!company) {
     return sendNotFoundError('Company not found')

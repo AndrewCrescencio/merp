@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   validateDefaultLocationInput,
+  validateCompanyCreateInput,
+  validateCompanyUpdateInput,
+  validateCompanySearchInput,
   validateLocationCreateInput,
   validateLocationUpdateInput,
   validateLoginInput,
@@ -29,6 +32,33 @@ describe('validateDefaultLocationInput', () => {
     )
     expect(() => validateDefaultLocationInput({ defaultLocationId: 42 })).toThrow(
       'defaultLocationId must be',
+    )
+  })
+})
+
+describe('nullish input validation', () => {
+  it('returns validation errors for null and undefined objects and queries', () => {
+    for (const input of [null, undefined]) {
+      expect(() => validateCompanyCreateInput(input)).toThrow('Company name is required')
+      expect(() => validateCompanySearchInput(input)).toThrow('Search query is required')
+    }
+  })
+})
+
+describe('validateCompanyUpdateInput (shared Zod contract adapter)', () => {
+  it('normalizes name and ignores unknown fields like the previous validator', () => {
+    expect(validateCompanyUpdateInput({ name: '  Nova empresa  ', ignored: true })).toEqual({
+      name: 'Nova empresa',
+    })
+  })
+
+  it('preserves the existing validation messages and limits', () => {
+    expect(() => validateCompanyUpdateInput({})).toThrow('At least one field (name) is required')
+    expect(() => validateCompanyUpdateInput({ name: '  ' })).toThrow(
+      'Company name must be a non-empty string',
+    )
+    expect(() => validateCompanyUpdateInput({ name: 'x'.repeat(201) })).toThrow(
+      'Company name must be at most 200 characters',
     )
   })
 })

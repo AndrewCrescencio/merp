@@ -1,7 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm'
-import { db } from '../../db'
 import { company, companyMember, location } from '../../schema'
-import { withTenant } from '../../db/tenant-context'
+import { withTenant, type TenantTransaction } from '../../db/tenant-context'
 import { isPgConflict, sendConflictError, sendNotFoundError } from '../../shared/errors'
 import { randomUUID } from 'node:crypto'
 
@@ -44,27 +43,6 @@ export interface CompanyDetailResult extends CompanyResult {
 /** Company CRUD repository — every query runs under {@link withTenant} (RLS backstop). */
 export class CompanyRepository {
   /**
-   * Creates a company row without members (low-level; prefer
-   * {@link createCompanyWithOwner}). 409 when the name is taken.
-   * Requires a userId so that the RLS company_insert_policy (which checks
-   * get_user_id() IS NOT NULL) is satisfied. Pass the authenticated user's
-   * id when calling from handlers/middlewares.
-   */
-  async createCompany(input: CreateCompanyInput, userId: string): Promise<CompanyResult> {
-    const companyId = randomUUID()
-    return await withTenant(companyId, null, userId, async (tx) => {
-      const [created] = await tx
-        .insert(company)
-        .values({
-          id: companyId,
-          name: input.name,
-        })
-        .returning()
-      return created!
-    })
-  }
-
-  /**
    * Creates a company, its first member (`owner`), and a default location
    * ("Principal") in one transaction (founder bootstrap). 409 when the name
    * is taken.
@@ -74,64 +52,47 @@ export class CompanyRepository {
   async createCompanyWithOwner(
     data: CreateCompanyInput,
     ownerUserId: string,
+    transaction?: TenantTransaction,
   ): Promise<CompanyResult> {
     try {
-      return await db.transaction(async (tx) => {
-        const companyId = randomUUID()
-        const created = await withTenant(
+      const companyId = randomUUID()
+      const context = { companyId, locationId: null, userId: ownerUserId }
+      const create = async (tx: TenantTransaction): Promise<CompanyResult> => {
+        const [row] = await tx
+          .insert(company)
+          .values({ id: companyId, name: data.name })
+          .returning()
+
+        // The NULL location scope explicitly permits creating Principal.
+        const [defaultLocation] = await tx
+          .insert(location)
+          .values({ companyId, name: 'Principal', isActive: true })
+          .returning()
+
+        const [marker] = await tx.execute(sql`
+          SELECT current_setting('app.allow_founder_bootstrap', true) AS value
+        `)
+        await tx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
+        await tx.insert(companyMember).values({
           companyId,
-          null,
-          ownerUserId,
-          async (ctxTx) => {
-            await ctxTx.execute(sql`SELECT set_config('app.allow_founder_bootstrap', 'true', true)`)
-            const [row] = await ctxTx
-              .insert(company)
-              .values({
-                id: companyId,
-                name: data.name,
-              })
-              .returning()
-
-            // Create default location "Principal" with app.location_id = NULL (RLS allows this)
-            const [defaultLocation] = await ctxTx
-              .insert(location)
-              .values({
-                companyId,
-                name: 'Principal',
-                isActive: true,
-              })
-              .returning()
-
-            // Create owner membership with default_location_id pointing to the new location
-            await ctxTx.insert(companyMember).values({
-              companyId,
-              userId: ownerUserId,
-              role: 'owner',
-              defaultLocationId: defaultLocation!.id,
-            })
-            return row!
-          },
-          tx,
+          userId: ownerUserId,
+          role: 'owner',
+          defaultLocationId: defaultLocation!.id,
+        })
+        await tx.execute(
+          sql`SELECT set_config('app.allow_founder_bootstrap', ${marker?.value ?? ''}, true)`,
         )
+        return row!
+      }
 
-        return created
-      })
+      // Company creation discovers its own company id and is an explicit
+      // pre-company -> company scope transition inside a caller-owned tx.
+      return transaction
+        ? await withTenant(context, create, { transaction, scope: 'transition' })
+        : await withTenant(context, create)
     } catch (error) {
       rethrowCompanyError(error)
     }
-  }
-
-  /** Finds a non-deleted company visible to the user, or null (RLS outsiders get null). */
-  async findCompanyById(id: string, userId: string): Promise<CompanyResult | null> {
-    return await withTenant(null, null, userId, async (tx) => {
-      const [found] = await tx
-        .select()
-        .from(company)
-        .where(and(eq(company.id, id), eq(company.isDeleted, false)))
-        .limit(1)
-
-      return found || null
-    })
   }
 
   /**
@@ -143,8 +104,13 @@ export class CompanyRepository {
    * company_id = get_tenant_id(); com tenant NULL sairia vazia.
    * A locations só é consultada após o gate de membership da company.
    */
-  async findCompanyWithLocations(id: string, userId: string): Promise<CompanyDetailResult | null> {
-    return await withTenant(null, null, userId, async (tx) => {
+  async findCompanyWithLocations(
+    id: string,
+    userId: string,
+    transaction?: TenantTransaction,
+  ): Promise<CompanyDetailResult | null> {
+    const context = { companyId: null, locationId: null, userId }
+    const find = async (tx: TenantTransaction): Promise<CompanyDetailResult | null> => {
       const [found] = await tx
         .select()
         .from(company)
@@ -154,27 +120,32 @@ export class CompanyRepository {
       if (!found) return null
 
       const locations = await withTenant(
-        id,
-        null,
-        userId,
+        { companyId: id, locationId: null, userId },
         (locTx) =>
           locTx
             .select()
             .from(location)
             .where(and(eq(location.companyId, id), eq(location.isActive, true))),
-        tx,
+        { transaction: tx, scope: 'temporary' },
       )
 
       return { ...found, locations }
-    })
+    }
+    return transaction
+      ? await withTenant(context, find, { transaction, scope: 'temporary' })
+      : await withTenant(context, find)
   }
 
   /**
    * Soft-deletes a company: flags `is_deleted`, purges memberships and
    * detaches sessions pointing at it. 404 when RLS denies or already deleted.
    */
-  async softDeleteCompany(companyId: string, userId: string): Promise<CompanyResult> {
-    return await withTenant(companyId, null, userId, async (tx) => {
+  async softDeleteCompany(
+    companyId: string,
+    userId: string,
+    transaction?: TenantTransaction,
+  ): Promise<CompanyResult> {
+    const operation = async (tx: TenantTransaction): Promise<CompanyResult> => {
       const [updated] = await tx
         .update(company)
         .set({ isDeleted: true, updatedAt: new Date() })
@@ -186,7 +157,11 @@ export class CompanyRepository {
       await tx.delete(companyMember).where(eq(companyMember.companyId, companyId))
 
       return updated!
-    })
+    }
+    const context = { companyId, locationId: null, userId }
+    return transaction
+      ? await withTenant(context, operation, { transaction })
+      : await withTenant(context, operation)
   }
 
   /**
@@ -197,9 +172,10 @@ export class CompanyRepository {
     companyId: string,
     userId: string,
     input: Partial<CreateCompanyInput>,
+    transaction?: TenantTransaction,
   ): Promise<CompanyResult> {
     try {
-      return await withTenant(companyId, null, userId, async (tx) => {
+      const operation = async (tx: TenantTransaction): Promise<CompanyResult> => {
         const updates: Partial<typeof company.$inferInsert> = { updatedAt: new Date() }
         if (input.name !== undefined) updates.name = input.name
 
@@ -213,7 +189,11 @@ export class CompanyRepository {
           sendNotFoundError('Company not found')
         }
         return updated!
-      })
+      }
+      const context = { companyId, locationId: null, userId }
+      return transaction
+        ? await withTenant(context, operation, { transaction })
+        : await withTenant(context, operation)
     } catch (error) {
       rethrowCompanyError(error)
     }

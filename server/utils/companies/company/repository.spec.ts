@@ -19,6 +19,7 @@ vi.mock('../../schema', () => ({
 
 // Mock shared/errors
 vi.mock('../../shared/errors', () => ({
+  isPgConflict: vi.fn(() => false),
   sendNotFoundError: vi.fn(() => {
     throw new Error('Not Found')
   }),
@@ -87,12 +88,7 @@ describe('CompanyRepository (unit)', () => {
     repo = new CompanyRepository()
     mockTx = makeMockTx()
     ;(withTenant as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-      async (
-        _companyId: string | null,
-        _locationId: string | null,
-        _userId: string | null,
-        fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>,
-      ) => {
+      async (_context: unknown, fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>) => {
         return fn(mockTx)
       },
     )
@@ -105,29 +101,6 @@ describe('CompanyRepository (unit)', () => {
 
   const companyId = 'c1'
   const userId = 'u1'
-
-  describe('createCompany', () => {
-    it('creates company without members', async () => {
-      const created = {
-        id: companyId,
-        name: 'Test Co',
-        isDeleted: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      mockTx.insert.mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([created]),
-        }),
-      })
-
-      const result = await repo.createCompany({ name: 'Test Co' }, userId)
-
-      expect(result).toEqual(created)
-      expect(mockTx.insert).toHaveBeenCalled()
-    })
-  })
 
   describe('createCompanyWithOwner', () => {
     it('creates company with owner member in transaction', async () => {
@@ -144,43 +117,15 @@ describe('CompanyRepository (unit)', () => {
           returning: vi.fn().mockResolvedValue([created]),
         }),
       })
-      mockTx.execute.mockResolvedValue(undefined)
+      mockTx.execute.mockResolvedValue([])
 
       const result = await repo.createCompanyWithOwner({ name: 'Test Co' }, userId)
 
       expect(result).toEqual(created)
-      expect(db.transaction).toHaveBeenCalled()
-    })
-  })
-
-  describe('findCompanyById', () => {
-    it('returns company when found', async () => {
-      const company = { id: companyId, name: 'Test Co', isDeleted: false }
-      mockTx.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([company]),
-          }),
-        }),
-      })
-
-      const result = await repo.findCompanyById(companyId, userId)
-
-      expect(result).toEqual(company)
-    })
-
-    it('returns null when not found', async () => {
-      mockTx.select.mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      })
-
-      const result = await repo.findCompanyById('nonexistent', userId)
-
-      expect(result).toBeNull()
+      expect(withTenant).toHaveBeenCalledWith(
+        expect.objectContaining({ companyId: expect.any(String), locationId: null, userId }),
+        expect.any(Function),
+      )
     })
   })
 
@@ -245,12 +190,7 @@ describe('MembershipRepository (unit)', () => {
     repo = new MembershipRepository()
     mockTx = makeMockTx()
     ;(withTenant as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-      async (
-        _companyId: string | null,
-        _locationId: string | null,
-        _userId: string | null,
-        fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>,
-      ) => {
+      async (_context: unknown, fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>) => {
         return fn(mockTx)
       },
     )
@@ -273,7 +213,7 @@ describe('MembershipRepository (unit)', () => {
           returning: vi.fn().mockResolvedValue([created]),
         }),
       })
-      mockTx.execute.mockResolvedValue(undefined)
+      mockTx.execute.mockResolvedValue([])
 
       const result = await repo.createCompanyMember(companyId, userId, 'member')
 

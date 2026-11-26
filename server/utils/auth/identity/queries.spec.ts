@@ -243,20 +243,4 @@ describe('email verification & password reset flows', () => {
       message: expect.stringContaining('Invalid or expired reset link'),
     })
   })
-
-  it('validateResetToken resolves true when a fresh reset record exists', async () => {
-    mockLimit.mockResolvedValue([{ id: 'verification-id' }])
-
-    const { validateResetToken } = await import('./queries')
-
-    await expect(validateResetToken('reset-token')).resolves.toBe(true)
-  })
-
-  it('validateResetToken resolves false when the record is missing or expired', async () => {
-    mockLimit.mockResolvedValue([])
-
-    const { validateResetToken } = await import('./queries')
-
-    await expect(validateResetToken('reset-token')).resolves.toBe(false)
-  })
 })

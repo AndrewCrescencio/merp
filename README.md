@@ -41,9 +41,16 @@ npm run test:unit
 npm run test:integration
 npm run lint
 npm run typecheck
-npm run check
+npm run check:routes
+npm run check:migrations
+npm run format:check
 npm run build
 ```
+
+`npm test` executa os projetos unit, integração, e2e e app. Integração e e2e
+precisam do PostgreSQL configurado como no CI; o CI aplica migrations como
+owner e executa a suíte como `merp_app`. `npm run check` reúne format, lint,
+typecheck, rotas e migrations.
 
 ## Estrutura
 
@@ -53,52 +60,67 @@ server/api/auth/             # endpoints públicos de autenticação
 server/api/v1/me/            # dados e ações do usuário autenticado
 server/api/v1/companies/     # empresas, membros, convites e locais
 server/middleware/           # auth, tenant, CSRF e auditoria
-server/utils/auth/           # identidade, empresa e convites
+server/utils/auth/           # identidade e integração Better Auth
+server/utils/companies/      # empresas, membros, convites e locais
 server/utils/db/             # conexão, contexto tenant e RLS
 server/utils/schema/         # schema Drizzle da fundação
 server/utils/shared/        # erros, validação, segurança e e-mail
 drizzle/                     # histórico de migrations PostgreSQL
 ```
 
-## Criando uma feature de domínio
+## Receita de feature
 
-1. Defina o caso de uso e as invariantes antes do endpoint.
-2. Crie o schema em `server/utils/schema/<feature>.ts` e registre-o no
-   `server/utils/schema/index.ts`.
-3. Use `withTenant` em toda consulta com dados da empresa.
-4. Adicione a rota em `server/api/v1/companies/[companyId]/<feature>/` usando
-   o padrão de autenticação da base:
+Esta fundação fornece autenticação, usuários, empresas, membros, convites,
+locais, isolamento multi-tenant com RLS, segurança HTTP e infraestrutura de
+deploy. Pedidos, produtos, estoque, financeiro, impressão, cozinha, vendas e
+outros domínios comerciais pertencem a aplicações derivadas; mantenha-os fora
+da fundação. Uma feature deve incluir schema, migration, acesso a dados,
+validação, autorização e testes de comportamento e isolamento entre tenants.
+
+1. Defina o caso de uso e suas invariantes. Crie o schema em
+   `server/utils/schema/<feature>.ts`, registre-o em
+   `server/utils/schema/index.ts` e implemente a validação no contrato
+   compartilhado, não no handler.
+2. Adicione o endpoint em `server/api/v1/companies/[companyId]/<feature>/`.
+   Exemplo real: `server/api/v1/companies/[companyId]/locations/index.get.ts`
+   lista locais para a empresa do path e o usuário autenticado:
 
    ```ts
-   import { defineAuthHandler, requireTenant, assertRole, ROLES } from '~~/server/utils/shared'
+   import { locationRepository } from '~~/server/utils/companies/company/location-repository'
+   import { defineAuthHandler } from '~~/server/utils/shared'
 
-   export default defineAuthHandler(async (event, user) => {
-     const { companyId, role } = requireTenant(event)
-     // ex.: apenas owners
-     await assertRole(
-       role,
-       ROLES.owner,
-       'Não é membro desta empresa',
-       'Apenas owners podem fazer isso',
-     )
-     return { companyId, userId: user.id }
+   export default defineAuthHandler({ tenant: true, role: 'any' }, async ({ tenant, user }) => {
+     const { companyId } = tenant
+     const locations = await locationRepository.listLocations(companyId, user.id)
+     return { locations }
    })
    ```
 
-   `defineAuthHandler` garante sessão (401 caso contrário); o tenant vem do
-   path via `requireTenant` (nunca do body); papéis validos são apenas
-   `owner` e `member` (`ROLES`, aplicado no banco via CHECK).
+   `defineAuthHandler(options, handler)` exige sessão. Com `tenant: true`, o
+   middleware resolve a empresa pelo path e o wrapper entrega `tenant` ao
+   callback. Use `role: 'any'` para qualquer membro ou `role: 'owner'` para
+   operações de owner. Rotas de sessão, como `/me`, omitem tenant e role.
+   Use `withTenant` nas consultas de tenant.
 
-5. Escreva testes de handler, autorização e isolamento entre tenants.
-6. Gere uma migration com `drizzle-kit` e execute `npm run check`.
+   Em escritas, configure `body` com um validador ou schema Zod. O callback
+   recebe a saída da validação após a verificação de papel. Configure
+   `rateLimit: 'ip'` nas rotas com essa cota adicional, `audit` para registrar
+   eventos informativos após sucesso e `created` para responder `201` com o
+   `Location` do recurso. Se a auditoria for obrigatória para o negócio,
+   grave na mesma transação da operação ou use entrega durável.
 
-O domínio deve entrar como um módulo vertical e não alterar autenticação,
-middleware ou infraestrutura sem necessidade.
+3. Gere uma migration nova com
+   `npx drizzle-kit generate --name <descricao>` (ou `--custom` para SQL
+   escrito à mão), revise o SQL e nunca edite migration já compartilhada.
+   Toda mudança de schema acompanha migration e testes.
+4. Cubra comportamento, autorização e isolamento entre tenants; rode
+   `npm run db:migrate:full`, `npm run test:integration` e `npm run check`.
+   Mudanças em auth, tenant, RLS ou segurança também exigem testes de regressão.
 
-## Documentação
+## Decisões técnicas
 
-- [`docs/PROJETO.md`](docs/PROJETO.md): escopo e decisões da base.
-- [`docs/decisions.md`](docs/decisions.md): decisões técnicas estáveis.
+Veja [`docs/decisions.md`](docs/decisions.md) para as decisões vigentes de
+arquitetura, migrations e testes.
 
 ## Renomeando o projeto
 

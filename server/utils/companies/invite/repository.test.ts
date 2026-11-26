@@ -5,16 +5,16 @@ const _INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_te
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
-  let repo: import('~~/server/utils/auth/invite/repository').InviteRepository
-  let company: import('~~/server/utils/auth/company/repository').CompanyRepository
-  let membershipRepo: import('~~/server/utils/auth/company/membership').MembershipRepository
+  let repo: import('~~/server/utils/companies/invite/repository').InviteRepository
+  let company: import('~~/server/utils/companies/company/repository').CompanyRepository
+  let membershipRepo: import('~~/server/utils/companies/company/membership').MembershipRepository
 
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = _INTEGRATION_DB_URL
-    repo = new (await import('~~/server/utils/auth/invite/repository')).InviteRepository()
-    company = new (await import('~~/server/utils/auth/company/repository')).CompanyRepository()
+    repo = new (await import('~~/server/utils/companies/invite/repository')).InviteRepository()
+    company = new (await import('~~/server/utils/companies/company/repository')).CompanyRepository()
     membershipRepo = new (
-      await import('~~/server/utils/auth/company/membership')
+      await import('~~/server/utils/companies/company/membership')
     ).MembershipRepository()
   })
 
@@ -97,12 +97,15 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
       invitedBy: owner.id,
     })
 
-    await withTenant(createdCompany.id, null, owner.id, async (tx) => {
-      await tx
-        .update(invite)
-        .set({ expiresAt: new Date(Date.now() - 60_000) })
-        .where(eq(invite.id, created.id))
-    })
+    await withTenant(
+      { companyId: createdCompany.id, locationId: null, userId: owner.id },
+      async (tx) => {
+        await tx
+          .update(invite)
+          .set({ expiresAt: new Date(Date.now() - 60_000) })
+          .where(eq(invite.id, created.id))
+      },
+    )
 
     // token expirado também não aceita
     await expect(repo.acceptInvite(created.token, created.email, owner.id)).rejects.toMatchObject({
@@ -127,6 +130,36 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     await expect(repo.acceptInvite(created.token, inviteeEmail, invitee.id)).rejects.toMatchObject({
       statusCode: 404,
     })
+  })
+
+  it('rolls back the invite claim when the membership insert fails', async () => {
+    const owner = await registerUser(`rollback-owner-${Date.now()}@example.com`, 'Rollback Owner')
+    const member = await registerUser(
+      `rollback-member-${Date.now()}@example.com`,
+      'Existing Member',
+    )
+    const createdCompany = await company.createCompanyWithOwner(
+      { name: `Rollback Invite ${Date.now()}` },
+      owner.id,
+    )
+    await membershipRepo.createCompanyMember(createdCompany.id, member.id)
+
+    const created = await repo.createInvite({
+      companyId: createdCompany.id,
+      email: member.email,
+      invitedBy: owner.id,
+    })
+
+    await expect(repo.acceptInvite(created.token, member.email, member.id)).rejects.toMatchObject({
+      statusCode: 409,
+    })
+    expect(await repo.findPendingInvite(createdCompany.id, member.email)).toMatchObject({
+      id: created.id,
+      acceptedAt: null,
+    })
+    expect(await membershipRepo.getCompanyMembershipRole(member.id, createdCompany.id)).toBe(
+      'member',
+    )
   })
 
   it('rejects a token presented by a different email (posse do token + email da sessão)', async () => {
@@ -188,13 +221,16 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     const { companyMember } = await import('~~/server/utils/schema')
 
     await expect(
-      withTenant(createdCompany.id, null, attacker.id, async (tx) => {
-        await tx.insert(companyMember).values({
-          companyId: createdCompany.id,
-          userId: attacker.id,
-          role: 'member',
-        })
-      }),
+      withTenant(
+        { companyId: createdCompany.id, locationId: null, userId: attacker.id },
+        async (tx) => {
+          await tx.insert(companyMember).values({
+            companyId: createdCompany.id,
+            userId: attacker.id,
+            role: 'member',
+          })
+        },
+      ),
     ).rejects.toThrow()
 
     expect(await membershipRepo.isCompanyMember(attacker.id, createdCompany.id)).toBe(false)
@@ -225,13 +261,16 @@ describe.skipIf(!dbAvailable)('InviteRepository (integration)', () => {
     // RLS de UPDATE filtra silenciosamente (0 rows) — o member não vê erro,
     // mas a linha não muda; o invite continua intacto para o destinatário.
     const hijackedEmail = `hijack-${Date.now()}@example.com`
-    const rows = await withTenant(createdCompany.id, null, member.id, async (tx) => {
-      return tx
-        .update(invite)
-        .set({ email: hijackedEmail })
-        .where(eq(invite.id, created.id))
-        .returning({ id: invite.id })
-    })
+    const rows = await withTenant(
+      { companyId: createdCompany.id, locationId: null, userId: member.id },
+      async (tx) => {
+        return tx
+          .update(invite)
+          .set({ email: hijackedEmail })
+          .where(eq(invite.id, created.id))
+          .returning({ id: invite.id })
+      },
+    )
     expect(rows).toHaveLength(0)
 
     const pending = await repo.findPendingInvite(createdCompany.id, inviteeEmail)

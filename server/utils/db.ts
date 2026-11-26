@@ -17,10 +17,8 @@ export type DbDriver = 'postgres-js' | 'neon-serverless'
 const SUPPORTED_DRIVERS: DbDriver[] = ['postgres-js', 'neon-serverless']
 const DEFAULT_DRIVER: DbDriver = 'postgres-js'
 
-// Neon via PgBouncer (modo transação) e serverless via WebSocket.
-// Ambos são dependências diretas (item de revisão #3): importados estaticamente
-// para que o Nitro os rastreie e os inclua no .output (um import() com
-// especificador em variável não era rastreado e ficava como external quebrado).
+// Os dois drivers são importados estaticamente para que o Nitro os inclua
+// no build de produção.
 
 /**
  * Único ponto de leitura de DB_DRIVER. Valor inválido lança erro claro no boot;
@@ -100,8 +98,8 @@ async function createNeonServerlessDb(url: string): Promise<Db> {
   const resolvedUrl = withRequiredSsl(url)
   const { url: cleanUrl, stripped } = stripUnsupportedUrlParams(resolvedUrl)
 
-  // Node 21+ tem WebSocket global, então não é preciso ligar `ws` via
-  // neonConfig.webSocketConstructor (ver item de revisão #3-a).
+  // Node 21+ fornece WebSocket global, que o driver serverless usa
+  // diretamente sem uma implementação externa.
   const pool = new Pool({ connectionString: cleanUrl })
   const database = drizzleNeon(pool, { schema })
   console.info(

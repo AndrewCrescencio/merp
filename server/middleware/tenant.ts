@@ -1,5 +1,5 @@
 import { defineEventHandler, getRequestURL, createError } from 'h3'
-import { membershipRepository } from '~~/server/utils/auth/company/membership'
+import { membershipRepository } from '~~/server/utils/companies/company/membership'
 import { sendNotFoundError } from '~~/server/utils/shared'
 
 /**

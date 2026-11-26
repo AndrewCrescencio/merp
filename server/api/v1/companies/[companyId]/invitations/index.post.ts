@@ -1,51 +1,26 @@
-import { readBody, setHeader, setResponseStatus } from 'h3'
-import { inviteRepository } from '~~/server/utils/auth/invite/repository'
-import {
-  assertRole,
-  checkIpRateLimit,
-  createAuthEvent,
-  getClientIp,
-  defineAuthHandler,
-  validateInviteInput,
-  requireTenant,
-} from '~~/server/utils/shared'
+import { inviteRepository } from '~~/server/utils/companies/invite/repository'
+import { defineAuthHandler, ROLES, validateInviteInput } from '~~/server/utils/shared'
 
-export default defineAuthHandler(async (event, user) => {
-  await checkIpRateLimit(event)
-
-  // companyId vem do path (middleware tenant), nunca do body.
-  const { companyId, role } = requireTenant(event)
-  const { email } = validateInviteInput(await readBody(event))
-
-  await assertRole(
-    role,
-    'owner',
-    'You are not a member of this company',
-    'Only company owners can invite members',
-  )
-
-  const created = await inviteRepository.createInvite({
-    companyId,
-    email,
-    invitedBy: user.id,
-  })
-
-  const ip = getClientIp(event)
-  await createAuthEvent({
-    userId: user.id,
-    email: user.email,
-    eventType: 'invite_created',
-    ipAddress: ip || null,
-    metadata: { companyId, invitedEmail: email },
-  })
-
-  setResponseStatus(event, 201)
-  setHeader(event, 'Location', `/api/v1/companies/${companyId}/invitations/${created.id}`)
-  return {
-    id: created.id,
-    companyId: created.companyId,
-    email: created.email,
-    expiresAt: created.expiresAt,
-    token: created.token,
-  }
-})
+export default defineAuthHandler(
+  {
+    rateLimit: 'ip',
+    tenant: true,
+    role: ROLES.owner,
+    forbiddenMessage: 'Only company owners can invite members',
+    body: validateInviteInput,
+    audit: (_, { tenant, body }) => ({
+      eventType: 'invite_created',
+      metadata: { companyId: tenant.companyId, invitedEmail: body.email },
+    }),
+    created: ({ id }: { id: string }, { tenant }) =>
+      `/api/v1/companies/${tenant.companyId}/invitations/${id}`,
+  },
+  async ({ tenant, body, user }) => {
+    const { id, companyId, email, expiresAt, token } = await inviteRepository.createInvite({
+      companyId: tenant.companyId,
+      email: body.email,
+      invitedBy: user.id,
+    })
+    return { id, companyId, email, expiresAt, token }
+  },
+)

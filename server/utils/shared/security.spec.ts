@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  MAX_REQUESTS_PER_USER,
   enforceMinimumTime,
   evaluateLockout,
   evaluateRateLimit,
@@ -90,28 +89,6 @@ describe('evaluateRateLimit', () => {
       5,
     )
     expect(blocked.allowed).toBe(false)
-  })
-
-  it('applies the per-user cap (MAX_REQUESTS_PER_USER = 60)', () => {
-    // 59 hits na janela: abaixo do teto de 60.
-    const hits = Array.from({ length: 59 }, (_, i) => t(-59 + i))
-
-    const allowed = evaluateRateLimit({ window: hits }, now, MAX_REQUESTS_PER_USER)
-    expect(allowed.allowed).toBe(true)
-    expect(allowed.nextWindow.length).toBe(60)
-
-    const blocked = evaluateRateLimit({ window: [...hits, t(-1)] }, now, MAX_REQUESTS_PER_USER)
-    expect(blocked.allowed).toBe(false)
-    expect(blocked.retryAfter).toBe(1)
-  })
-
-  it('drops hits older than 60s before counting the per-user window', () => {
-    // 60 hits, mas o mais antigo (-61s) já saiu da janela — só 59 contam.
-    const hits = [t(-61), ...Array.from({ length: 59 }, (_, i) => t(-59 + i))]
-
-    const result = evaluateRateLimit({ window: hits }, now, MAX_REQUESTS_PER_USER)
-    expect(result.allowed).toBe(true)
-    expect(result.nextWindow.length).toBe(60)
   })
 })
 

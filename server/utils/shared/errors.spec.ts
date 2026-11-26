@@ -8,37 +8,41 @@ import {
 } from './errors'
 
 describe('assertRole', () => {
-  it('throws 403 when role is null (not a member)', async () => {
-    await expect(assertRole(null, 'owner', 'You are not a member')).rejects.toMatchObject({
-      statusCode: 403,
-    })
+  it('throws 403 synchronously when role is null (not a member)', () => {
+    expect(() => assertRole(null, 'owner', 'You are not a member')).toThrow(
+      expect.objectContaining({
+        statusCode: 403,
+      }),
+    )
   })
 
-  it('throws 403 when role is undefined', async () => {
-    await expect(assertRole(undefined, 'owner', 'You are not a member')).rejects.toMatchObject({
-      statusCode: 403,
-    })
+  it('throws 403 when role is undefined', () => {
+    expect(() => assertRole(undefined, 'owner', 'You are not a member')).toThrow(
+      expect.objectContaining({
+        statusCode: 403,
+      }),
+    )
   })
 
-  it('throws 403 when role does not match requiredRole', async () => {
-    await expect(
-      assertRole('member', 'owner', 'You are not a member', 'Only owners'),
-    ).rejects.toMatchObject({ statusCode: 403 })
+  it('throws 403 when role does not match requiredRole', () => {
+    expect(() => assertRole('member', 'owner', 'You are not a member', 'Only owners')).toThrow(
+      expect.objectContaining({ statusCode: 403 }),
+    )
   })
 
-  it('falls back to notMemberMessage when wrongRoleMessage is omitted', async () => {
-    await expect(assertRole('member', 'owner', 'You are not a member')).rejects.toThrow(
+  it('falls back to notMemberMessage when wrongRoleMessage is omitted', () => {
+    expect(() => assertRole('member', 'owner', 'You are not a member')).toThrow(
       'You are not a member',
     )
   })
 
-  it('passes when role matches requiredRole', async () => {
-    await expect(assertRole('owner', 'owner', 'You are not a member')).resolves.toBeUndefined()
+  it('passes synchronously when role matches requiredRole', () => {
+    expect(assertRole('owner', 'owner', 'You are not a member')).toBeUndefined()
   })
 
-  it('passes with requiredRole null for any member role', async () => {
-    await expect(assertRole('member', null, 'You are not a member')).resolves.toBeUndefined()
-    await expect(assertRole('owner', null, 'You are not a member')).resolves.toBeUndefined()
+  it('passes with requiredRole null for any member role', () => {
+    expect(assertRole('member', null, 'You are not a member')).toBeUndefined()
+    expect(assertRole('owner', null, 'You are not a member')).toBeUndefined()
   })
 })
 

@@ -3,6 +3,7 @@ const email = ref('')
 const password = ref('')
 const name = ref('')
 const consentTermsVersion = ref('v1')
+const auth = useAuthFetch()
 const error = ref('')
 const loading = ref(false)
 
@@ -10,15 +11,12 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await $fetch('/api/auth/register', {
-      method: 'POST',
-      body: {
-        email: email.value.trim(),
-        password: password.value,
-        name: name.value.trim(),
-        consentTermsVersion: consentTermsVersion.value.trim(),
-      },
-    })
+    await auth.register(
+      email.value.trim(),
+      password.value,
+      name.value.trim(),
+      consentTermsVersion.value.trim(),
+    )
     await navigateTo('/auth/login')
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro ao registrar'

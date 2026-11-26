@@ -4,11 +4,9 @@ const mockSoftDeleteCompany = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockSendForbiddenError = vi.fn()
 const mockGetClientIp = vi.fn()
-const mockSendNoContent = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
-  sendNoContent: mockSendNoContent,
   createError: (opts: any) => {
     const err = new Error(opts.message)
     ;(err as any).status = opts.status
@@ -20,7 +18,7 @@ vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
 
-vi.mock('~~/server/utils/auth/company/repository', () => ({
+vi.mock('~~/server/utils/companies/company/repository', () => ({
   companyRepository: {
     softDeleteCompany: mockSoftDeleteCompany,
   },
@@ -86,9 +84,7 @@ describe('DELETE /api/v1/companies/{companyId}', () => {
     const event = { context: authContext() } as any
     const result = await handler(event)
 
-    // DELETE responde 204 sem corpo (sendNoContent).
-    expect(mockSendNoContent).toHaveBeenCalledWith(event)
-    expect(result).toBeUndefined()
+    expect(result).toBeNull()
     expect(mockSoftDeleteCompany).toHaveBeenCalledWith('company-1', 'user-1')
     expect(mockCreateAuthEvent).toHaveBeenCalledWith({
       userId: 'user-1',

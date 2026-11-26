@@ -5,15 +5,17 @@ const INTEGRATION_DB_URL = 'postgres://merp_app:merp_app@localhost:5432/merp_tes
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('Company membership listing (integration)', () => {
-  let membershipRepo: import('~~/server/utils/auth/company/membership').MembershipRepository
-  let companyRepo: import('~~/server/utils/auth/company/repository').CompanyRepository
+  let membershipRepo: import('~~/server/utils/companies/company/membership').MembershipRepository
+  let companyRepo: import('~~/server/utils/companies/company/repository').CompanyRepository
 
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = INTEGRATION_DB_URL
     membershipRepo = new (
-      await import('~~/server/utils/auth/company/membership')
+      await import('~~/server/utils/companies/company/membership')
     ).MembershipRepository()
-    companyRepo = new (await import('~~/server/utils/auth/company/repository')).CompanyRepository()
+    companyRepo = new (
+      await import('~~/server/utils/companies/company/repository')
+    ).CompanyRepository()
   })
 
   const registerUser = async (email: string, name: string) => {

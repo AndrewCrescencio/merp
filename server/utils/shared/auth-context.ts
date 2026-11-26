@@ -1,4 +1,5 @@
 import { createError } from 'h3'
+import type { Role } from './roles'
 
 /**
  * Shared shapes for `event.context` set by `server/middleware/auth.ts`.
@@ -12,7 +13,7 @@ export interface AuthContextUser {
   name: string | null
 }
 
-export interface AuthContextSession {
+interface AuthContextSession {
   id: string
 }
 
@@ -24,7 +25,7 @@ export interface AuthContextSession {
  */
 export interface TenantContext {
   companyId: string
-  role: string
+  role: Role
 }
 
 declare module 'h3' {

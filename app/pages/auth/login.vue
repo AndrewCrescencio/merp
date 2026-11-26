@@ -2,6 +2,7 @@
 const email = ref('')
 const password = ref('')
 const rememberMe = ref(false)
+const auth = useAuthFetch()
 const error = ref('')
 const loading = ref(false)
 
@@ -9,14 +10,7 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await $fetch('/api/auth/login', {
-      method: 'POST',
-      body: {
-        email: email.value.trim(),
-        password: password.value,
-        rememberMe: rememberMe.value,
-      },
-    })
+    await auth.login(email.value.trim(), password.value, rememberMe.value)
     await navigateTo('/')
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro ao entrar'

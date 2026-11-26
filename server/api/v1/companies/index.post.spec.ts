@@ -3,8 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockCreateCompanyWithOwner = vi.fn()
 const mockReadBody = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
-const mockSendUnauthorizedError = vi.fn()
-const mockSendValidationError = vi.fn()
 const mockSetResponseStatus = vi.fn()
 const mockSetHeader = vi.fn()
 
@@ -21,33 +19,12 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/shared', () => ({
+vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
+  ...(await importOriginal()),
   checkIpRateLimit: mockCheckIpRateLimit,
-  sendUnauthorizedError: mockSendUnauthorizedError,
-  sendValidationError: mockSendValidationError,
-  defineAuthHandler: (fn: any) => async (event: any) => {
-    const { user, session } = event.context
-    if (!user || !session) {
-      const err = new Error(
-        JSON.stringify({ error: 'unauthorized', message: 'Authentication required.' }),
-      )
-      ;(err as any).status = 401
-      throw err
-    }
-    return fn(event, user)
-  },
-  validateCompanyCreateInput: (body: any) => {
-    if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
-      throw new Error('Company name is required')
-    }
-    if (body.name.trim().length > 200) {
-      throw new Error('Company name must be at most 200 characters')
-    }
-    return { name: body.name.trim() }
-  },
 }))
 
-vi.mock('~~/server/utils/auth/company/repository', () => ({
+vi.mock('~~/server/utils/companies/company/repository', () => ({
   companyRepository: {
     createCompanyWithOwner: mockCreateCompanyWithOwner,
   },
@@ -57,12 +34,6 @@ describe('POST /api/v1/companies', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCheckIpRateLimit.mockResolvedValue(undefined)
-    mockSendUnauthorizedError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
-    mockSendValidationError.mockImplementation((msg: string) => {
-      throw new Error(msg)
-    })
   })
 
   it('requires authentication', async () => {
@@ -82,6 +53,9 @@ describe('POST /api/v1/companies', () => {
     await handler(event)
 
     expect(mockCheckIpRateLimit).toHaveBeenCalledWith(event)
+    expect(mockCheckIpRateLimit.mock.invocationCallOrder[0]).toBeLessThan(
+      mockReadBody.mock.invocationCallOrder[0]!,
+    )
   })
 
   it('returns 429 from IP rate limit without reading the body', async () => {

@@ -3,7 +3,7 @@ import { send, setResponseHeaders, setResponseStatus } from 'h3'
 import { logger } from '#shared/logger'
 import type { ApiError } from './utils/shared/errors'
 
-export interface NormalizedError {
+interface NormalizedError {
   status: number
   body: ApiError
 }
@@ -11,15 +11,31 @@ export interface NormalizedError {
 // decisão pura e testável — erros do contrato ({ error, message } em
 // JSON) com status < 500 são repassados intactos; qualquer outro erro (500 ou
 // inesperado) vira internal_error sem vazar detalhes internos.
-export function normalizeError(error: unknown): NormalizedError {
+function normalizeError(error: unknown): NormalizedError {
   const candidate =
     typeof error === 'object' && error !== null
-      ? (error as { statusCode?: number; status?: number; message?: string })
+      ? (error as { statusCode?: number; status?: number; message?: string; data?: unknown })
       : undefined
 
   const status = candidate?.statusCode ?? candidate?.status ?? 500
   const rawMessage = typeof candidate?.message === 'string' ? candidate.message : ''
 
+  if (status < 500 && candidate?.data) {
+    const data = candidate.data
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      typeof (data as ApiError).error === 'string' &&
+      typeof (data as ApiError).message === 'string'
+    ) {
+      return {
+        status,
+        body: { error: (data as ApiError).error, message: (data as ApiError).message },
+      }
+    }
+  }
+
+  // Compatibilidade transitória com erros H3 produzidos antes de `data`.
   if (status < 500 && rawMessage) {
     try {
       const parsed = JSON.parse(rawMessage) as unknown

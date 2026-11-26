@@ -3,15 +3,13 @@ const route = useRoute()
 const loading = ref(true)
 const error = ref('')
 const success = ref(false)
+const auth = useAuthFetch()
 
 async function verify() {
   loading.value = true
   try {
     // token só no body — o link do email abre esta página, que faz POST.
-    await $fetch('/api/auth/email/verification/confirm', {
-      method: 'POST',
-      body: { token: route.query.token },
-    })
+    await auth.verifyEmail(route.query.token as string)
     success.value = true
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Link inválido ou expirado'

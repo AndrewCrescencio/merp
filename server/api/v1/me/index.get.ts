@@ -1,7 +1,7 @@
-import { membershipRepository } from '~~/server/utils/auth/company/membership'
+import { membershipRepository } from '~~/server/utils/companies/company/membership'
 import { defineAuthHandler } from '~~/server/utils/shared'
 
-export default defineAuthHandler(async (_event, user) => {
+export default defineAuthHandler({}, async ({ user }) => {
   const companies = await membershipRepository.findUserCompanies(user.id)
 
   return {

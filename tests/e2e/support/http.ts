@@ -10,7 +10,7 @@ import { TEST_APP_URL, TEST_OWNER_URL } from '../../support/test-urls'
  * o cliente precisa MIRAR (o JWT de verificação mintado abaixo é assinado com
  * o MESMO segredo que o server usa para reconstruir/validar).
  */
-export function ensureE2eEnv(): void {
+function ensureE2eEnv(): void {
   process.env.APP_DATABASE_URL ||= TEST_APP_URL
   process.env.BETTER_AUTH_URL ||= 'http://localhost:3000'
   process.env.CORS_ORIGIN ||= 'http://localhost:3000'
@@ -41,7 +41,7 @@ export interface AuthInput {
  * só a entrega por email (sem RESEND_API_KEY o token morre no logger; este é
  * o conteúdo que o link do email carregaria).
  */
-export async function mintEmailVerificationToken(email: string): Promise<string> {
+async function mintEmailVerificationToken(email: string): Promise<string> {
   return await new SignJWT({ email: email.toLowerCase() })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -198,6 +198,24 @@ export async function seedCompanyMember(
        VALUES ($1, $2, 'member', $3)`,
       [companyId, userId, locationId],
     )
+  } finally {
+    await sql.end()
+  }
+}
+
+/** Faz o banco recusar o evento de convite do usuário desta fixture. */
+export async function withRejectedAudit<T>(run: () => Promise<T>): Promise<T> {
+  const sql = ownerSql()
+  try {
+    await sql`
+      ALTER TABLE auth_event ADD CONSTRAINT e2e_reject_invite_audit
+      CHECK (event_type <> 'invite_created' OR email NOT LIKE 'invite-audit-%@e2e.test') NOT VALID
+    `
+    try {
+      return await run()
+    } finally {
+      await sql`ALTER TABLE auth_event DROP CONSTRAINT e2e_reject_invite_audit`
+    }
   } finally {
     await sql.end()
   }

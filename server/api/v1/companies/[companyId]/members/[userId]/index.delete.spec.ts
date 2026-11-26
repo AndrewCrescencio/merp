@@ -26,7 +26,7 @@ vi.mock('~~/server/utils/shared/ip', () => ({
 
 // Ainda usado para resolver o PAPEL ALVO ao remover outro membro (o papel do
 // chamador vem do tenant).
-vi.mock('~~/server/utils/auth/company/membership', () => ({
+vi.mock('~~/server/utils/companies/company/membership', () => ({
   membershipRepository: {
     getCompanyMembershipRole: mockGetCompanyMembershipRole,
     removeCompanyMember: mockRemoveCompanyMember,

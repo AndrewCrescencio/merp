@@ -2,8 +2,8 @@ import { callBetterAuth } from './client'
 import { createAuthEvent } from '../../shared/audit'
 import { db } from '../../../utils/db'
 import { withTenant } from '../../db/tenant-context'
-import { verification, authEvent, user, session } from '../../../utils/schema'
-import { eq, and, gt } from 'drizzle-orm'
+import { authEvent, user, session } from '../../../utils/schema'
+import { eq } from 'drizzle-orm'
 import { logger } from '#shared/logger'
 import { handleDatabaseError } from '../../shared/errors'
 import { createError, H3Error } from 'h3'
@@ -80,27 +80,9 @@ export async function listUserAuthEvents(
 ): Promise<(typeof authEvent.$inferSelect)[]> {
   // withTenant seta app.user_id para a policy SELECT de auth_event (user_id =
   // get_user_id()) — sem GUC a policy devolveria 0 linhas.
-  return await withTenant(null, null, userId, (tx) =>
+  return await withTenant({ companyId: null, locationId: null, userId }, (tx) =>
     tx.select().from(authEvent).where(eq(authEvent.userId, userId)).orderBy(authEvent.createdAt),
   )
-}
-
-export async function validateResetToken(token: string): Promise<boolean> {
-  try {
-    const [found] = await db
-      .select({ id: verification.id })
-      .from(verification)
-      .where(
-        and(
-          eq(verification.identifier, `reset-password:${token}`),
-          gt(verification.expiresAt, new Date()),
-        ),
-      )
-      .limit(1)
-    return !!found
-  } catch {
-    return false
-  }
 }
 
 async function runTimingPad(email: string, headers?: Headers): Promise<void> {

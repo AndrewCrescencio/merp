@@ -74,6 +74,27 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     await expect(helpers.checkEmailRateLimit(event, email)).resolves.toBeUndefined()
   })
 
+  it('blocks the 121st authenticated API request for a user', async () => {
+    const userId = `api-user-${Date.now()}`
+    const event = mockEvent()
+
+    for (let i = 0; i < 120; i++) {
+      await helpers.checkApiCommonRateLimit(event, userId)
+    }
+
+    const err = await helpers.checkApiCommonRateLimit(event, userId).catch((e: unknown) => e)
+    expect(err).toMatchObject({ statusCode: 429 })
+    const body = JSON.parse((err as { message: string }).message)
+    expect(body).toMatchObject({ error: 'rate_limit_exceeded' })
+    expect(body.retryAfter).toBeGreaterThan(0)
+
+    const [row] = await db
+      .select({ window: authSecurityState.window })
+      .from(authSecurityState)
+      .where(eq(authSecurityState.key, `rate:api:common:${userId}`))
+    expect(row.window.length).toBe(120)
+  })
+
   it('blocks the 21st request from the same IP', async () => {
     const ip = `203.0.113.${(Date.now() % 250) + 1}`
     const event = mockEvent(ip)
@@ -94,53 +115,6 @@ describe.skipIf(!dbAvailable)('auth security state (integration)', () => {
     for (let i = 0; i < 6; i++) {
       await expect(helpers.checkIpRateLimit(event)).resolves.toBeUndefined()
     }
-  })
-
-  it('blocks the 61st request from the same user with key rate:user:<id>', async () => {
-    const userId = `user-${Date.now()}`
-    const event = mockEvent()
-
-    for (let i = 0; i < 60; i++) {
-      await helpers.checkUserRateLimit(event, userId)
-    }
-
-    const err = await helpers.checkUserRateLimit(event, userId).catch((e: unknown) => e)
-    expect(err).toMatchObject({ statusCode: 429 })
-    const body = JSON.parse((err as { message: string }).message)
-    expect(body).toMatchObject({ error: 'rate_limit_exceeded' })
-    expect(body.retryAfter).toBeGreaterThan(0)
-
-    const [row] = await db
-      .select({ window: authSecurityState.window })
-      .from(authSecurityState)
-      .where(eq(authSecurityState.key, `rate:user:${userId}`))
-    expect(row.window.length).toBe(60)
-  })
-
-  it('reopens the per-user window once 60s elapse (sliding window)', async () => {
-    const userId = `user-reset-${Date.now()}`
-    const event = mockEvent()
-
-    for (let i = 0; i < 60; i++) {
-      await helpers.checkUserRateLimit(event, userId)
-    }
-    await expect(helpers.checkUserRateLimit(event, userId)).rejects.toMatchObject({
-      statusCode: 429,
-    })
-
-    const [row] = await db
-      .select({ window: authSecurityState.window })
-      .from(authSecurityState)
-      .where(eq(authSecurityState.key, `rate:user:${userId}`))
-    const shifted = (row.window as string[]).map((hit) =>
-      new Date(Date.parse(hit) - 60_000).toISOString(),
-    )
-    await db
-      .update(authSecurityState)
-      .set({ window: shifted })
-      .where(eq(authSecurityState.key, `rate:user:${userId}`))
-
-    await expect(helpers.checkUserRateLimit(event, userId)).resolves.toBeUndefined()
   })
 
   it('locks the (email, IP) pair after 10 failures from the same IP', async () => {

@@ -22,11 +22,7 @@ export const MAX_PASSWORD_LENGTH = 128
 export const MAX_NAME_LENGTH = 120
 export const MAX_CONSENT_VERSION_LENGTH = 50
 export const MAX_SEARCH_QUERY_LENGTH = 100
-// tetos de empresa — PII corporativa não vira coluna desproporcional
-export const MAX_COMPANY_NAME_LENGTH = 200
-
-// limites de rate limit por e/IP (mantidos para compatibilidade com evaluateRateLimit
-// e as funções checkEmailRateLimit/checkIpRateLimit).
+// Limites aplicados pelos fluxos públicos de cadastro e autenticação.
 export const MAX_REQUESTS_PER_EMAIL = 5
 export const MAX_REQUESTS_PER_IP = 20
 
@@ -65,24 +61,9 @@ const RATE_WINDOW_MS = 60_000
 
 // --- Rate limits por tipo de operação (proporcional) ---
 
-// Login: limite rigoroso — 10/min por usuário (evita brute-force e DoS na autenticação).
-export const MAX_REQUESTS_PER_USER_LOGIN = 10
-
-// Recuperação de senha / forgot: limite rigoroso — 5/min por e-mail (evita
-// enumeração de e-mails e DoS no fluxo de reset).
-export const MAX_REQUESTS_PER_EMAIL_RESET = 5
-
-// Cadastro: limite específico — 3/min por IP (cria nova conta, protege contra
-// mass registration e bots). O limit por e-mail também existe (MAX_REQUESTS_PER_EMAIL).
-export const MAX_REQUESTS_PER_REGISTER_IP = 3
-
 // APIs comuns (GET list, leitura de dados): limite adequado ao uso — 120/min
 // por usuário (operations de leitura típicas de um painel ou app consumindo a API).
 export const MAX_REQUESTS_PER_API_COMMON = 120
-
-// Operações pesadas (exportações, bulk actions): limite próprio — 20/min por usuário
-// para evitar bloqueio de outros endpoints e DoS de volume.
-export const MAX_REQUESTS_PER_HEAVY_OPERATION = 20
 
 // Exportações: limite próprio — 5/min por usuário para garantir que outros
 // endpoints não sejam bloqueados por download em massa.
@@ -90,7 +71,6 @@ export const MAX_REQUESTS_PER_EXPORT = 5
 // lockout de tentativa falha: global (50 falhas) + par (10 falhas por email+IP)
 export const MAX_FAILED_ATTEMPTS = 10
 export const MAX_GLOBAL_FAILED_ATTEMPTS = 50
-export const MAX_REQUESTS_PER_USER = 60
 
 // janela deslizante — contam apenas requests dentro de
 // RATE_WINDOW_MS; sem o salto de janela do fixed-window (burst no fim +
@@ -228,28 +208,10 @@ export async function checkEmailRateLimit(event: H3Event, email: string): Promis
   await checkRateLimitKey(event, `rate:${email}`, MAX_REQUESTS_PER_EMAIL)
 }
 
-// sliding window per user for login attempts — 10/min.
-/** Sliding-window rate limit for login attempts (10/min per user). Throws 429. */
-export async function checkLoginRateLimit(event: H3Event, userId: string): Promise<void> {
-  await checkRateLimitKey(event, `rate:login:${userId}`, MAX_REQUESTS_PER_USER_LOGIN)
-}
-
-// sliding window per user for password reset attempts — 5/min per email.
-/** Sliding-window rate limit for password reset attempts (5/min per email). Throws 429. */
-export async function checkPasswordResetRateLimit(event: H3Event, email: string): Promise<void> {
-  await checkRateLimitKey(event, `rate:reset:${email}`, MAX_REQUESTS_PER_EMAIL_RESET)
-}
-
 // sliding window per user for common API operations — 120/min.
 /** Sliding-window rate limit for common API operations (120/min per user). Throws 429. */
 export async function checkApiCommonRateLimit(event: H3Event, userId: string): Promise<void> {
   await checkRateLimitKey(event, `rate:api:common:${userId}`, MAX_REQUESTS_PER_API_COMMON)
-}
-
-// sliding window per user for heavy operations — 20/min.
-/** Sliding-window rate limit for heavy operations (20/min per user). Throws 429. */
-export async function checkHeavyOperationRateLimit(event: H3Event, userId: string): Promise<void> {
-  await checkRateLimitKey(event, `rate:heavy:${userId}`, MAX_REQUESTS_PER_HEAVY_OPERATION)
 }
 
 // sliding window per user for exports — 5/min.
@@ -267,13 +229,6 @@ export async function checkExportRateLimit(event: H3Event, userId: string): Prom
 export async function enforceMinimumTime(start: number, minimumMs: number): Promise<void> {
   const remaining = minimumMs - (Date.now() - start)
   if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
-}
-
-// sliding window per user (60/min) nas rotas autenticadas — cobre o
-// que o rate limit por IP do nginx/app não vê (IPs rotativos, NAT).
-/** Sliding-window rate limit per authenticated user (60/min). Throws 429. */
-export async function checkUserRateLimit(event: H3Event, userId: string): Promise<void> {
-  await checkRateLimitKey(event, `rate:user:${userId}`, MAX_REQUESTS_PER_USER)
 }
 
 /** Chave por (email + IP) — 10 falhas de um IP não bloqueiam a vítima

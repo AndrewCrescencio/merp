@@ -1,6 +1,5 @@
 import { CSRF_COOKIE_NAME } from '#shared/app'
-
-const CSRF_HEADER_NAME = 'x-csrf-token'
+import { createApiTransport, isInternalApiPath, type ApiFetcher } from '~~/shared/api-transport'
 
 function getCsrfTokenFromCookie(): string | null {
   if (typeof document === 'undefined') return null
@@ -15,31 +14,11 @@ function getCsrfTokenFromCookie(): string | null {
 }
 
 export function useApiFetch() {
-  return async <T>(url: string, options: Record<string, unknown> = {}): Promise<T> => {
-    const csrfToken = getCsrfTokenFromCookie()
-
-    const headers = new Headers(options.headers as HeadersInit)
-    if (csrfToken && !headers.has(CSRF_HEADER_NAME)) {
-      headers.set(CSRF_HEADER_NAME, csrfToken)
-    }
-
-    try {
-      // url é string dinâmica: a resposta é o payload do servidor, sem reescrita
-      // de tipos de rota — TypedInternalResponse se resume a T em runtime.
-      return (await $fetch<T>(url, { ...options, headers })) as T
-    } catch (error: unknown) {
-      const err = error as { data?: unknown; status?: number }
-      if (err.data && typeof err.data === 'object' && 'error' in err.data) {
-        const data = err.data as { error: string; message?: string }
-        throw Object.assign(new Error(data.message || 'Request failed'), {
-          code: data.error,
-          status: err.status,
-          data: err.data,
-        })
-      }
-      throw error
-    }
+  const fetcher: ApiFetcher = (url, options) => {
+    const requestFetch = import.meta.server && isInternalApiPath(url) ? useRequestFetch() : $fetch
+    return requestFetch(url, options)
   }
+  return createApiTransport(fetcher, getCsrfTokenFromCookie)
 }
 
 export function useAuthFetch() {
@@ -54,7 +33,6 @@ export function useAuthFetch() {
         body: { email, password, name, consentTermsVersion },
       }),
     logout: () => api('/api/auth/logout', { method: 'POST' }),
-    me: () => api('/api/v1/me'),
     verifyEmail: (token: string) =>
       api('/api/auth/email/verification/confirm', { method: 'POST', body: { token } }),
     forgetPassword: (email: string) =>
@@ -65,22 +43,6 @@ export function useAuthFetch() {
       api('/api/auth/email/verification', { method: 'POST', body: { email } }),
     deactivate: () => api('/api/v1/me/deactivate', { method: 'POST' }),
     withdrawConsent: () => api('/api/v1/me/consents/withdraw', { method: 'POST' }),
-    createCompany: (name: string) => api('/api/v1/companies', { method: 'POST', body: { name } }),
-    getCompanies: (q?: string) =>
-      api('/api/v1/companies', { method: 'GET', query: q ? { q } : undefined }),
-    // companyId vive no path, nunca no body.
-    updateCompany: (companyId: string, data: { name?: string }) =>
-      api(`/api/v1/companies/${companyId}`, { method: 'PATCH', body: data }),
-    deleteCompany: (companyId: string) =>
-      api(`/api/v1/companies/${companyId}`, { method: 'DELETE' }),
-    inviteMember: (companyId: string, email: string) =>
-      api(`/api/v1/companies/${companyId}/invitations`, { method: 'POST', body: { email } }),
-    getInvites: (companyId: string) =>
-      api(`/api/v1/companies/${companyId}/invitations`, { method: 'GET' }),
-    acceptInvite: (token: string) =>
-      api('/api/v1/me/invitations/accept', { method: 'POST', body: { token } }),
-    // userId no path; omitir não existe mais — para sair, passe o próprio id.
-    removeMember: (companyId: string, userId: string) =>
-      api(`/api/v1/companies/${companyId}/members/${userId}`, { method: 'DELETE' }),
+    me: () => api('/api/v1/me'),
   }
 }

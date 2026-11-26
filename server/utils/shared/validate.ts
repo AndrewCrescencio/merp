@@ -1,5 +1,5 @@
+import { checkPasswordBreach } from './hibp'
 import {
-  checkPasswordBreach,
   EMAIL_REGEX,
   isWeakPassword,
   MAX_CONSENT_VERSION_LENGTH,
@@ -7,8 +7,9 @@ import {
   MAX_NAME_LENGTH,
   MAX_PASSWORD_LENGTH,
   normalizeEmail,
-  sendValidationError,
-} from './index'
+} from './security'
+import { sendValidationError } from './errors'
+import { companyUpdateSchema } from '~~/shared/contracts/company'
 
 export interface RegisterInput {
   email: string
@@ -45,7 +46,7 @@ export interface SendVerificationEmailInput {
 }
 
 export async function validateRegisterInput(rawBody: unknown): Promise<RegisterInput> {
-  const body = rawBody as Record<string, unknown>
+  const body = (rawBody ?? {}) as Record<string, unknown>
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
 
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
@@ -100,7 +101,7 @@ export async function validateRegisterInput(rawBody: unknown): Promise<RegisterI
 }
 
 export function validateCompanyCreateInput(rawBody: unknown): CompanyCreateInput {
-  const body = rawBody as Record<string, unknown>
+  const body = (rawBody ?? {}) as Record<string, unknown>
   if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
     sendValidationError('Company name is required')
   }
@@ -115,7 +116,7 @@ export function validateCompanyCreateInput(rawBody: unknown): CompanyCreateInput
 }
 
 export function validateInviteInput(rawBody: unknown): InviteInput {
-  const body = rawBody as Record<string, unknown>
+  const body = (rawBody ?? {}) as Record<string, unknown>
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email)) {
     sendValidationError('A valid email is required')
@@ -129,7 +130,7 @@ export function validateInviteInput(rawBody: unknown): InviteInput {
 }
 
 export function validateResetPasswordInput(rawBody: unknown): ResetPasswordInput {
-  const body = rawBody as Record<string, unknown>
+  const body = (rawBody ?? {}) as Record<string, unknown>
   if (!body?.newPassword || typeof body.newPassword !== 'string' || body.newPassword.length < 8) {
     sendValidationError('Password must be at least 8 characters')
   }
@@ -153,7 +154,7 @@ export function validateResetPasswordInput(rawBody: unknown): ResetPasswordInput
 
 // token só no body — a página Nuxt lê o token da URL e faz POST com ele no body.
 export function validateVerifyEmailInput(rawBody: unknown): VerifyEmailInput {
-  const body = rawBody as Record<string, unknown>
+  const body = (rawBody ?? {}) as Record<string, unknown>
   const token = body?.token
   if (typeof token !== 'string' || !token) {
     sendValidationError('Invalid or expired verification link')
@@ -162,7 +163,7 @@ export function validateVerifyEmailInput(rawBody: unknown): VerifyEmailInput {
 }
 
 export function validateForgetPasswordInput(rawBody: unknown): ForgetPasswordInput {
-  const body = rawBody as Record<string, unknown>
+  const body = (rawBody ?? {}) as Record<string, unknown>
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
     sendValidationError('Valid email is required')
@@ -171,7 +172,7 @@ export function validateForgetPasswordInput(rawBody: unknown): ForgetPasswordInp
 }
 
 export function validateSendVerificationEmailInput(rawBody: unknown): SendVerificationEmailInput {
-  const body = rawBody as Record<string, unknown>
+  const body = (rawBody ?? {}) as Record<string, unknown>
   const email = typeof body?.email === 'string' ? normalizeEmail(body.email) : ''
   if (!email || !EMAIL_REGEX.test(email) || email.length > MAX_EMAIL_LENGTH) {
     sendValidationError('Valid email is required')
@@ -180,7 +181,7 @@ export function validateSendVerificationEmailInput(rawBody: unknown): SendVerifi
 }
 
 export function validateCompanySearchInput(rawQuery: unknown): { q: string } {
-  const query = rawQuery as Record<string, unknown>
+  const query = (rawQuery ?? {}) as Record<string, unknown>
   if (!query.q || typeof query.q !== 'string' || query.q.trim().length === 0) {
     sendValidationError('Search query is required')
   }
@@ -192,27 +193,15 @@ export function validateCompanySearchInput(rawQuery: unknown): { q: string } {
 
 // Update aceita campos opcionais (o caller lê `name?`), ao contrário do create.
 export function validateCompanyUpdateInput(rawBody: unknown): Partial<CompanyCreateInput> {
-  const body = rawBody as Record<string, unknown>
-
-  const input: Partial<CompanyCreateInput> = {}
-  if (body.name !== undefined) {
-    if (typeof body.name !== 'string' || body.name.trim().length === 0) {
-      sendValidationError('Company name must be a non-empty string')
-    }
-    const name = body.name.trim()
-    if (name.length > 200) {
-      sendValidationError('Company name must be at most 200 characters')
-    }
-    input.name = name
+  const result = companyUpdateSchema.safeParse(rawBody ?? {})
+  if (!result.success) {
+    sendValidationError(result.error.issues[0]?.message ?? 'Invalid request body')
   }
-  if (Object.keys(input).length === 0) {
-    sendValidationError('At least one field (name) is required')
-  }
-  return input
+  return result.data
 }
 
 export function validateInviteAcceptInput(rawBody: unknown): { token: string } {
-  const body = rawBody as Record<string, unknown>
+  const body = (rawBody ?? {}) as Record<string, unknown>
   if (!body?.token || typeof body.token !== 'string' || body.token.length === 0) {
     sendValidationError('token is required')
   }
@@ -231,7 +220,7 @@ export function validateConsentWithdrawInput(_body: unknown): Record<string, nev
 export function validateDefaultLocationInput(rawBody: unknown): {
   defaultLocationId: string | null
 } {
-  const body = rawBody as Record<string, unknown> | null
+  const body = (rawBody ?? {}) as Record<string, unknown> | null
   const value = body?.defaultLocationId
 
   if (value === null) {

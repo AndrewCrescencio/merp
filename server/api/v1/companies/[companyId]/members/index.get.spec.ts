@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockListCompanyMembers = vi.fn()
-const mockAssertRole = vi.fn()
 
 vi.mock('h3', () => ({
   defineEventHandler: (fn: any) => fn,
@@ -13,23 +12,13 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/company/membership', () => ({
+vi.mock('~~/server/utils/companies/company/membership', () => ({
   membershipRepository: { listCompanyMembers: mockListCompanyMembers },
 }))
-
-vi.mock('~~/server/utils/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('~~/server/utils/shared')>()
-  return {
-    ...actual,
-    assertRole: mockAssertRole,
-    ROLES: { owner: 'owner', member: 'member' },
-  }
-})
 
 describe('GET /api/v1/companies/{companyId}/members', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockAssertRole.mockImplementation(() => undefined)
   })
 
   const authContext = (role = 'owner') => ({
@@ -42,9 +31,6 @@ describe('GET /api/v1/companies/{companyId}/members', () => {
     import('~~/server/api/v1/companies/[companyId]/members/index.get').then((m) => m.default)
 
   it('requires authentication', async () => {
-    mockAssertRole.mockImplementation(() => {
-      throw new Error('Authentication required.')
-    })
     const handler = await loadHandler()
     const event = { context: {} } as any
 
@@ -53,10 +39,6 @@ describe('GET /api/v1/companies/{companyId}/members', () => {
   })
 
   it('403 quando o papel do tenant nao e owner (apenas owner lista membros)', async () => {
-    mockAssertRole.mockImplementation((_role, requiredRole, _m1, m2) => {
-      if (_role !== requiredRole) throw new Error(m2)
-    })
-
     const handler = await loadHandler()
     const event = { context: authContext('member') } as any
 

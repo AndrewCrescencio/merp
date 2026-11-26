@@ -1,11 +1,9 @@
-import { getRouterParam, readBody } from 'h3'
-import { membershipRepository } from '~~/server/utils/auth/company/membership'
+import { getRouterParam } from 'h3'
+import { membershipRepository } from '~~/server/utils/companies/company/membership'
 import {
-  assertRole,
   createAuthEvent,
   getClientIp,
   defineAuthHandler,
-  requireTenant,
   ROLES,
   sendNotFoundError,
   validateDefaultLocationInput,
@@ -20,32 +18,31 @@ import {
  * Owner-only, como a remoção de membro: quem decide em qual loja um garçom
  * trabalha é a empresa, não o próprio garçom.
  */
-export default defineAuthHandler(async (event, user) => {
-  // companyId e userId vêm do path; o body só traz a location.
-  const { companyId, role } = requireTenant(event)
-  const userId = getRouterParam(event, 'userId')
-  const { defaultLocationId } = validateDefaultLocationInput(await readBody(event))
+export default defineAuthHandler(
+  {
+    tenant: true,
+    role: ROLES.owner,
+    forbiddenMessage: 'Only company owners can assign a default location',
+    body: validateDefaultLocationInput,
+  },
+  async ({ event, tenant: { companyId }, user, body: { defaultLocationId } }) => {
+    const userId = getRouterParam(event, 'userId')
+    if (!userId) sendNotFoundError('Company member not found')
 
-  if (!userId) {
-    sendNotFoundError('Company member not found')
-  }
+    await membershipRepository.setMemberDefaultLocation(
+      companyId,
+      user.id,
+      userId,
+      defaultLocationId,
+    )
 
-  await assertRole(
-    role,
-    ROLES.owner,
-    'You are not a member of this company',
-    'Only company owners can assign a default location',
-  )
-
-  await membershipRepository.setMemberDefaultLocation(companyId, user.id, userId, defaultLocationId)
-
-  await createAuthEvent({
-    userId: user.id,
-    email: user.email,
-    eventType: 'member_default_location_updated',
-    ipAddress: getClientIp(event) || null,
-    metadata: { companyId, targetUserId: userId, defaultLocationId },
-  })
-
-  return { message: 'Default location updated successfully' }
-})
+    await createAuthEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: 'member_default_location_updated',
+      ipAddress: getClientIp(event) || null,
+      metadata: { companyId, targetUserId: userId, defaultLocationId },
+    })
+    return { message: 'Default location updated successfully' }
+  },
+)

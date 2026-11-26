@@ -43,7 +43,7 @@ export default withNuxt(
     },
   },
   {
-    // Fronteira: auth/identity não importa auth/company nem auth/invite.
+    // Fronteira: auth/identity não importa os domínios de empresa.
     name: 'merp/boundary-identity',
     files: ['server/utils/auth/identity/**/*.ts'],
     ignores: ['**/*.spec.ts', '**/*.test.ts'],
@@ -55,7 +55,7 @@ export default withNuxt(
             {
               group: ['**/company/**', '**/invite/**'],
               message:
-                'Feature boundary violation: auth/identity não deve importar auth/company nem auth/invite. Use shared/ ou um serviço trans-feature.',
+                'Feature boundary violation: auth/identity não deve importar companies. Use shared/ ou um serviço trans-feature.',
             },
           ],
         },
@@ -63,9 +63,9 @@ export default withNuxt(
     },
   },
   {
-    // Fronteira: auth/company não importa auth/identity nem auth/invite.
+    // Fronteira: empresas não importam identidade nem convites.
     name: 'merp/boundary-company',
-    files: ['server/utils/auth/company/**/*.ts'],
+    files: ['server/utils/companies/company/**/*.ts'],
     ignores: ['**/*.spec.ts', '**/*.test.ts'],
     rules: {
       'no-restricted-imports': [
@@ -75,7 +75,7 @@ export default withNuxt(
             {
               group: ['**/identity/**', '**/invite/**'],
               message:
-                'Feature boundary violation: auth/company não deve importar auth/identity nem auth/invite. Use shared/ ou um serviço trans-feature.',
+                'Feature boundary violation: companies não deve importar auth/identity nem invite. Use shared/ ou um serviço trans-feature.',
             },
           ],
         },
@@ -83,9 +83,9 @@ export default withNuxt(
     },
   },
   {
-    // Fronteira: auth/invite não importa auth/identity nem auth/company.
+    // Fronteira: convites não importam identidade nem empresas.
     name: 'merp/boundary-invite',
-    files: ['server/utils/auth/invite/**/*.ts'],
+    files: ['server/utils/companies/invite/**/*.ts'],
     ignores: ['**/*.spec.ts', '**/*.test.ts'],
     rules: {
       'no-restricted-imports': [
@@ -95,7 +95,7 @@ export default withNuxt(
             {
               group: ['**/identity/**', '**/company/**'],
               message:
-                'Feature boundary violation: auth/invite não deve importar auth/identity nem auth/company. Use shared/ ou um serviço trans-feature.',
+                'Feature boundary violation: invite não deve importar auth/identity nem company. Use shared/ ou um serviço trans-feature.',
             },
           ],
         },
