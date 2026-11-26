@@ -1,0 +1,73 @@
+{
+  "generatedOnPlatform": "linux",
+  "projectType": "webapp",
+  "devServer": {
+    "command": "pnpm",
+    "args": ["run", "dev", "--", "--host", "127.0.0.1"],
+    "env": {
+      "APP_DATABASE_URL": "postgres://merp_app:merp_app@127.0.0.1:5432/merp",
+      "BETTER_AUTH_SECRET": "dev-local-secret-do-not-use-in-production-xyz7890ab",
+      "BETTER_AUTH_URL": "http://localhost:3000",
+      "CORS_ORIGIN": "http://localhost:3000",
+      "CSRF_SECRET": "dev-csrf-secret-do-not-use-in-production-change-me-32chars"
+    },
+    "url": "http://127.0.0.1:3000/auth/login",
+    "readyTimeoutSeconds": 120
+  },
+  "setup": [
+    {
+      "command": "pnpm",
+      "args": ["install", "--frozen-lockfile"],
+      "timeoutSeconds": 600
+    }
+  ],
+  "assertions": [
+    {
+      "name": "tests-pass",
+      "kind": "process",
+      "command": "pnpm",
+      "args": ["run", "test:unit"],
+      "verificationMethod": "test-results",
+      "expected": "0",
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "nuxt-builds",
+      "kind": "process",
+      "command": "pnpm",
+      "args": ["run", "build"],
+      "env": {
+        "CORS_ORIGIN": "http://localhost:3000"
+      },
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 600
+    },
+    {
+      "name": "home-route-200",
+      "kind": "process",
+      "command": "node",
+      "args": [
+        "--input-type=module",
+        "-e",
+        "const response = await fetch('http://127.0.0.1:3000/'); process.exit(response.status === 200 ? 0 : 1)"
+      ],
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 30
+    },
+    {
+      "name": "login-route-200",
+      "kind": "process",
+      "command": "node",
+      "args": [
+        "--input-type=module",
+        "-e",
+        "const response = await fetch('http://127.0.0.1:3000/auth/login'); process.exit(response.status === 200 ? 0 : 1)"
+      ],
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 30
+    }
+  ]
+}

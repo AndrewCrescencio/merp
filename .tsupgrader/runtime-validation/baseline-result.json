@@ -1,0 +1,144 @@
+{
+  "planHash": "f7f327259f6e1f1b49ec661428a4bf7c83442f9b3617c66d7183ecdb9f37cfb1",
+  "phase": "baseline",
+  "recordedAtUtc": "2026-11-26T11:29:37.8788466Z",
+  "retryCount": 0,
+  "resetBaseline": true,
+  "complete": true,
+  "result": {
+    "setupSucceeded": true,
+    "setupDurationMs": 51,
+    "setupFailureOutput": null,
+    "assertions": [
+      {
+        "name": "tests-pass",
+        "kind": "process",
+        "verificationMethod": "test-results",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "$ vitest run --project unit\n\n RUN  v5.1.0 /home/andrew/Projetos/merp\n\n\n Test Files  58 passed (58)\n      Tests  368 passed (368)\n   Start at  08:29:34\n   Duration  3.41s (tests 78%, import 19%, transform 2%, worker 2%)\n\n",
+        "durationMs": 4568,
+        "testResults": {
+          "testFramework": "vitest",
+          "runnerDetectedFrom": "package_json",
+          "testsTotal": 368,
+          "testsPassed": 368,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "parseFailed": false
+        }
+      },
+      {
+        "name": "nuxt-builds",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": false,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 1,
+        "outputSample": "$ node scripts/generate-tailwind.mjs \u0026\u0026 nuxt build\nError: Can\u0027t resolve \u0027tailwindcss\u0027 in \u0027/home/andrew/Projetos/merp/app/assets/css\u0027\n    at finishWithoutResolve (/home/andrew/Projetos/merp/node_modules/.pnpm/enhanced-resolve@5.27.0/node_modules/enhanced-resolve/lib/Resolver.js:959:18)\n    at /home/andrew/Projetos/merp/node_modules/.pnpm/enhanced-resolve@5.27.0/node_modules/enhanced-resolve/lib/Resolver.js:1055:13\n    at /home/andrew/Projetos/merp/node_modules/.pnpm/enhanced-resolve@5.27.0/node_modules/enhanced-resolve/lib/Resolver.js:1139:5\n    at eval (eval at create (/home/andrew/Projetos/merp/node_modules/.pnpm/tapable@2.3.3/node_modules/tapable/lib/HookCodeFactory.js:31:10), \u003Canonymous\u003E:15:1)\n    at /home/andrew/Projetos/merp/node_modules/.pnpm/enhanced-resolve@5.27.0/node_modules/enhanced-resolve/lib/Resolver.js:1139:5\n    at eval (eval at create (/home/andrew/Projetos/merp/node_modules/.pnpm/tapable@2.3.3/node_modules/tapable/lib/HookCodeFactory.js:31:10), \u003Canonymous\u003E:27:1)\n    at /home/andrew/Projetos/merp/node_modules/.pnpm/enhanced-resolve@5.27.0/node_modules/enhanced-resolve/lib/DescriptionFilePlugin.js:94:43\n    at /home/andrew/Projetos/merp/node_modules/.pnpm/enhanced-resolve@5.27.0/node_modules/enhanced-resolve/lib/Resolver.js:1139:5\n    at eval (eval at create (/home/andrew/Projetos/merp/node_modules/.pnpm/tapable@2.3.3/node_modules/tapable/lib/HookCodeFactory.js:31:10), \u003Canonymous\u003E:15:1)\n    at /home/andrew/Projetos/merp/node_modules/.pnpm/enhanced-resolve@5.27.0/node_modules/enhanced-resolve/lib/Resolver.js:1139:5 {\n  details: \u0022resolve \u0027tailwindcss\u0027 in \u0027/home/andrew/Projetos/merp/app/assets/css\u0027\\n\u0022 \u002B\n    \u0027  Parsed request is a module\\n\u0027 \u002B\n    \u0027  using description file: /home/andrew/Projetos/merp/package.json (relative path: ./app/assets/css)\\n\u0027 \u002B\n    \u0027    resolve as module\\n\u0027 \u002B\n    \u0022      /home/andrew/Projetos/merp/app/assets/css/node_modules doesn\u0027t exist or is not a directory\\n\u0022 \u002B\n    \u0022      /home/andrew/Projetos/merp/app/assets/node_modules doesn\u0027t exist or is not a directory\\n\u0022 \u002B\n    \u0022      /home/andrew/Projetos/merp/app/node_modules doesn\u0027t exist or is not a directory\\n\u0022 \u002B\n    \u0027      looking for modules in /home/andrew/Projetos/merp/node_modules\\n\u0027 \u002B\n    \u0027        single file module\\n\u0027 \u002B\n    \u0027          using description file: /home/andrew/Projetos/merp/package.json (relative path: ./node_modules/tailwindcss)\\n\u0027 \u002B\n    \u0027            no extension\\n\u0027 \u002B\n    \u0022              /home/andrew/Projetos/merp/node_modules/tailwindcss doesn\u0027t exist\\n\u0022 \u002B\n    \u0027            .css\\n\u0027 \u002B\n    \u0022              /home/andrew/Projetos/merp/node_modules/tailwindcss.css doesn\u0027t exist\\n\u0022 \u002B\n    \u0022        /home/andrew/Projetos/merp/node_modules/tailwindcss doesn\u0027t exist\\n\u0022 \u002B\n    \u0022      /home/andrew/Projetos/node_modules doesn\u0027t exist or is not a directory\\n\u0022 \u002B\n    \u0022      /home/andrew/node_modules doesn\u0027t exist or is not a directory\\n\u0022 \u002B\n    \u0022      /home/node_modules doesn\u0027t exist or is not a directory\\n\u0022 \u002B\n    \u0022      /node_modules doesn\u0027t exist or is not a directory\\n\u0022 \u002B\n    \u0027      looking for modules in /home/andrew/.local/share/pnpm/store/v11/links/@/pnpm/directory/bb887d8e438dbef15253193a4feb50f243e9634e7109a89f9f5cd5f2094befb4/node_modules/pnpm/node_modules\\n\u0027 \u002B\n    \u0027        single file module\\n\u0027 \u002B\n    \u0027          using description file: /home/andrew/.local/share/pnpm/store/v11/links/@/pnpm/directory/bb887d8e438dbef15253193a4feb50f243e9634e7109a89f9f5cd5f2094befb4/node_modules/pnpm/package.json (relative path: ./node_modules/tailwindcss)\\n\u0027 \u002B\n    \u0027            no extension\\n\u0027 \u002B\n    \u0022              /home/andrew/.local/share/pnpm/store/v11/links/@/pnpm/directory/bb887d8e438dbef15253193a4feb50f243e9634e7109a89f9f5cd5f2094befb4/node_modules/pnpm/node_modules/tailwindcss doesn\u0027t exist\\n\u0022 \u002B\n    \u0027            .css\\n\u0027 \u002B\n    \u0022              /home/andrew/.local/share/pnpm/store/v11/links/@/pnpm/directory/bb887d8e438dbef15253193a4feb50f243e9634e7109a89f9f5cd5f2094befb4/node_modules/pnpm/node_modules/tailwindcss.css doesn\u0027t exist\\n\u0022 \u002B\n    \u0022        /home/andrew/.local/share/pnpm/store/v11/links/@/pnpm/directory/bb887d8e438dbef15253193a4feb50f243e9634e71\n\u2026[truncated]",
+        "durationMs": 100
+      },
+      {
+        "name": "home-route-200",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": false,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 1,
+        "outputSample": "",
+        "durationMs": 101
+      },
+      {
+        "name": "login-route-200",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "",
+        "durationMs": 66
+      }
+    ],
+    "executions": [
+      {
+        "source": "setup[0]",
+        "resolvedExecutable": "/home/andrew/.local/share/pnpm/bin/pnpm",
+        "args": ["install", "--frozen-lockfile"],
+        "cwd": "/home/andrew/Projetos/merp",
+        "env": {},
+        "prependPath": [],
+        "platform": "linux"
+      },
+      {
+        "source": "devServer",
+        "resolvedExecutable": "/home/andrew/.local/share/pnpm/bin/pnpm",
+        "args": ["run", "dev", "--", "--host", "127.0.0.1"],
+        "cwd": "/home/andrew/Projetos/merp",
+        "env": {
+          "APP_DATABASE_URL": "postgres://merp_app:merp_app@127.0.0.1:5432/merp",
+          "BETTER_AUTH_SECRET": "\u003Credacted\u003E",
+          "BETTER_AUTH_URL": "http://localhost:3000",
+          "CORS_ORIGIN": "http://localhost:3000",
+          "CSRF_SECRET": "\u003Credacted\u003E"
+        },
+        "prependPath": [],
+        "platform": "linux"
+      },
+      {
+        "source": "tests-pass",
+        "resolvedExecutable": "/home/andrew/.local/share/pnpm/bin/pnpm",
+        "args": ["run", "test:unit"],
+        "cwd": "/home/andrew/Projetos/merp",
+        "env": {},
+        "prependPath": [],
+        "platform": "linux"
+      },
+      {
+        "source": "nuxt-builds",
+        "resolvedExecutable": "/home/andrew/.local/share/pnpm/bin/pnpm",
+        "args": ["run", "build"],
+        "cwd": "/home/andrew/Projetos/merp",
+        "env": {
+          "CORS_ORIGIN": "http://localhost:3000"
+        },
+        "prependPath": [],
+        "platform": "linux"
+      },
+      {
+        "source": "home-route-200",
+        "resolvedExecutable": "/home/andrew/.nvm/versions/node/v26.13.1/bin/node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "const response = await fetch(\u0027http://127.0.0.1:3000/\u0027); process.exit(response.status === 200 ? 0 : 1)"
+        ],
+        "cwd": "/home/andrew/Projetos/merp",
+        "env": {},
+        "prependPath": [],
+        "platform": "linux"
+      },
+      {
+        "source": "login-route-200",
+        "resolvedExecutable": "/home/andrew/.nvm/versions/node/v26.13.1/bin/node",
+        "args": [
+          "--input-type=module",
+          "-e",
+          "const response = await fetch(\u0027http://127.0.0.1:3000/auth/login\u0027); process.exit(response.status === 200 ? 0 : 1)"
+        ],
+        "cwd": "/home/andrew/Projetos/merp",
+        "env": {},
+        "prependPath": [],
+        "platform": "linux"
+      }
+    ]
+  }
+}
