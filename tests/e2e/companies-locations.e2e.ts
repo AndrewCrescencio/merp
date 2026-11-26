@@ -280,7 +280,7 @@ describe.skipIf(!dbAvailable)(
     // ---------------------------------------------------------------------------
     // CSRF sobre HTTP real
     // ---------------------------------------------------------------------------
-    it('POST mutating sem header CSRF → 403 csrf_invalid; nada criado', async () => {
+    it('POST mutating aceita token correto e rejeita ausência ou token errado', async () => {
       const owner = await makeUser('owner-csrf')
       const co = await createCompany(owner, `Csrf Co ${unique()}`)
 
@@ -292,11 +292,26 @@ describe.skipIf(!dbAvailable)(
       expect(noCsrf.status).toBe(403)
       expect((noCsrf.body as { error?: string }).error).toBe('csrf_invalid')
 
+      const wrongCsrf = await owner.client.send(`/api/v1/companies/${co.id}/locations`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-csrf-token': 'wrong-token' },
+        body: JSON.stringify({ name: 'Filial Token Errado' }),
+      })
+      expect(wrongCsrf.status).toBe(403)
+      expect((await wrongCsrf.json()).error).toBe('csrf_invalid')
+
+      const correctCsrf = await owner.client.post<{ id: string }>(
+        `/api/v1/companies/${co.id}/locations`,
+        { name: 'Filial Token Correto' },
+      )
+      expect(correctCsrf.status).toBe(201)
+      expect(correctCsrf.body.id).toBeTruthy()
+
       const list = await owner.client.get<{ locations: Array<{ id: string }> }>(
         `/api/v1/companies/${co.id}/locations`,
       )
       expect(list.status).toBe(200)
-      expect(list.body.locations.map(({ id }) => id)).toEqual([co.matrizId])
+      expect(list.body.locations.map(({ id }) => id)).toEqual([co.matrizId, correctCsrf.body.id])
     })
 
     it('locations exige sessão e rejeita body inválido com 400', async () => {
