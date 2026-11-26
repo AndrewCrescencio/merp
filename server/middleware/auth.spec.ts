@@ -194,7 +194,6 @@ describe('auth middleware', () => {
     const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
     const session = { id: 'session-1', userId: 'user-1', activeCompanyId: 'company-1' }
     mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
-    mockCreateAuthEvent.mockResolvedValue(undefined)
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
 
@@ -206,34 +205,10 @@ describe('auth middleware', () => {
     expect(event.context.session).toEqual(session)
   })
 
-  it('emits session_validated event on valid session', async () => {
+  it('checks the user rate limit without recording an auth event for a valid session', async () => {
     const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
     const session = { id: 'session-1', userId: 'user-1', activeCompanyId: 'company-1' }
     mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
-    mockCreateAuthEvent.mockResolvedValue(undefined)
-
-    const handler = await import('~~/server/middleware/auth').then((m) => m.default)
-
-    const event = { headers: new Headers(), context: {} } as any
-
-    await handler(event)
-
-    expect(mockCreateAuthEvent).toHaveBeenCalledWith({
-      userId: 'user-1',
-      email: 'user@example.com',
-      eventType: 'session_validated',
-      metadata: {
-        sessionId: 'session-1',
-        userId: 'user-1',
-      },
-    })
-  })
-
-  it('checks user rate limit on valid session (limit not reached)', async () => {
-    const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
-    const session = { id: 'session-1', userId: 'user-1', activeCompanyId: 'company-1' }
-    mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
-    mockCreateAuthEvent.mockResolvedValue(undefined)
 
     const handler = await import('~~/server/middleware/auth').then((m) => m.default)
 
@@ -243,14 +218,13 @@ describe('auth middleware', () => {
 
     expect(mockCheckUserRateLimit).toHaveBeenCalledWith(event, 'user-1')
     expect(event.context.user).toEqual(user)
-    expect(mockCreateAuthEvent).toHaveBeenCalled()
+    expect(mockCreateAuthEvent).not.toHaveBeenCalled()
   })
 
-  it('blocks with 429 when user rate limit exceeded, no session_validated event', async () => {
+  it('blocks with 429 when the user rate limit is exceeded', async () => {
     const user = { id: 'user-1', email: 'user@example.com', name: 'Test User' }
     const session = { id: 'session-1', userId: 'user-1' }
     mockGetSession.mockResolvedValue({ headers: new Headers(), response: { user, session } })
-    mockCreateAuthEvent.mockResolvedValue(undefined)
     mockCheckUserRateLimit.mockRejectedValue(
       Object.assign(new Error('Too many requests. Try again later.'), { statusCode: 429 }),
     )

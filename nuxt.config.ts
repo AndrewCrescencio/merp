@@ -18,6 +18,11 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint'],
   devtools: { enabled: true },
   css: ['~/assets/css/tailwind.css'],
+  runtimeConfig: {
+    public: {
+      productInsightsEnabled: false,
+    },
+  },
 
   routeRules: {
     '/api/**': {

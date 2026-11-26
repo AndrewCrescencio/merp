@@ -1,5 +1,4 @@
 import { defineEventHandler, getCookie, getRequestURL, appendResponseHeaders } from 'h3'
-import type { H3Event } from 'h3'
 import { getAuth } from '#shared/auth'
 import type { AuthInstance } from '#shared/auth'
 import { logger } from '#shared/logger'
@@ -47,33 +46,6 @@ const publicRoutes = [
   '/auth/reset-password',
 ]
 
-// eventos de ciclo de vida da sessão. O registro do evento é
-// fire-and-forget — falha na auditoria não pode bloquear nem falhar a
-// requisição (nem adicionar latência a cada request validado).
-function emitSessionEvent(
-  event: H3Event,
-  input: {
-    sessionId: string | null
-    userId: string | null
-    email: string
-    eventType: 'session_validated' | 'session_expired'
-  },
-): void {
-  background(
-    event,
-    createAuthEvent({
-      userId: input.userId,
-      email: input.email,
-      eventType: input.eventType,
-      metadata: {
-        sessionId: input.sessionId,
-        userId: input.userId,
-      },
-    }),
-    `session:${input.eventType}`,
-  )
-}
-
 export default defineEventHandler(async (event) => {
   const path = getRequestURL(event).pathname
 
@@ -116,15 +88,19 @@ export default defineEventHandler(async (event) => {
         timestamp: new Date().toISOString(),
       })
 
-      // session_expired. O cookie de sessão expirado não permite
+      // O cookie de sessão expirado não permite
       // resolver userId/sessionId (o getSession já retornou null) — email
       // 'unknown' documenta a limitação da coluna NOT NULL.
-      emitSessionEvent(event, {
-        sessionId: null,
-        userId: null,
-        email: 'unknown',
-        eventType: 'session_expired',
-      })
+      background(
+        event,
+        createAuthEvent({
+          userId: null,
+          email: 'unknown',
+          eventType: 'session_expired',
+          metadata: { sessionId: null, userId: null },
+        }),
+        'session:session_expired',
+      )
 
       sendAuthError(401, 'session_expired', 'Session expired. Please login again.')
     }
@@ -135,13 +111,6 @@ export default defineEventHandler(async (event) => {
   // Limite por usuário para operações autenticadas comuns (120/min). As rotas
   // públicas não passam por este middleware e limitam IP/e-mail nos handlers.
   await checkApiCommonRateLimit(event, session.user.id)
-
-  emitSessionEvent(event, {
-    sessionId: session.session.id,
-    userId: session.user.id,
-    email: session.user.email,
-    eventType: 'session_validated',
-  })
 
   event.context.user = session.user
   event.context.session = session.session

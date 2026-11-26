@@ -1,4 +1,6 @@
 import { defineEventHandler, readBody, setHeader, setResponseStatus } from 'h3'
+import { acquisitionChannelSchema } from '~~/shared/contracts/acquisition'
+import { recordProductMilestone } from '~~/server/utils/insights/product'
 import { registerUser, generateUserId } from '~~/server/utils/auth/identity/queries'
 import {
   checkEmailRateLimit,
@@ -26,12 +28,7 @@ export default defineEventHandler(async (event) => {
 
   await checkIpRateLimit(event)
 
-  const body = await readBody<{
-    email?: string
-    password?: string
-    name?: string
-    consentTermsVersion?: string
-  }>(event)
+  const body = await readBody<Record<string, unknown>>(event)
 
   const { email, password, name, consentTermsVersion } = await validateRegisterInput(body)
 
@@ -47,6 +44,8 @@ export default defineEventHandler(async (event) => {
       eventType: 'registration',
       ipAddress: ip || null,
     })
+    const channel = acquisitionChannelSchema.safeParse(body?.acquisitionChannel)
+    recordProductMilestone(event, 'signup_completed', channel.data)
   }
 
   await enforceMinimumTime(start, MINIMUM_MS)

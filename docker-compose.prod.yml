@@ -33,6 +33,7 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY:?Variavel nao setada - chave do Resend obrigatoria para verificacao de email}
       - RESEND_FROM=${RESEND_FROM:?Variavel nao setada - remetente do Resend obrigatorio}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - NUXT_PUBLIC_PRODUCT_INSIGHTS_ENABLED=${NUXT_PUBLIC_PRODUCT_INSIGHTS_ENABLED:-false}
       # PORT=3000 fixada aqui (não depende do .env) — o nginx proxy para
       # app:3000 (infra/nginx/nginx.conf).
       - PORT=3000
