@@ -11,14 +11,11 @@ vi.mock('~~/server/utils/shared/purge', () => ({
 
 vi.mock('~~/server/utils/db', () => ({
   db: {
-    delete: vi.fn(() => ({
-      where: vi.fn(() => ({
-        returning: vi.fn().mockResolvedValue([]),
-      })),
-    })),
+    execute: vi.fn().mockResolvedValue([{ deleted_count: 7 }]),
   },
 }))
 
+import { db } from '~~/server/utils/db'
 import { runPurgeTask } from '~~/server/utils/shared/purge'
 import purgeAuthEvent from '~~/server/tasks/purge-auth-event'
 
@@ -64,5 +61,14 @@ describe('purge-auth-event task', () => {
         retentionMs: 30 * 24 * 60 * 60 * 1000,
       }),
     )
+  })
+
+  it('executa a função protegida de purge e retorna sua contagem', async () => {
+    process.env.AUTH_EVENT_RETENTION_DAYS = '90'
+    await purgeAuthEvent.run({} as any)
+
+    const options = (runPurgeTask as any).mock.calls[0][0]
+    await expect(options.remove(new Date())).resolves.toBe(7)
+    expect(db.execute).toHaveBeenCalledOnce()
   })
 })
