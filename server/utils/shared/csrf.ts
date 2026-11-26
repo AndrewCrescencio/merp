@@ -40,15 +40,15 @@ function verifyToken(token: string, signature: string): boolean {
 
 /**
  * Sets the CSRF cookie with the given token.
- * The cookie is HttpOnly to prevent JavaScript read access via document.cookie.
- * The actual token value should be fetched by the frontend via the
- * dedicated `GET /api/csrf-token` endpoint (see middleware 01-csrf-token).
+ * The signed CSRF cookie is readable by the frontend so it can copy the raw
+ * token into `x-csrf-token`. SameSite=Lax and the HMAC signature prevent
+ * cross-site use and cookie forgery. The session cookie remains HttpOnly.
  */
 export function setCsrfCookie(event: H3Event, token: string): void {
   const signature = signToken(token)
   const value = `${token}.${signature}`
   setCookie(event, CSRF_COOKIE_NAME, value, {
-    httpOnly: true,
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: CSRF_COOKIE_MAX_AGE,

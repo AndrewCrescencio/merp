@@ -36,6 +36,12 @@ describe('CSRF secret (>= 32 em produção)', () => {
     const { setCsrfCookie } = await import('./csrf')
 
     expect(() => setCsrfCookie({} as never, 'tok')).not.toThrow()
+    expect(vi.mocked(setCookie).mock.lastCall?.[3]).toMatchObject({
+      httpOnly: false,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    })
   })
 
   it('fora de produção o segredo não é exigido', async () => {
