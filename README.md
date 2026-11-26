@@ -57,6 +57,15 @@ precisam do PostgreSQL configurado como no CI; o CI aplica migrations como
 owner e executa a suíte como `merp_app`. `pnpm run check` reúne format, lint,
 typecheck, rotas e migrations.
 
+## Exportação paginada do próprio histórico
+
+Para limitar o histórico por resposta, chame `GET /api/v1/me/data-export?limit=500`.
+Enquanto `authEventsPagination.nextCursor` estiver preenchido, faça a próxima
+chamada com `cursor` e o mesmo `limit`. Cada página inclui o perfil e as
+empresas. A primeira consulta fixa um corte para os eventos, e a retenção
+continua a se aplicar durante a leitura. Requisições sem parâmetros continuam
+no formato anterior.
+
 ## Estrutura
 
 ```text
