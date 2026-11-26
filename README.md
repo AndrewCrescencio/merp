@@ -57,6 +57,15 @@ precisam do PostgreSQL configurado como no CI; o CI aplica migrations como
 owner e executa a suíte como `merp_app`. `pnpm run check` reúne format, lint,
 typecheck, rotas e migrations.
 
+## Exportação paginada do próprio histórico
+
+Para limitar o histórico por resposta, chame `GET /api/v1/me/data-export?limit=500`.
+Enquanto `authEventsPagination.nextCursor` estiver preenchido, faça a próxima
+chamada com `cursor` e o mesmo `limit`. Cada página inclui o perfil e as
+empresas. A primeira consulta fixa um corte para os eventos, e a retenção
+continua a se aplicar durante a leitura. Requisições sem parâmetros continuam
+no formato anterior.
+
 ## Estrutura
 
 ```text
@@ -121,6 +130,40 @@ validação, autorização e testes de comportamento e isolamento entre tenants.
 4. Cubra comportamento, autorização e isolamento entre tenants; rode
    `pnpm run db:migrate:full`, `pnpm run test:integration` e `pnpm run check`.
    Mudanças em auth, tenant, RLS ou segurança também exigem testes de regressão.
+
+## Métricas de produto e aquisição
+
+Depois de aplicar as migrations, configure `NUXT_PUBLIC_PRODUCT_INSIGHTS_ENABLED=true`
+no ambiente da aplicação para contar cadastros efetivos, empresas criadas,
+locais criados e convites aceitos. O formulário de cadastro oferece uma
+pergunta opcional sobre como a pessoa conheceu o MERP. A resposta entra na
+contagem de cadastros por canal. Cada linha contém dia UTC, tipo, canal e
+contagem, sem identificadores de conta, empresa ou sessão. A configuração
+também permite interromper novas contagens.
+
+A role da aplicação só pode incrementar os contadores. Em uma conexão de
+relatório autorizada pelo operador, consulte os volumes diários e os canais
+de aquisição:
+
+```sql
+SELECT day, event_name, sum(event_count) AS total
+FROM product_insights.daily_event_counts
+WHERE day >= (now() AT TIME ZONE 'UTC')::date - 29
+GROUP BY day, event_name
+ORDER BY day DESC, event_name;
+
+SELECT acquisition_channel, sum(event_count) AS signups
+FROM product_insights.daily_event_counts
+WHERE event_name = 'signup_completed'
+  AND day >= (now() AT TIME ZONE 'UTC')::date - 29
+GROUP BY acquisition_channel
+ORDER BY signups DESC;
+```
+
+Use as contagens para acompanhar volumes e comparar os canais informados.
+Os marcos diários podem vir de contas diferentes e não representam usuários
+únicos ou conversão por coorte. A gravação ocorre em segundo plano.
+Monitore avisos `product_insight_write_failed` ao interpretar os totais.
 
 ## Decisões técnicas
 

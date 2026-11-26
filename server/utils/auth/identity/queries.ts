@@ -3,12 +3,13 @@ import { createAuthEvent } from '../../shared/audit'
 import { db } from '../../../utils/db'
 import { withTenant } from '../../db/tenant-context'
 import { authEvent, user, session } from '../../../utils/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq, sql, type SQLWrapper } from 'drizzle-orm'
 import { logger } from '#shared/logger'
 import { handleDatabaseError } from '../../shared/errors'
 import { createError, H3Error } from 'h3'
 import { randomUUID } from 'node:crypto'
 import type { RegisterInput } from '../../shared/validate'
+import type { AuthEventCursor } from '#shared/contracts/data-export'
 
 // Better Auth user type from the schema
 export interface UserResult {
@@ -83,6 +84,47 @@ export async function listUserAuthEvents(
   return await withTenant({ companyId: null, locationId: null, userId }, (tx) =>
     tx.select().from(authEvent).where(eq(authEvent.userId, userId)).orderBy(authEvent.createdAt),
   )
+}
+
+// Date perde os microssegundos usados pelo PostgreSQL na ordenação.
+function cursorTimestamp(value: SQLWrapper) {
+  return sql<string>`to_char(${value} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
+}
+
+export async function listUserAuthEventsPage(
+  userId: string,
+  limit: number,
+  after?: AuthEventCursor,
+) {
+  const cutoff = after ? sql`${after.cutoff}::timestamptz` : sql`statement_timestamp()`
+  const rows = await withTenant({ companyId: null, locationId: null, userId }, (tx) =>
+    tx
+      .select({
+        id: authEvent.id,
+        eventType: authEvent.eventType,
+        ipAddress: authEvent.ipAddress,
+        createdAt: authEvent.createdAt,
+        cursorCreatedAt: cursorTimestamp(authEvent.createdAt),
+        cursorCutoff: cursorTimestamp(cutoff),
+      })
+      .from(authEvent)
+      .where(
+        and(
+          eq(authEvent.userId, userId),
+          sql`${authEvent.createdAt} <= ${cutoff}`,
+          after &&
+            sql`(${authEvent.createdAt}, ${authEvent.id}) > (${after.createdAt}::timestamptz, ${after.id})`,
+        ),
+      )
+      .orderBy(authEvent.createdAt, authEvent.id)
+      .limit(limit + 1),
+  )
+
+  const last = rows.length > limit ? rows[limit - 1] : undefined
+  return {
+    events: rows.slice(0, limit),
+    next: last ? { cutoff: last.cursorCutoff, createdAt: last.cursorCreatedAt, id: last.id } : null,
+  }
 }
 
 async function runTimingPad(email: string, headers?: Headers): Promise<void> {

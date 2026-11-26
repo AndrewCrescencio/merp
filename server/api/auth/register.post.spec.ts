@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createMockEvent, createAuthError } from '~~/tests/support/test-utils'
 
 const mockRegister = vi.fn()
+const mockRecordProductMilestone = vi.fn()
 const mockCreateAuthEvent = vi.fn()
 const mockCheckIpRateLimit = vi.fn()
 const mockCheckEmailRateLimit = vi.fn()
@@ -41,6 +42,9 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
 vi.mock('~~/server/utils/shared/errors', async (importOriginal) => ({
   ...(await importOriginal()),
   sendValidationError: mockSendValidationError,
+}))
+vi.mock('~~/server/utils/insights/product', () => ({
+  recordProductMilestone: mockRecordProductMilestone,
 }))
 vi.mock('~~/server/utils/shared/audit', () => ({
   createAuthEvent: mockCreateAuthEvent,
@@ -316,6 +320,41 @@ describe('POST /api/auth/register', () => {
     // o usuário criado é apontado pelo header Location (/api/v1/me).
     expect(mockSetHeader).toHaveBeenCalledWith(expect.anything(), 'Location', '/api/v1/me')
     expect(mockCreateAuthEvent).toHaveBeenCalled()
+    expect(mockRecordProductMilestone).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      'signup_completed',
+      undefined,
+    )
+  })
+
+  it.each([
+    ['referral', 'referral'],
+    ['https://example.invalid/?id=person', undefined],
+  ])('only counts approved acquisition channels (%s)', async (input, channel) => {
+    mockReadBody.mockResolvedValue({
+      email: 'user@example.com',
+      password: 'Str0ngP@ssw0rd!2026',
+      name: 'Test User',
+      consentTermsVersion: 'v1',
+      acquisitionChannel: input,
+    })
+    mockRegister.mockResolvedValue({ id: 'uuid-123', email: 'user@example.com' })
+
+    const handler = await import('~~/server/api/auth/register.post').then((m) => m.default)
+    const event = createMockEvent()
+    await handler(event)
+
+    expect(mockRecordProductMilestone).toHaveBeenCalledExactlyOnceWith(
+      event,
+      'signup_completed',
+      channel,
+    )
+    expect(mockRegister).toHaveBeenCalledExactlyOnceWith({
+      email: 'user@example.com',
+      password: 'Str0ngP@ssw0rd!2026',
+      name: 'Test User',
+      consentTermsVersion: 'v1',
+    })
   })
 
   it('returns identical 201 response when email already registered', async () => {
@@ -340,6 +379,7 @@ describe('POST /api/auth/register', () => {
     // o usuário criado é apontado pelo header Location (/api/v1/me).
     expect(mockSetHeader).toHaveBeenCalledWith(expect.anything(), 'Location', '/api/v1/me')
     expect(mockCreateAuthEvent).not.toHaveBeenCalled()
+    expect(mockRecordProductMilestone).not.toHaveBeenCalled()
   })
 
   it('enforces a minimum response time so the clock cannot leak the duplicate', async () => {
