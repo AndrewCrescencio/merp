@@ -194,12 +194,12 @@ export async function expireUserRateLimit(
   try {
     await sql`
       UPDATE auth_security_state
-      SET window = (
+      SET "window" = (
         SELECT COALESCE(
           jsonb_agg(to_jsonb((hit::timestamptz - interval '61 seconds')::text)),
           '[]'::jsonb
         )
-        FROM jsonb_array_elements_text(window) AS hits(hit)
+        FROM jsonb_array_elements_text("window") AS hits(hit)
       )
       WHERE key = ${`rate:${prefix}:${userId}`}
     `
