@@ -1,3 +1,4 @@
+import { recordProductMilestone } from '~~/server/utils/insights/product'
 import { inviteRepository } from '~~/server/utils/companies/invite/repository'
 import { defineAuthHandler, validateInviteAcceptInput } from '~~/server/utils/shared'
 
@@ -10,12 +11,13 @@ export default defineAuthHandler(
       metadata: { companyId },
     }),
   },
-  async ({ body, user }) => {
+  async ({ body, event, user }) => {
     const { id, companyId, acceptedAt } = await inviteRepository.acceptInvite(
       body.token,
       user.email,
       user.id,
     )
+    recordProductMilestone(event, 'invite_accepted')
     return { id, companyId, acceptedAt }
   },
 )
