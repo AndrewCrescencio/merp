@@ -15,6 +15,8 @@ services:
       # DATABASE_URL (credencial de owner) NÃO entra no container — o app
       # usa apenas APP_DATABASE_URL (role merp_app) em produção.
       - APP_DATABASE_URL=${APP_DATABASE_URL?Variable not set - role de app (nao-dona) obrigatoria para RLS vigorar}
+      # Retenção usada pela task purge-auth-event; o default coincide com o banco.
+      - AUTH_EVENT_RETENTION_DAYS=${AUTH_EVENT_RETENTION_DAYS:-90}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET?Variable not set}
       # sem fallback silencioso — localhost:3000 passaria no validate-env
       # (presença ≠ valor) e geraria links de verificação/reset quebrados +
