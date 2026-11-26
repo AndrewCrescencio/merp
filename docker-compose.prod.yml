@@ -76,7 +76,7 @@ services:
 
   postgres:
     image: postgres:18-alpine
-    ports: []
+    ports: !reset []
     restart: always
     logging:
       driver: json-file
