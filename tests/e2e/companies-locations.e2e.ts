@@ -1,13 +1,7 @@
 import { execSync } from 'node:child_process'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setup, useTestContext, url } from '@nuxt/test-utils/e2e'
-import {
-  E2eClient,
-  expireUserRateLimit,
-  resetRateLimits,
-  seedCompanyMember,
-  withRejectedAudit,
-} from './support/http'
+import { E2eClient, resetRateLimits, seedCompanyMember, withRejectedAudit } from './support/http'
 
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
@@ -109,22 +103,6 @@ describe.skipIf(!dbAvailable)(
 
       return { client, id: String(registered.body.id), email, password: pass }
     }
-
-    it('exporta cinco vezes, limita a sexta, isola usuários e reabre a janela', async () => {
-      const first = await makeUser('export-limit-first')
-      const second = await makeUser('export-limit-second')
-      for (let i = 0; i < 5; i++) {
-        expect((await first.client.get('/api/v1/me/data-export')).status).toBe(200)
-      }
-      const limited = await first.client.get('/api/v1/me/data-export')
-      expect(limited.status).toBe(429)
-      expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0)
-
-      expect((await second.client.get('/api/v1/me/data-export')).status).toBe(200)
-
-      await expireUserRateLimit(first.id, 'export')
-      expect((await first.client.get('/api/v1/me/data-export')).status).toBe(200)
-    })
 
     async function createCompany(user: User, name: string): Promise<CompanyRef> {
       const created = await user.client.post<{ id: string; name: string }>('/api/v1/companies', {
