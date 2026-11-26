@@ -19,6 +19,7 @@ vi.mock('../../schema', () => ({
 
 // Mock shared/errors
 vi.mock('../../shared/errors', () => ({
+  isPgConflict: vi.fn(() => false),
   sendNotFoundError: vi.fn(() => {
     throw new Error('Not Found')
   }),
@@ -87,12 +88,7 @@ describe('CompanyRepository (unit)', () => {
     repo = new CompanyRepository()
     mockTx = makeMockTx()
     ;(withTenant as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-      async (
-        _companyId: string | null,
-        _locationId: string | null,
-        _userId: string | null,
-        fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>,
-      ) => {
+      async (_context: unknown, fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>) => {
         return fn(mockTx)
       },
     )
@@ -121,12 +117,15 @@ describe('CompanyRepository (unit)', () => {
           returning: vi.fn().mockResolvedValue([created]),
         }),
       })
-      mockTx.execute.mockResolvedValue(undefined)
+      mockTx.execute.mockResolvedValue([])
 
       const result = await repo.createCompanyWithOwner({ name: 'Test Co' }, userId)
 
       expect(result).toEqual(created)
-      expect(db.transaction).toHaveBeenCalled()
+      expect(withTenant).toHaveBeenCalledWith(
+        expect.objectContaining({ companyId: expect.any(String), locationId: null, userId }),
+        expect.any(Function),
+      )
     })
   })
 
@@ -191,12 +190,7 @@ describe('MembershipRepository (unit)', () => {
     repo = new MembershipRepository()
     mockTx = makeMockTx()
     ;(withTenant as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-      async (
-        _companyId: string | null,
-        _locationId: string | null,
-        _userId: string | null,
-        fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>,
-      ) => {
+      async (_context: unknown, fn: (tx: ReturnType<typeof makeMockTx>) => Promise<unknown>) => {
         return fn(mockTx)
       },
     )
@@ -219,7 +213,7 @@ describe('MembershipRepository (unit)', () => {
           returning: vi.fn().mockResolvedValue([created]),
         }),
       })
-      mockTx.execute.mockResolvedValue(undefined)
+      mockTx.execute.mockResolvedValue([])
 
       const result = await repo.createCompanyMember(companyId, userId, 'member')
 

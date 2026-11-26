@@ -1,11 +1,11 @@
 <script setup lang="ts">
-const api = useApiFetch()
+const auth = useAuthFetch()
 
 const signingOut = ref(false)
 
 async function signOut() {
   signingOut.value = true
-  await api('/api/auth/logout', { method: 'POST' })
+  await auth.logout()
   await navigateTo('/auth/login', { replace: true })
 }
 </script>

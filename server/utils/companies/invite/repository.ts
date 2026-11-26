@@ -1,6 +1,5 @@
 import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 import { createHash, randomBytes } from 'node:crypto'
-import { db } from '../../db'
 import { companyMember, invite } from '../../schema'
 import { H3Error } from 'h3'
 import {
@@ -9,7 +8,7 @@ import {
   sendNotFoundError,
   isPgConflict,
 } from '../../shared/errors'
-import { withTenant } from '../../db/tenant-context'
+import { withTenant, type TenantTransaction } from '../../db/tenant-context'
 
 export interface CreateInviteInput {
   companyId: string
@@ -58,9 +57,12 @@ export class InviteRepository {
    * callers must not persist or re-expose it. 409 when an invite for the
    * company already exists.
    */
-  async createInvite(input: CreateInviteInput): Promise<CreatedInviteResult> {
+  async createInvite(
+    input: CreateInviteInput,
+    transaction?: TenantTransaction,
+  ): Promise<CreatedInviteResult> {
     try {
-      return await withTenant(input.companyId, null, input.invitedBy, async (tx) => {
+      const operation = async (tx: TenantTransaction): Promise<CreatedInviteResult> => {
         const { token, tokenHash } = generateToken()
         const [created] = await tx
           .insert(invite)
@@ -73,7 +75,11 @@ export class InviteRepository {
           })
           .returning()
         return { ...toInviteResult(created!), token }
-      })
+      }
+      const context = { companyId: input.companyId, locationId: null, userId: input.invitedBy }
+      return transaction
+        ? await withTenant(context, operation, { transaction })
+        : await withTenant(context, operation)
     } catch (error: unknown) {
       if (isPgConflict(error)) {
         sendConflictError('Invite already exists for this company')
@@ -83,9 +89,13 @@ export class InviteRepository {
   }
 
   /** Finds a non-expired, unaccepted invite for (company, email), or null. */
-  async findPendingInvite(companyId: string, email: string): Promise<InviteResult | null> {
+  async findPendingInvite(
+    companyId: string,
+    email: string,
+    transaction?: TenantTransaction,
+  ): Promise<InviteResult | null> {
     try {
-      return await withTenant(companyId, null, null, async (tx) => {
+      const operation = async (tx: TenantTransaction): Promise<InviteResult | null> => {
         const [found] = await tx
           .select()
           .from(invite)
@@ -99,20 +109,31 @@ export class InviteRepository {
           )
           .limit(1)
         return found ? toInviteResult(found) : null
-      })
+      }
+      const context = { companyId, locationId: null, userId: null }
+      return transaction
+        ? await withTenant(context, operation, { transaction })
+        : await withTenant(context, operation)
     } catch (error) {
       return handleDatabaseError(error)
     }
   }
 
   /** Lists a company's invites as metadata (never tokens). */
-  async listCompanyInvites(companyId: string): Promise<InviteResult[]> {
+  async listCompanyInvites(
+    companyId: string,
+    transaction?: TenantTransaction,
+  ): Promise<InviteResult[]> {
     try {
-      return await withTenant(companyId, null, null, async (tx) => {
+      const operation = async (tx: TenantTransaction): Promise<InviteResult[]> => {
         return (await tx.select().from(invite).where(eq(invite.companyId, companyId))).map(
           toInviteResult,
         )
-      })
+      }
+      const context = { companyId, locationId: null, userId: null }
+      return transaction
+        ? await withTenant(context, operation, { transaction })
+        : await withTenant(context, operation)
     } catch (error) {
       return handleDatabaseError(error)
     }
@@ -133,41 +154,33 @@ export class InviteRepository {
     try {
       const tokenHash = hashToken(token)
 
-      return await db.transaction(async (tx) => {
-        const pending = await withTenant(
-          null,
-          null,
-          userId,
-          async (t) => {
-            await t.execute(sql`SELECT set_config('app.invite_token_hash', ${tokenHash}, true)`)
-            const [found] = await t
-              .select()
-              .from(invite)
-              .where(
-                and(
-                  eq(invite.tokenHash, tokenHash),
-                  eq(invite.email, email),
-                  isNull(invite.acceptedAt),
-                  gt(invite.expiresAt, new Date()),
-                ),
-              )
-              .limit(1)
-            return found || null
-          },
-          tx,
-        )
+      // This use case owns the transaction because invite claim + membership
+      // insertion are one atomic, single-use operation.
+      return await withTenant({ companyId: null, locationId: null, userId }, async (tx) => {
+        // Pre-company scope can read the invite by the one-use token marker.
+        await tx.execute(sql`SELECT set_config('app.invite_token_hash', ${tokenHash}, true)`)
+        const [pending] = await tx
+          .select()
+          .from(invite)
+          .where(
+            and(
+              eq(invite.tokenHash, tokenHash),
+              eq(invite.email, email),
+              isNull(invite.acceptedAt),
+              gt(invite.expiresAt, new Date()),
+            ),
+          )
+          .limit(1)
 
         if (!pending) {
           sendNotFoundError('Invite not found or expired')
         }
 
-        return withTenant(
-          pending!.companyId,
-          null,
-          userId,
+        // Explicit pre-company -> invite-company transition. The token marker
+        // and the new scope remain local to this acceptance transaction.
+        return await withTenant(
+          { companyId: pending!.companyId, locationId: null, userId },
           async (t) => {
-            await t.execute(sql`SELECT set_config('app.invite_token_hash', ${tokenHash}, true)`)
-
             const [claimed] = await t
               .update(invite)
               .set({ acceptedAt: new Date() })
@@ -191,7 +204,7 @@ export class InviteRepository {
 
             return toInviteResult(claimed!)
           },
-          tx,
+          { transaction: tx, scope: 'transition' },
         )
       })
     } catch (error: unknown) {

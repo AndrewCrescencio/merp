@@ -23,9 +23,7 @@ function givenTx(row: { defaultLocationId: string } | undefined) {
   const tx = makeTx(row)
   mockWithTenant.mockImplementation(
     async (
-      _companyId: string,
-      _locationId: string | null,
-      _userId: string | null,
+      _context: { companyId: string | null; locationId: string | null; userId: string | null },
       fn: (t: unknown) => Promise<unknown>,
     ) => fn(tx),
   )
@@ -54,20 +52,18 @@ describe('resolveLocationId (unit)', () => {
     const seen: unknown[] = []
     mockWithTenant.mockImplementation(
       async (
-        companyId: string,
-        locationId: string | null,
-        userId: string | null,
+        context: { companyId: string | null; locationId: string | null; userId: string | null },
         fn: (t: unknown) => Promise<unknown>,
       ) => {
-        seen.push(companyId, locationId, userId)
+        seen.push(context)
         return fn(makeTx({ defaultLocationId: 'loc-1' }))
       },
     )
 
     await resolveLocationId('company-1', 'user-1')
 
-    // locationId null de propósito: limpa a GUC em vez de herdar a externa.
-    expect(seen).toEqual(['company-1', null, 'user-1'])
+    // locationId null de propósito: escopo nomeado sem localização.
+    expect(seen).toEqual([{ companyId: 'company-1', locationId: null, userId: 'user-1' }])
   })
 })
 

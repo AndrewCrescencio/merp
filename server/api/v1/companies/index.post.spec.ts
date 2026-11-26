@@ -24,7 +24,7 @@ vi.mock('~~/server/utils/shared/security', async (importOriginal) => ({
   checkIpRateLimit: mockCheckIpRateLimit,
 }))
 
-vi.mock('~~/server/utils/auth/company/repository', () => ({
+vi.mock('~~/server/utils/companies/company/repository', () => ({
   companyRepository: {
     createCompanyWithOwner: mockCreateCompanyWithOwner,
   },

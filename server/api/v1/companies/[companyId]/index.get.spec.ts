@@ -12,7 +12,7 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/company/repository', () => ({
+vi.mock('~~/server/utils/companies/company/repository', () => ({
   companyRepository: {
     findCompanyWithLocations: mockFindCompanyWithLocations,
   },

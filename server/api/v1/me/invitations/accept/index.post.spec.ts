@@ -24,7 +24,7 @@ vi.mock('~~/server/utils/shared/audit', () => ({
   createAuthEvent: mockCreateAuthEvent,
 }))
 
-vi.mock('~~/server/utils/auth/invite/repository', () => ({
+vi.mock('~~/server/utils/companies/invite/repository', () => ({
   inviteRepository: {
     acceptInvite: mockAcceptInvite,
   },

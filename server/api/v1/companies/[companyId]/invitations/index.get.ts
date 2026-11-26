@@ -1,4 +1,4 @@
-import { inviteRepository } from '~~/server/utils/auth/invite/repository'
+import { inviteRepository } from '~~/server/utils/companies/invite/repository'
 import { defineAuthHandler } from '~~/server/utils/shared'
 
 // Qualquer membro lista os convites; empresa inexistente ou não-membro já

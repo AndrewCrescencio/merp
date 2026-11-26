@@ -60,7 +60,8 @@ server/api/auth/             # endpoints públicos de autenticação
 server/api/v1/me/            # dados e ações do usuário autenticado
 server/api/v1/companies/     # empresas, membros, convites e locais
 server/middleware/           # auth, tenant, CSRF e auditoria
-server/utils/auth/           # identidade, empresa e convites
+server/utils/auth/           # identidade e integração Better Auth
+server/utils/companies/      # empresas, membros, convites e locais
 server/utils/db/             # conexão, contexto tenant e RLS
 server/utils/schema/         # schema Drizzle da fundação
 server/utils/shared/        # erros, validação, segurança e e-mail
@@ -85,7 +86,7 @@ validação, autorização e testes de comportamento e isolamento entre tenants.
    lista locais para a empresa do path e o usuário autenticado:
 
    ```ts
-   import { locationRepository } from '~~/server/utils/auth/company/location-repository'
+   import { locationRepository } from '~~/server/utils/companies/company/location-repository'
    import { defineAuthHandler } from '~~/server/utils/shared'
 
    export default defineAuthHandler({ tenant: true, role: 'any' }, async ({ tenant, user }) => {

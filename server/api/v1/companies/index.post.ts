@@ -1,4 +1,4 @@
-import { companyRepository } from '~~/server/utils/auth/company/repository'
+import { companyRepository } from '~~/server/utils/companies/company/repository'
 import { defineAuthHandler, validateCompanyCreateInput } from '~~/server/utils/shared'
 
 export default defineAuthHandler(

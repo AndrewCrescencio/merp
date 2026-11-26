@@ -18,7 +18,7 @@ vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
 
-vi.mock('~~/server/utils/auth/company/repository', () => ({
+vi.mock('~~/server/utils/companies/company/repository', () => ({
   companyRepository: {
     softDeleteCompany: mockSoftDeleteCompany,
   },

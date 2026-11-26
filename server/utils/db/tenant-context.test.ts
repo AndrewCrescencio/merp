@@ -5,121 +5,127 @@ import { sql } from 'drizzle-orm'
 const dbAvailable = process.env.DB_AVAILABLE === 'true'
 
 describe.skipIf(!dbAvailable)('withTenant (integration)', () => {
-  it('sets app.tenant_id and app.location_id within transaction', async () => {
+  const context = (companyId: string | null, locationId: string | null, userId: string | null) => ({
+    companyId,
+    locationId,
+    userId,
+  })
+
+  async function currentScope(tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) {
+    const [row] = await tx.execute(sql`
+      SELECT NULLIF(current_setting('app.tenant_id', true), '') AS "companyId",
+             NULLIF(current_setting('app.location_id', true), '') AS "locationId",
+             NULLIF(current_setting('app.user_id', true), '') AS "userId"
+    `)
+    return row as { companyId: string | null; locationId: string | null; userId: string | null }
+  }
+
+  it('sets company, location, and user scope in the owned transaction', async () => {
     const { withTenant } = await import('./tenant-context')
 
-    const result = await withTenant(
-      'test-tenant-id',
-      'test-location-id',
-      'test-user-id',
-      async (tx) => {
-        const [row] = await tx.execute(sql`
-        SELECT current_setting('app.tenant_id', true) AS tenant_id,
-               current_setting('app.location_id', true) AS location_id,
-               current_setting('app.user_id', true) AS user_id
-      `)
-        return row as { tenant_id: string; location_id: string; user_id: string }
-      },
+    const result = await withTenant(context('test-company', 'test-location', 'test-user'), (tx) =>
+      currentScope(tx),
     )
 
-    expect(result.tenant_id).toBe('test-tenant-id')
-    expect(result.location_id).toBe('test-location-id')
-    expect(result.user_id).toBe('test-user-id')
+    expect(result).toEqual(context('test-company', 'test-location', 'test-user'))
   })
 
-  it('clears context after transaction ends', async () => {
+  it('clears explicit null scope and clears local settings after commit', async () => {
     const { withTenant } = await import('./tenant-context')
 
-    await withTenant('temp-tenant', null, 'temp-user', async (_tx) => {
-      // context is set inside
-    })
+    const scoped = await withTenant(context(null, null, null), (tx) => currentScope(tx))
+    expect(scoped).toEqual(context(null, null, null))
 
     const [row] = await db.execute(sql`
-      SELECT current_setting('app.tenant_id', true) AS tenant_id
+      SELECT NULLIF(current_setting('app.tenant_id', true), '') AS "companyId",
+             NULLIF(current_setting('app.location_id', true), '') AS "locationId",
+             NULLIF(current_setting('app.user_id', true), '') AS "userId"
     `)
-    // Fail-closed: fora da transação o GUC volta a ausente (NULL) ou vazio
-    // ('') — ambos mapeiam para NULL via NULLIF no get_tenant_id() → RLS nega.
-    expect([null, '']).toContain((row as { tenant_id: string | null }).tenant_id)
+    expect(row).toEqual(context(null, null, null))
   })
 
-  it('reuses an existing transaction when existingTx is passed', async () => {
+  it('nested calls inherit caller scope and leave it unchanged after return', async () => {
     const { withTenant } = await import('./tenant-context')
 
-    const result = await db.transaction(async (tx) => {
-      return await withTenant(
-        'outer-tenant',
-        'outer-location',
-        'outer-user',
-        async (ctxTx) => {
-          const [row] = await ctxTx.execute(sql`
-            SELECT current_setting('app.tenant_id', true) AS tenant_id,
-                   current_setting('app.location_id', true) AS location_id,
-                   current_setting('app.user_id', true) AS user_id
-          `)
-          return row as { tenant_id: string; location_id: string; user_id: string }
-        },
-        tx,
+    await withTenant(context('outer-company', 'outer-location', 'outer-user'), async (rootTx) => {
+      const before = await currentScope(rootTx)
+      const nested = await withTenant(
+        context('ignored-company', 'ignored-location', 'ignored-user'),
+        currentScope,
+        { transaction: rootTx },
+      )
+      const after = await currentScope(rootTx)
+
+      expect(nested).toEqual(before)
+      expect(after).toEqual(before)
+    })
+  })
+
+  it('temporarily switches scope, supports null, then restores caller scope', async () => {
+    const { withTenant } = await import('./tenant-context')
+
+    await withTenant(context('outer-company', 'outer-location', 'outer-user'), async (tx) => {
+      const inner = await withTenant(context(null, null, null), currentScope, {
+        transaction: tx,
+        scope: 'temporary',
+      })
+
+      expect(inner).toEqual(context(null, null, null))
+      expect(await currentScope(tx)).toEqual(
+        context('outer-company', 'outer-location', 'outer-user'),
       )
     })
-
-    expect(result.tenant_id).toBe('outer-tenant')
-    expect(result.location_id).toBe('outer-location')
-    expect(result.user_id).toBe('outer-user')
   })
 
-  it('context set via existingTx persists until the outer transaction commits', async () => {
+  it('keeps an explicit transition active until the owning transaction commits', async () => {
     const { withTenant } = await import('./tenant-context')
 
-    await db.transaction(async (tx) => {
+    await withTenant(context(null, null, 'founder'), async (tx) => {
       await withTenant(
-        'persist-tenant',
-        'persist-location',
-        null,
-        async (ctxTx) => {
-          await ctxTx.execute(sql`SELECT 1`)
-        },
-        tx,
+        context('new-company', null, 'founder'),
+        async (transitionTx) =>
+          expect(await currentScope(transitionTx)).toEqual(context('new-company', null, 'founder')),
+        { transaction: tx, scope: 'transition' },
       )
-
-      const [row] = await tx.execute(sql`
-        SELECT current_setting('app.tenant_id', true) AS tenant_id
-      `)
-      expect((row as { tenant_id: string }).tenant_id).toBe('persist-tenant')
+      expect(await currentScope(tx)).toEqual(context('new-company', null, 'founder'))
     })
-
-    const [row] = await db.execute(sql`
-      SELECT current_setting('app.tenant_id', true) AS tenant_id
-    `)
-    expect([null, '']).toContain((row as { tenant_id: string | null }).tenant_id)
   })
 
-  it('clears outer tenant when nested withTenant(null) reuses the transaction', async () => {
+  it('rolls back a failed nested scope change to a savepoint and keeps the caller tx usable', async () => {
     const { withTenant } = await import('./tenant-context')
 
-    await db.transaction(async (tx) => {
-      await withTenant('outer-tenant', 'outer-location', 'outer-user', async () => {}, tx)
+    await withTenant(context('outer-company', null, 'outer-user'), async (tx) => {
+      await expect(
+        withTenant(
+          context('inner-company', null, 'inner-user'),
+          async () => {
+            throw new Error('operation failed')
+          },
+          { transaction: tx, scope: 'transition' },
+        ),
+      ).rejects.toThrow('operation failed')
 
-      await withTenant(
-        null,
-        'other-location',
-        'other-user',
-        async (ctxTx) => {
-          const [row] = await ctxTx.execute(sql`
-            SELECT current_setting('app.tenant_id', true) AS tenant_id,
-                   current_setting('app.location_id', true) AS location_id,
-                   current_setting('app.user_id', true) AS user_id
-          `)
-          const r = row as {
-            tenant_id: string | null
-            location_id: string | null
-            user_id: string | null
-          }
-          expect([null, '']).toContain(r.tenant_id)
-          expect(r.location_id).toBe('other-location')
-          expect(r.user_id).toBe('other-user')
-        },
-        tx,
-      )
+      expect(await currentScope(tx)).toEqual(context('outer-company', null, 'outer-user'))
+      const [row] = await tx.execute(sql`SELECT 42 AS value`)
+      expect(row).toMatchObject({ value: 42 })
     })
+  })
+
+  it('isolates simultaneous scopes on separate pooled transactions', async () => {
+    const { withTenant } = await import('./tenant-context')
+
+    const scopes = await Promise.all(
+      ['pool-company-a', 'pool-company-b'].map((companyId) =>
+        withTenant(context(companyId, null, companyId), async (tx) => {
+          await tx.execute(sql`SELECT pg_sleep(0.05)`)
+          return currentScope(tx)
+        }),
+      ),
+    )
+
+    expect(scopes).toEqual([
+      context('pool-company-a', null, 'pool-company-a'),
+      context('pool-company-b', null, 'pool-company-b'),
+    ])
   })
 })

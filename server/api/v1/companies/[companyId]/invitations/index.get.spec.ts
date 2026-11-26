@@ -12,7 +12,7 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/invite/repository', () => ({
+vi.mock('~~/server/utils/companies/invite/repository', () => ({
   inviteRepository: { listCompanyInvites: mockListCompanyInvites },
 }))
 

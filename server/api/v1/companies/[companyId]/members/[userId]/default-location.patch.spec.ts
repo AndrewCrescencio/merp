@@ -17,7 +17,7 @@ vi.mock('h3', () => ({
   },
 }))
 
-vi.mock('~~/server/utils/auth/company/membership', () => ({
+vi.mock('~~/server/utils/companies/company/membership', () => ({
   membershipRepository: { setMemberDefaultLocation: mockSetMemberDefaultLocation },
 }))
 

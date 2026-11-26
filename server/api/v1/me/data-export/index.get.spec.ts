@@ -1,11 +1,11 @@
 import type { H3Event } from 'h3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { membershipRepository } from '~~/server/utils/auth/company/membership'
+import { membershipRepository } from '~~/server/utils/companies/company/membership'
 import { callBetterAuth } from '~~/server/utils/auth/identity/client'
 import { listUserAuthEvents } from '~~/server/utils/auth/identity/queries'
 import handler from './index.get'
 
-vi.mock('~~/server/utils/auth/company/membership', () => ({
+vi.mock('~~/server/utils/companies/company/membership', () => ({
   membershipRepository: { findUserCompanies: vi.fn() },
 }))
 vi.mock('~~/server/utils/auth/identity/client', () => ({ callBetterAuth: vi.fn() }))

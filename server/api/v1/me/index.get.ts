@@ -1,4 +1,4 @@
-import { membershipRepository } from '~~/server/utils/auth/company/membership'
+import { membershipRepository } from '~~/server/utils/companies/company/membership'
 import { defineAuthHandler } from '~~/server/utils/shared'
 
 export default defineAuthHandler({}, async ({ user }) => {

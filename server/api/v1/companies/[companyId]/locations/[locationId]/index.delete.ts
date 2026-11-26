@@ -1,5 +1,5 @@
 import { getRouterParam, sendNoContent } from 'h3'
-import { locationRepository } from '~~/server/utils/auth/company/location-repository'
+import { locationRepository } from '~~/server/utils/companies/company/location-repository'
 import { defineAuthHandler, ROLES, sendNotFoundError } from '~~/server/utils/shared'
 
 export default defineAuthHandler(

@@ -1,4 +1,4 @@
-import { inviteRepository } from '~~/server/utils/auth/invite/repository'
+import { inviteRepository } from '~~/server/utils/companies/invite/repository'
 import { defineAuthHandler, validateInviteAcceptInput } from '~~/server/utils/shared'
 
 export default defineAuthHandler(

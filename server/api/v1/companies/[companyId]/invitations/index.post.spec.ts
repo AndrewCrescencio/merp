@@ -23,7 +23,7 @@ vi.mock('~~/server/utils/shared/ip', () => ({
   getClientIp: mockGetClientIp,
 }))
 
-vi.mock('~~/server/utils/auth/invite/repository', () => ({
+vi.mock('~~/server/utils/companies/invite/repository', () => ({
   inviteRepository: {
     createInvite: mockCreateInvite,
   },

@@ -1,5 +1,5 @@
 import { getQuery } from 'h3'
-import { membershipRepository } from '~~/server/utils/auth/company/membership'
+import { membershipRepository } from '~~/server/utils/companies/company/membership'
 import { defineAuthHandler, validateCompanySearchInput } from '~~/server/utils/shared'
 
 export default defineAuthHandler({}, async ({ event, user }) => {

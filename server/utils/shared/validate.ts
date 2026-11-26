@@ -9,6 +9,7 @@ import {
   normalizeEmail,
 } from './security'
 import { sendValidationError } from './errors'
+import { companyUpdateSchema } from '~~/shared/contracts/company'
 
 export interface RegisterInput {
   email: string
@@ -192,23 +193,11 @@ export function validateCompanySearchInput(rawQuery: unknown): { q: string } {
 
 // Update aceita campos opcionais (o caller lê `name?`), ao contrário do create.
 export function validateCompanyUpdateInput(rawBody: unknown): Partial<CompanyCreateInput> {
-  const body = (rawBody ?? {}) as Record<string, unknown>
-
-  const input: Partial<CompanyCreateInput> = {}
-  if (body.name !== undefined) {
-    if (typeof body.name !== 'string' || body.name.trim().length === 0) {
-      sendValidationError('Company name must be a non-empty string')
-    }
-    const name = body.name.trim()
-    if (name.length > 200) {
-      sendValidationError('Company name must be at most 200 characters')
-    }
-    input.name = name
+  const result = companyUpdateSchema.safeParse(rawBody ?? {})
+  if (!result.success) {
+    sendValidationError(result.error.issues[0]?.message ?? 'Invalid request body')
   }
-  if (Object.keys(input).length === 0) {
-    sendValidationError('At least one field (name) is required')
-  }
-  return input
+  return result.data
 }
 
 export function validateInviteAcceptInput(rawBody: unknown): { token: string } {

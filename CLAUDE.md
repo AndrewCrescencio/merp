@@ -9,6 +9,11 @@ adicione funcionalidades de um domínio específico aqui.
 ## Regras
 
 - Use TypeScript estrito e os padrões já existentes.
+- Identidade e Better Auth ficam em `server/utils/auth/identity`; empresas,
+  membros, convites e locais ficam em `server/utils/companies/`.
+- Contratos compartilhados entre API e frontend ficam em
+  `shared/contracts/<dominio>.ts`; handlers validam o payload recebido e usam
+  a saída normalizada do schema.
 - Toda rota de domínio fica sob
   `server/api/v1/companies/[companyId]/<feature>/`.
 - Toda consulta de tenant usa `withTenant`.

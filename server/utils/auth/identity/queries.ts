@@ -80,7 +80,7 @@ export async function listUserAuthEvents(
 ): Promise<(typeof authEvent.$inferSelect)[]> {
   // withTenant seta app.user_id para a policy SELECT de auth_event (user_id =
   // get_user_id()) — sem GUC a policy devolveria 0 linhas.
-  return await withTenant(null, null, userId, (tx) =>
+  return await withTenant({ companyId: null, locationId: null, userId }, (tx) =>
     tx.select().from(authEvent).where(eq(authEvent.userId, userId)).orderBy(authEvent.createdAt),
   )
 }

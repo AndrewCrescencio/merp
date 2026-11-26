@@ -14,6 +14,12 @@
   gera erro explícito, sem fallback permissivo.
 - Features comerciais pertencem a aplicações derivadas e são módulos
   verticais; o schema da fundação segue pequeno.
+- Identidade e integração Better Auth ficam em `server/utils/auth/identity`;
+  repositórios de empresas, membros, convites e locais ficam em
+  `server/utils/companies/`.
+- Contratos compartilhados entre API e frontend ficam em
+  `shared/contracts/<dominio>.ts`; a validação no servidor usa a saída
+  normalizada do schema.
 
 ## API, validação e autorização
 
@@ -23,9 +29,10 @@
   públicos de auth/health.
 - `requireTenant(event)` resolve o tenant do path. Papéis são verificados com
   `assertRole` e `ROLES`; os únicos papéis são `owner` e `member`.
-- Entrada é validada pelos contratos de
+- Entrada é validada por contratos compartilhados em
+  `shared/contracts/<dominio>.ts` ou, durante a migração, por adaptadores em
   `server/utils/shared/validate.ts` (`validateXxxInput`), nunca por schemas
-  definidos no handler. A implementação do contrato pode usar zod.
+  definidos no handler. Use a saída normalizada da validação.
 - Regras de autorização ficam próximas do caso de uso. IDs deriváveis do path
   ou da sessão não devem ser confiados quando enviados no body.
 - Cada mudança de schema acompanha migration e testes.

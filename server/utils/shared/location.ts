@@ -19,7 +19,7 @@ import { sendValidationError } from './errors'
  */
 export async function resolveLocationId(companyId: string, userId: string): Promise<string | null> {
   // company_member tem RLS company-only, então a leitura precisa do tenant na GUC.
-  return withTenant(companyId, null, userId, async (tx) => {
+  return withTenant({ companyId, locationId: null, userId }, async (tx) => {
     const [row] = await tx
       .select({ defaultLocationId: companyMember.defaultLocationId })
       .from(companyMember)

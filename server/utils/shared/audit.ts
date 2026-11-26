@@ -20,7 +20,7 @@ export async function createAuthEvent(input: CreateAuthEventInput): Promise<void
     // withTenant seta app.user_id para a policy INSERT de auth_event
     // (user_id = get_user_id() OR user_id IS NULL). userId nulo
     // (login falhado) insere com app.user_id vazio → ramo user_id IS NULL.
-    await withTenant(null, null, input.userId || null, (tx) =>
+    await withTenant({ companyId: null, locationId: null, userId: input.userId || null }, (tx) =>
       tx.insert(authEvent).values({
         userId: input.userId || null,
         email: input.email,

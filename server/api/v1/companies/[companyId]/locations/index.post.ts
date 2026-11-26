@@ -1,4 +1,4 @@
-import { locationRepository } from '~~/server/utils/auth/company/location-repository'
+import { locationRepository } from '~~/server/utils/companies/company/location-repository'
 import { defineAuthHandler, ROLES, validateLocationCreateInput } from '~~/server/utils/shared'
 
 export default defineAuthHandler(
